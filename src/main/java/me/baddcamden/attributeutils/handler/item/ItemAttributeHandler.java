@@ -36,7 +36,7 @@ public class ItemAttributeHandler {
     }
 
     public void applyDefaults(PlayerInventory inventory) {
-        attributeService.getAttributes().forEach((key, attribute) -> {
+        attributeApi.getRegisteredDefinitions().forEach(attribute -> {
             // Placeholder for applying item-based attributes to the player's inventory.
         });
     }

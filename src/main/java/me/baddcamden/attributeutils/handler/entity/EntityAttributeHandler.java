@@ -39,8 +39,8 @@ public class EntityAttributeHandler {
     }
 
     public void applyPlayerCaps(Player player) {
-        setFoodLevel(player, attributeService.getAttribute("max_hunger"));
-        setOxygen(player, attributeService.getAttribute("max_oxygen"));
+        setFoodLevel(player, attributeApi.queryAttribute("max_hunger", player));
+        setOxygen(player, attributeApi.queryAttribute("max_oxygen", player));
     }
 
     public List<AttributeInstance> readEntityAttributes(LivingEntity entity, AttributeTrigger triggerFilter) {

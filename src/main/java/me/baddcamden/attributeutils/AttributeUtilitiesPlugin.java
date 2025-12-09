@@ -1,5 +1,6 @@
 package me.baddcamden.attributeutils;
 
+import me.baddcamden.attributeutils.api.AttributeApi;
 import me.baddcamden.attributeutils.command.AttributeCommand;
 import me.baddcamden.attributeutils.command.EntityAttributeCommand;
 import me.baddcamden.attributeutils.command.GlobalAttributeCommand;
@@ -9,7 +10,6 @@ import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
 import me.baddcamden.attributeutils.persistence.PersistenceService;
-import me.baddcamden.attributeutils.service.AttributeService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -17,7 +17,7 @@ import java.nio.file.Path;
 
 public class AttributeUtilitiesPlugin extends JavaPlugin {
 
-    private final AttributeService attributeService = new AttributeService();
+    private final AttributeApi attributeApi = new AttributeApi();
     private final PersistenceService persistenceService = new PersistenceService();
     private final ItemAttributeHandler itemAttributeHandler = new ItemAttributeHandler(this, attributeService);
     private final EntityAttributeHandler entityAttributeHandler = new EntityAttributeHandler(this, attributeService);
@@ -33,7 +33,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     private void loadCustomAttributes() {
         if (getConfig().getBoolean("load-custom-attributes-from-folder", true)) {
             Path customFolder = getDataFolder().toPath().resolve(getConfig().getString("custom-attributes-folder", "custom-attributes"));
-            persistenceService.loadAttributes(customFolder, attributeService, getConfig());
+            persistenceService.loadAttributes(customFolder, attributeApi, getConfig());
         }
     }
 
@@ -65,10 +65,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new AttributeListener(attributeService, itemAttributeHandler, entityAttributeHandler), this);
+        getServer().getPluginManager().registerEvents(new AttributeListener(attributeApi, itemAttributeHandler, entityAttributeHandler), this);
     }
 
-    public AttributeService getAttributeService() {
-        return attributeService;
+    public AttributeApi getAttributeApi() {
+        return attributeApi;
     }
 }

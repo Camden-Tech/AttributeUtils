@@ -10,7 +10,7 @@ import java.nio.file.Path;
 
 public class PersistenceService {
 
-    public void loadAttributes(Path attributesFolder, AttributeService attributeService, FileConfiguration config) {
+    public void loadAttributes(Path attributesFolder, AttributeApi attributeApi, FileConfiguration config) {
         try {
             if (Files.notExists(attributesFolder)) {
                 Files.createDirectories(attributesFolder);
