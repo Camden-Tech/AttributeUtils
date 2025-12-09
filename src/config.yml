@@ -1,0 +1,42 @@
+# Global attribute configuration sets shared defaults, caps, and custom attributes.
+player-storage-folder: players
+
+global-attributes:
+  defaults:
+    # Attribute names follow the Bukkit Attribute enum values.
+    GENERIC_MAX_HEALTH: 20.0
+    GENERIC_ATTACK_DAMAGE: 4.0
+  caps:
+    GENERIC_MAX_HEALTH: 40.0
+    GENERIC_MOVEMENT_SPEED: 0.5
+
+custom-attributes:
+  mining_speed:
+    default: 0.0
+    actual-value-labels:
+      "0.0": "Novice"
+      "5.0": "Adept"
+      "10.0": "Legendary"
+  mana:
+    default: 100.0
+    actual-value-labels:
+      "25.0": "Low"
+      "75.0": "Comfortable"
+      "100.0": "Full"
+
+# Player YAML files use this format (see data folder):
+# defaults:
+#   permanent:
+#     GENERIC_MAX_HEALTH: 4.0
+#   temporary:
+#     GENERIC_MOVEMENT_SPEED: 0.01
+# current:
+#   permanent:
+#     GENERIC_MAX_HEALTH: 4.0
+#   temporary:
+#     GENERIC_MOVEMENT_SPEED: 0.01
+# custom:
+#   default:
+#     mining_speed: 0.0
+#   current:
+#     mining_speed: 0.0
