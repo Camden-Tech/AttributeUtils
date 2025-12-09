@@ -1,5 +1,6 @@
 package me.baddcamden.attributeutils.attributes.model;
 
+import me.baddcamden.attributeutils.api.AttributeDefinition;
 import me.baddcamden.attributeutils.service.AttributeService;
 
 import java.util.Optional;
@@ -49,26 +50,19 @@ public class AttributeInstance {
     }
 
     public void apply(AttributeService attributeService) {
-        Optional<AttributeModel> existing = attributeService.getAttribute(key);
+        Optional<AttributeDefinition> existing = attributeService.getAttribute(key);
 
         if (type == AttributeInstanceType.DEFINITION) {
             double resolvedMax = maxValue != null ? maxValue : value;
-
-            if (existing.isPresent()) {
-                AttributeModel model = existing.get();
-                model.setMaxValue(resolvedMax);
-                model.setValue(value);
-            } else {
-                attributeService.registerAttribute(new AttributeModel(key, value, resolvedMax));
-            }
+            attributeService.registerAttribute(new AttributeDefinition(key, value, resolvedMax));
             return;
         }
 
         if (existing.isPresent()) {
-            AttributeModel model = existing.get();
-            model.setValue(model.getValue() + value);
+            AttributeDefinition model = existing.get();
+            attributeService.registerAttribute(new AttributeDefinition(model.key(), model.baseValue() + value, model.maxValue()));
         } else {
-            attributeService.registerAttribute(new AttributeModel(key, value, Double.MAX_VALUE));
+            attributeService.registerAttribute(new AttributeDefinition(key, value, Double.MAX_VALUE));
         }
     }
 }
