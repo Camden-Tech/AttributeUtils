@@ -1,5 +1,6 @@
 package me.baddcamden.attributeutils.handler.entity;
 
+import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.attributes.model.AttributeInstance;
 import me.baddcamden.attributeutils.attributes.model.AttributeModel;
 import me.baddcamden.attributeutils.attributes.model.AttributeTrigger;
@@ -151,7 +152,7 @@ public class EntityAttributeHandler {
         model.ifPresent(attribute -> player.setFoodLevel((int) attribute.getValue()));
     }
 
-    private void setOxygen(Player player, Optional<AttributeModel> model) {
-        model.ifPresent(attribute -> player.setMaximumAir((int) attribute.getMaxValue()));
+    private void setOxygen(Player player, Optional<AttributeDefinition> definition) {
+        definition.ifPresent(attribute -> player.setMaximumAir((int) attribute.capConfig().globalMax()));
     }
 }

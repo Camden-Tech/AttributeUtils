@@ -1,9 +1,10 @@
 package me.baddcamden.attributeutils.service;
 
-import me.baddcamden.attributeutils.attributes.model.AttributeModel;
+import me.baddcamden.attributeutils.model.AttributeDefinition;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -12,15 +13,18 @@ public class AttributeService {
     private final Map<String, AttributeModel> attributes = new HashMap<>();
     private final Map<String, Map<String, AttributeModel>> entityDefaults = new HashMap<>();
 
-    public void registerAttribute(AttributeModel attribute) {
-        attributes.put(attribute.getKey().toLowerCase(), attribute);
+    public void registerAttribute(AttributeDefinition attribute) {
+        attributes.put(attribute.id().toLowerCase(Locale.ROOT), attribute);
     }
 
-    public Optional<AttributeModel> getAttribute(String key) {
-        return Optional.ofNullable(attributes.get(key.toLowerCase()));
+    public Optional<AttributeDefinition> getAttribute(String key) {
+        if (key == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(attributes.get(key.toLowerCase(Locale.ROOT)));
     }
 
-    public Map<String, AttributeModel> getAttributes() {
+    public Map<String, AttributeDefinition> getAttributes() {
         return Collections.unmodifiableMap(attributes);
     }
 
