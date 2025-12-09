@@ -15,8 +15,8 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     private final AttributeService attributeService = new AttributeService();
     private final PersistenceService persistenceService = new PersistenceService();
-    private final ItemAttributeHandler itemAttributeHandler = new ItemAttributeHandler(attributeService);
-    private final EntityAttributeHandler entityAttributeHandler = new EntityAttributeHandler(attributeService);
+    private final ItemAttributeHandler itemAttributeHandler = new ItemAttributeHandler(this, attributeService);
+    private final EntityAttributeHandler entityAttributeHandler = new EntityAttributeHandler(this, attributeService);
 
     @Override
     public void onEnable() {
