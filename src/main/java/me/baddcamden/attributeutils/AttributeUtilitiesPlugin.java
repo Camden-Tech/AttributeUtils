@@ -5,6 +5,7 @@ import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
 import me.baddcamden.attributeutils.persistence.PersistenceService;
+import me.baddcamden.attributeutils.service.AttributeComputationService;
 import me.baddcamden.attributeutils.service.AttributeService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -14,9 +15,10 @@ import java.nio.file.Path;
 public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     private final AttributeService attributeService = new AttributeService();
+    private final AttributeComputationService computationService = new AttributeComputationService();
     private final PersistenceService persistenceService = new PersistenceService();
     private final ItemAttributeHandler itemAttributeHandler = new ItemAttributeHandler(attributeService);
-    private final EntityAttributeHandler entityAttributeHandler = new EntityAttributeHandler(attributeService);
+    private final EntityAttributeHandler entityAttributeHandler = new EntityAttributeHandler(attributeService, computationService);
 
     @Override
     public void onEnable() {
@@ -41,7 +43,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new AttributeListener(attributeService, itemAttributeHandler, entityAttributeHandler), this);
+        getServer().getPluginManager().registerEvents(new AttributeListener(attributeService, itemAttributeHandler, entityAttributeHandler, computationService), this);
     }
 
     public AttributeService getAttributeService() {
