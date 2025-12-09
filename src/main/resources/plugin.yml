@@ -1,0 +1,17 @@
+name: AttributeUtils
+version: 1.0.0-SNAPSHOT
+description: Attribute utilities plugin base for Spigot/Bukkit 1.21.10.
+main: me.baddcamden.attributeutils.AttributeUtilitiesPlugin
+api-version: 1.21.10
+commands:
+  attributes:
+    description: List or reload custom attributes.
+    usage: /<command> [reload]
+    permission: attributeutils.command.attributes
+permissions:
+  attributeutils.command.attributes:
+    description: Allows use of the /attributes command.
+    default: true
+  attributeutils.reload:
+    description: Allows reloading attribute configuration.
+    default: op

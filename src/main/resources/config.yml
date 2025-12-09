@@ -1,0 +1,15 @@
+# Default attribute utility configuration
+
+# Global caps for core attributes
+global-attribute-caps:
+  attack-damage: 100
+  armor: 100
+  movement-speed: 100
+
+# Player sustain values
+max-hunger: 20
+max-oxygen: 20
+
+# Custom attribute loading
+load-custom-attributes-from-folder: true
+custom-attributes-folder: custom-attributes
