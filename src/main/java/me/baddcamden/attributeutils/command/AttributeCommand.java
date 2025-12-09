@@ -38,16 +38,9 @@ public class AttributeCommand implements CommandExecutor {
         }
 
         sender.sendMessage(ChatColor.AQUA + "Registered attributes:");
-        attributeApi.getRegisteredDefinitions().forEach(definition -> {
-            if (sender instanceof Player player) {
-                attributeApi.queryAttribute(definition.key(), player)
-                        .ifPresent(computation -> sender.sendMessage(buildPlayerLine(computation)));
-                return;
-            }
-
-            sender.sendMessage(ChatColor.GRAY + " - " + definition.key() + ChatColor.WHITE +
-                    ": base=" + definition.baseValue());
-        });
+        attributeService.getAttributes().values().forEach(attribute ->
+                sender.sendMessage(ChatColor.GRAY + " - " + attribute.displayName() + ChatColor.WHITE + ": " + attribute.defaultCurrentValue())
+        );
         return true;
     }
 

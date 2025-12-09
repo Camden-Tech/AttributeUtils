@@ -2,6 +2,10 @@ package me.baddcamden.attributeutils;
 
 import me.baddcamden.attributeutils.api.AttributeApi;
 import me.baddcamden.attributeutils.command.AttributeCommand;
+import me.baddcamden.attributeutils.command.EntityAttributeCommand;
+import me.baddcamden.attributeutils.command.GlobalAttributeCommand;
+import me.baddcamden.attributeutils.command.ItemAttributeCommand;
+import me.baddcamden.attributeutils.command.PlayerModifierCommand;
 import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
@@ -15,8 +19,8 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     private final AttributeApi attributeApi = new AttributeApi();
     private final PersistenceService persistenceService = new PersistenceService();
-    private final ItemAttributeHandler itemAttributeHandler = new ItemAttributeHandler(attributeApi);
-    private final EntityAttributeHandler entityAttributeHandler = new EntityAttributeHandler(attributeApi);
+    private final ItemAttributeHandler itemAttributeHandler = new ItemAttributeHandler(this, attributeService);
+    private final EntityAttributeHandler entityAttributeHandler = new EntityAttributeHandler(this, attributeService);
 
     @Override
     public void onEnable() {
@@ -34,9 +38,29 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void registerCommands() {
-        PluginCommand command = getCommand("attributes");
-        if (command != null) {
-            command.setExecutor(new AttributeCommand(attributeApi, this));
+        PluginCommand attributesCommand = getCommand("attributes");
+        if (attributesCommand != null) {
+            attributesCommand.setExecutor(new AttributeCommand(attributeService, this));
+        }
+
+        PluginCommand globalsCommand = getCommand("attributeglobals");
+        if (globalsCommand != null) {
+            globalsCommand.setExecutor(new GlobalAttributeCommand());
+        }
+
+        PluginCommand modifiersCommand = getCommand("attributemodifiers");
+        if (modifiersCommand != null) {
+            modifiersCommand.setExecutor(new PlayerModifierCommand(this));
+        }
+
+        PluginCommand itemsCommand = getCommand("attributeitems");
+        if (itemsCommand != null) {
+            itemsCommand.setExecutor(new ItemAttributeCommand());
+        }
+
+        PluginCommand entitiesCommand = getCommand("attributeentities");
+        if (entitiesCommand != null) {
+            entitiesCommand.setExecutor(new EntityAttributeCommand());
         }
     }
 

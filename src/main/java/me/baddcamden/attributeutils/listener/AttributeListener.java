@@ -23,8 +23,8 @@ public class AttributeListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
         entityAttributeHandler.applyPlayerCaps(event.getPlayer());
-        attributeApi.getRegisteredDefinitions().forEach(attribute ->
-                event.getPlayer().sendMessage("Loaded attribute: " + attribute.key())
+        attributeService.getAttributes().values().forEach(attribute ->
+                event.getPlayer().sendMessage("Loaded attribute: " + attribute.displayName())
         );
     }
 }
