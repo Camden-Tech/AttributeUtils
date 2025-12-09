@@ -33,7 +33,10 @@ public class AttributeService {
     }
 
     public void registerEntityDefaults(String customEntityId, Map<String, AttributeDefinition> defaults) {
-        entityDefaults.put(customEntityId.toLowerCase(Locale.ROOT), new HashMap<>(defaults));
+        Map<String, AttributeDefinition> normalizedDefaults = new HashMap<>();
+        defaults.forEach((key, value) -> normalizedDefaults.put(key.toLowerCase(Locale.ROOT), value));
+
+        entityDefaults.put(customEntityId.toLowerCase(Locale.ROOT), normalizedDefaults);
     }
 
     public void clearAttributes() {

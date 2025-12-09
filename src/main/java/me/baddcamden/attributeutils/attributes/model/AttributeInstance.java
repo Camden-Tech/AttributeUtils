@@ -3,6 +3,7 @@ package me.baddcamden.attributeutils.attributes.model;
 import me.baddcamden.attributeutils.api.AttributeDefinition;
 import me.baddcamden.attributeutils.service.AttributeService;
 
+import java.util.Locale;
 import java.util.Optional;
 
 public class AttributeInstance {
@@ -14,7 +15,7 @@ public class AttributeInstance {
     private final AttributeTrigger trigger;
 
     private AttributeInstance(String key, double value, Double maxValue, AttributeInstanceType type, AttributeTrigger trigger) {
-        this.key = key.toLowerCase();
+        this.key = key.toLowerCase(Locale.ROOT);
         this.value = value;
         this.maxValue = maxValue;
         this.type = type;
