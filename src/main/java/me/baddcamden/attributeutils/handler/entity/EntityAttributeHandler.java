@@ -1,6 +1,6 @@
 package me.baddcamden.attributeutils.handler.entity;
 
-import me.baddcamden.attributeutils.attributes.model.AttributeModel;
+import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.service.AttributeService;
 import org.bukkit.entity.Player;
 
@@ -19,11 +19,11 @@ public class EntityAttributeHandler {
         setOxygen(player, attributeService.getAttribute("max_oxygen"));
     }
 
-    private void setFoodLevel(Player player, Optional<AttributeModel> model) {
-        model.ifPresent(attribute -> player.setFoodLevel((int) attribute.getValue()));
+    private void setFoodLevel(Player player, Optional<AttributeDefinition> definition) {
+        definition.ifPresent(attribute -> player.setFoodLevel((int) attribute.defaultCurrentValue()));
     }
 
-    private void setOxygen(Player player, Optional<AttributeModel> model) {
-        model.ifPresent(attribute -> player.setMaximumAir((int) attribute.getMaxValue()));
+    private void setOxygen(Player player, Optional<AttributeDefinition> definition) {
+        definition.ifPresent(attribute -> player.setMaximumAir((int) attribute.capConfig().globalMax()));
     }
 }

@@ -38,7 +38,7 @@ public class AttributeCommand implements CommandExecutor {
 
         sender.sendMessage(ChatColor.AQUA + "Registered attributes:");
         attributeService.getAttributes().values().forEach(attribute ->
-                sender.sendMessage(ChatColor.GRAY + " - " + attribute.getKey() + ChatColor.WHITE + ": " + attribute.getValue())
+                sender.sendMessage(ChatColor.GRAY + " - " + attribute.displayName() + ChatColor.WHITE + ": " + attribute.defaultCurrentValue())
         );
         return true;
     }

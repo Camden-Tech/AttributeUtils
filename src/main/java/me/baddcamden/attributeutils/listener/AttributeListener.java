@@ -24,7 +24,7 @@ public class AttributeListener implements Listener {
         itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
         entityAttributeHandler.applyPlayerCaps(event.getPlayer());
         attributeService.getAttributes().values().forEach(attribute ->
-                event.getPlayer().sendMessage("Loaded attribute: " + attribute.getKey())
+                event.getPlayer().sendMessage("Loaded attribute: " + attribute.displayName())
         );
     }
 }
