@@ -17,8 +17,8 @@ public final class AttributeDefinitionFactory {
         double maxOxygen = config.getDouble("max-oxygen", 20);
 
         Map<String, AttributeDefinition> definitions = new LinkedHashMap<>();
-        definitions.put("max_hunger", cappedAttribute("max_hunger", "Max Hunger", maxHunger));
-        definitions.put("max_oxygen", cappedAttribute("max_oxygen", "Max Oxygen", maxOxygen));
+        definitions.put("max_hunger", cappedAttribute("max_hunger", "Max Hunger", maxHunger, true));
+        definitions.put("max_oxygen", cappedAttribute("max_oxygen", "Max Oxygen", maxOxygen, true));
         return definitions;
     }
 
@@ -34,11 +34,15 @@ public final class AttributeDefinitionFactory {
     }
 
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue) {
+        return cappedAttribute(id, displayName, capValue, false);
+    }
+
+    public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic) {
         CapConfig capConfig = new CapConfig(0, capValue, Map.of());
         return new AttributeDefinition(
                 id.toLowerCase(Locale.ROOT),
                 displayName,
-                false,
+                dynamic,
                 capValue,
                 capValue,
                 capConfig,

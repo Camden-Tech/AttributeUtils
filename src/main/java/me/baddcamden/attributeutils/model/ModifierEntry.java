@@ -3,7 +3,11 @@ package me.baddcamden.attributeutils.model;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-public record ModifierEntry(String key, ModifierOperation operation, double amount, boolean permanent) {
+public record ModifierEntry(String key,
+                            ModifierOperation operation,
+                            double amount,
+                            boolean temporary,
+                            boolean defaultModifier) {
 
     private static final Pattern KEY_PATTERN = Pattern.compile("[a-z0-9_.-]+", Pattern.CASE_INSENSITIVE);
 
@@ -16,6 +20,14 @@ public record ModifierEntry(String key, ModifierOperation operation, double amou
     }
 
     public boolean isTemporary() {
-        return !permanent;
+        return temporary;
+    }
+
+    public boolean isPermanent() {
+        return !temporary;
+    }
+
+    public boolean isDefaultModifier() {
+        return defaultModifier;
     }
 }

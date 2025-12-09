@@ -1,0 +1,113 @@
+package me.baddcamden.attributeutils.persistence;
+
+import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.model.AttributeDefinition;
+import me.baddcamden.attributeutils.model.AttributeInstance;
+import me.baddcamden.attributeutils.model.ModifierEntry;
+import me.baddcamden.attributeutils.model.ModifierOperation;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+public class AttributePersistence {
+
+    private final Path dataFolder;
+
+    public AttributePersistence(Path dataFolder) {
+        this.dataFolder = dataFolder;
+    }
+
+    public void loadGlobals(AttributeFacade facade) {
+        Path file = dataFolder.resolve("global.yml");
+        if (Files.notExists(file)) {
+            return;
+        }
+
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+        loadInstances(facade, config.getConfigurationSection("attributes"), null);
+    }
+
+    public void saveGlobals(AttributeFacade facade) {
+        FileConfiguration config = new YamlConfiguration();
+        ConfigurationSection attributes = config.createSection("attributes");
+        writeInstances(attributes, facade.getGlobalInstances());
+        save(config, dataFolder.resolve("global.yml"));
+    }
+
+    public void loadPlayer(AttributeFacade facade, UUID playerId) {
+        Path file = dataFolder.resolve("players").resolve(playerId.toString() + ".yml");
+        if (Files.notExists(file)) {
+            return;
+        }
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+        loadInstances(facade, config.getConfigurationSection("attributes"), playerId);
+    }
+
+    public void savePlayer(AttributeFacade facade, UUID playerId) {
+        FileConfiguration config = new YamlConfiguration();
+        ConfigurationSection attributes = config.createSection("attributes");
+        writeInstances(attributes, facade.getPlayerInstances(playerId));
+        Path folder = dataFolder.resolve("players");
+        try {
+            Files.createDirectories(folder);
+        } catch (IOException ignored) {
+        }
+        save(config, folder.resolve(playerId.toString() + ".yml"));
+    }
+
+    private void loadInstances(AttributeFacade facade, ConfigurationSection section, UUID playerId) {
+        if (section == null) {
+            return;
+        }
+
+        for (String key : section.getKeys(false)) {
+            facade.getDefinition(key).ifPresentOrElse(definition -> {
+                double base = section.getDouble(key + ".base", definition.defaultBaseValue());
+                AttributeInstance instance = playerId == null
+                        ? facade.getOrCreateGlobalInstance(definition.id())
+                        : facade.getOrCreatePlayerInstance(playerId, definition.id());
+                instance.setBaseValue(definition.capConfig().clamp(base, playerId == null ? null : playerId.toString()));
+                ConfigurationSection modifiers = section.getConfigurationSection(key + ".modifiers");
+                if (modifiers != null) {
+                    for (String modKey : modifiers.getKeys(false)) {
+                        ModifierOperation operation = ModifierOperation.valueOf(modifiers.getString(modKey + ".operation", "ADD").toUpperCase(Locale.ROOT));
+                        double amount = modifiers.getDouble(modKey + ".amount", 0);
+                        boolean temporary = modifiers.getBoolean(modKey + ".temporary", false);
+                        boolean defaultModifier = modifiers.getBoolean(modKey + ".default", false);
+                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, defaultModifier));
+                    }
+                }
+            }, () -> facade.compute(key, null));
+        }
+    }
+
+    private void writeInstances(ConfigurationSection section, Map<String, AttributeInstance> instances) {
+        for (Map.Entry<String, AttributeInstance> entry : instances.entrySet()) {
+            String attributeId = entry.getKey();
+            AttributeInstance instance = entry.getValue();
+            section.set(attributeId + ".base", instance.getBaseValue());
+            ConfigurationSection modifiers = section.createSection(attributeId + ".modifiers");
+            instance.getModifiers().forEach((key, modifier) -> {
+                modifiers.set(key + ".operation", modifier.operation().name());
+                modifiers.set(key + ".amount", modifier.amount());
+                modifiers.set(key + ".temporary", modifier.isTemporary());
+                modifiers.set(key + ".default", modifier.isDefaultModifier());
+            });
+        }
+    }
+
+    private void save(FileConfiguration config, Path target) {
+        try {
+            Files.createDirectories(target.getParent());
+            config.save(target.toFile());
+        } catch (IOException ignored) {
+        }
+    }
+}

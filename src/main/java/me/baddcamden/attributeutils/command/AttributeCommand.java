@@ -1,7 +1,7 @@
 package me.baddcamden.attributeutils.command;
 
-import me.baddcamden.attributeutils.api.AttributeApi;
-import me.baddcamden.attributeutils.api.AttributeComputation;
+import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.model.AttributeValueStages;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -11,11 +11,11 @@ import org.bukkit.plugin.Plugin;
 
 public class AttributeCommand implements CommandExecutor {
 
-    private final AttributeApi attributeApi;
+    private final AttributeFacade attributeFacade;
     private final Plugin plugin;
 
-    public AttributeCommand(AttributeApi attributeApi, Plugin plugin) {
-        this.attributeApi = attributeApi;
+    public AttributeCommand(AttributeFacade attributeFacade, Plugin plugin) {
+        this.attributeFacade = attributeFacade;
         this.plugin = plugin;
     }
 
@@ -38,18 +38,18 @@ public class AttributeCommand implements CommandExecutor {
         }
 
         sender.sendMessage(ChatColor.AQUA + "Registered attributes:");
-        attributeService.getAttributes().values().forEach(attribute ->
-                sender.sendMessage(ChatColor.GRAY + " - " + attribute.displayName() + ChatColor.WHITE + ": " + attribute.defaultCurrentValue())
-        );
+        attributeFacade.getDefinitions().forEach(definition -> {
+            AttributeValueStages stages = attributeFacade.compute(definition.id(), (Player) sender);
+            sender.sendMessage(buildPlayerLine(definition.displayName(), stages));
+        });
         return true;
     }
 
-    private String buildPlayerLine(AttributeComputation computation) {
-        return ChatColor.GRAY + " - " + computation.key() + ChatColor.WHITE +
-                " vanilla=" + computation.vanillaBaseline() +
-                " base=" + computation.baseValue() +
-                " global=" + computation.globalModifierTotal() +
-                " player=" + computation.playerModifierTotal() +
-                " final=" + computation.finalValue();
+    private String buildPlayerLine(String displayName, AttributeValueStages stages) {
+        return ChatColor.GRAY + " - " + displayName + ChatColor.WHITE +
+                " rawDefault=" + stages.rawDefault() +
+                " default=" + stages.defaultFinal() +
+                " rawCurrent=" + stages.rawCurrent() +
+                " final=" + stages.currentFinal();
     }
 }

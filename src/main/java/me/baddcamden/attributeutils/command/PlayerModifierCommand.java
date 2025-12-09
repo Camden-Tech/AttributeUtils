@@ -1,5 +1,8 @@
 package me.baddcamden.attributeutils.command;
 
+import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.model.ModifierEntry;
+import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -12,9 +15,11 @@ import java.util.Optional;
 public class PlayerModifierCommand implements CommandExecutor {
 
     private final Plugin plugin;
+    private final AttributeFacade attributeFacade;
 
-    public PlayerModifierCommand(Plugin plugin) {
+    public PlayerModifierCommand(Plugin plugin, AttributeFacade attributeFacade) {
         this.plugin = plugin;
+        this.attributeFacade = attributeFacade;
     }
 
     @Override
@@ -71,9 +76,16 @@ public class PlayerModifierCommand implements CommandExecutor {
             return true;
         }
 
+        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false);
+        attributeFacade.setPlayerModifier(target.getUniqueId(), key.get().key(), entry);
+
+        durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,
+                () -> attributeFacade.removePlayerModifier(target.getUniqueId(), key.get().key(), entry.key()),
+                (long) (seconds * 20)));
+
         String durationLabel = durationSeconds.map(value -> value + "s temporary").orElse("permanent");
-        sender.sendMessage(ChatColor.GREEN + "Would apply a " + amount.get() + " modifier to " + key.get().asString()
-                + " for player " + target.getName() + " (" + durationLabel + "). Computation and persistence pending.");
+        sender.sendMessage(ChatColor.GREEN + "Applied a " + amount.get() + " modifier to " + key.get().asString()
+                + " for player " + target.getName() + " (" + durationLabel + ").");
         return true;
     }
 
@@ -94,8 +106,9 @@ public class PlayerModifierCommand implements CommandExecutor {
             return true;
         }
 
-        sender.sendMessage(ChatColor.GREEN + "Would remove modifiers for " + key.get().asString() + " from player "
-                + target.getName() + ". Storage hooks will be added later.");
+        attributeFacade.removePlayerModifier(target.getUniqueId(), key.get().key(), key.get().asString());
+        sender.sendMessage(ChatColor.GREEN + "Removed modifiers for " + key.get().asString() + " from player "
+                + target.getName() + ".");
         return true;
     }
 }
