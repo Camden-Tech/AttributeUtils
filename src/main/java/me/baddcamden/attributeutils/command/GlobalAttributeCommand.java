@@ -1,5 +1,7 @@
 package me.baddcamden.attributeutils.command;
 
+import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.model.AttributeDefinition;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -8,6 +10,12 @@ import org.bukkit.command.CommandSender;
 import java.util.Optional;
 
 public class GlobalAttributeCommand implements CommandExecutor {
+
+    private final AttributeFacade attributeFacade;
+
+    public GlobalAttributeCommand(AttributeFacade attributeFacade) {
+        this.attributeFacade = attributeFacade;
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -36,15 +44,20 @@ public class GlobalAttributeCommand implements CommandExecutor {
             return true;
         }
 
-        double base = baseValue.get();
-        double cap = capOverride == null ? base : capOverride;
-        if (cap < base) {
-            sender.sendMessage(ChatColor.RED + "Cap overrides must be greater than or equal to the base value.");
+        AttributeDefinition definition = attributeFacade.getDefinition(key.get().key()).orElse(null);
+        if (definition == null) {
+            sender.sendMessage(ChatColor.RED + "Unknown attribute: " + key.get().key());
             return true;
         }
 
-        sender.sendMessage(ChatColor.GREEN + "Global defaults for " + key.get().asString() + " would be set to " + base
-                + " with a cap of " + cap + " once persistence is available.");
+        double base = definition.capConfig().clamp(baseValue.get(), null);
+        attributeFacade.getOrCreateGlobalInstance(definition.id()).setBaseValue(base);
+        if (capOverride != null) {
+            // update override map by replacing entry
+            definition.capConfig().overrideMaxValues().put(key.get().key(), capOverride);
+        }
+
+        sender.sendMessage(ChatColor.GREEN + "Global base for " + key.get().asString() + " set to " + base + ".");
         return true;
     }
 }

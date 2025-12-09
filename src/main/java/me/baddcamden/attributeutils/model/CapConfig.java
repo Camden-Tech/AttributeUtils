@@ -9,7 +9,7 @@ public record CapConfig(double globalMin, double globalMax, Map<String, Double> 
         if (globalMax < globalMin) {
             throw new IllegalArgumentException("Global max must be greater than or equal to global min");
         }
-        overrideMaxValues = overrideMaxValues == null ? Collections.emptyMap() : Map.copyOf(overrideMaxValues);
+        overrideMaxValues = overrideMaxValues == null ? new java.util.LinkedHashMap<>() : new java.util.LinkedHashMap<>(overrideMaxValues);
     }
 
     public double resolveMax(String overrideKey) {
