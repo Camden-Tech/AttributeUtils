@@ -1,18 +1,18 @@
 package me.baddcamden.attributeutils.handler.item;
 
-import me.baddcamden.attributeutils.service.AttributeService;
+import me.baddcamden.attributeutils.api.AttributeApi;
 import org.bukkit.inventory.PlayerInventory;
 
 public class ItemAttributeHandler {
 
-    private final AttributeService attributeService;
+    private final AttributeApi attributeApi;
 
-    public ItemAttributeHandler(AttributeService attributeService) {
-        this.attributeService = attributeService;
+    public ItemAttributeHandler(AttributeApi attributeApi) {
+        this.attributeApi = attributeApi;
     }
 
     public void applyDefaults(PlayerInventory inventory) {
-        attributeService.getAttributes().forEach((key, attribute) -> {
+        attributeApi.getRegisteredDefinitions().forEach(attribute -> {
             // Placeholder for applying item-based attributes to the player's inventory.
         });
     }

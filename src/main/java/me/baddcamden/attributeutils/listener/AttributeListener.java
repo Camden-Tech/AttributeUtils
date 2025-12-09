@@ -1,20 +1,20 @@
 package me.baddcamden.attributeutils.listener;
 
+import me.baddcamden.attributeutils.api.AttributeApi;
 import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
-import me.baddcamden.attributeutils.service.AttributeService;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
 public class AttributeListener implements Listener {
 
-    private final AttributeService attributeService;
+    private final AttributeApi attributeApi;
     private final ItemAttributeHandler itemAttributeHandler;
     private final EntityAttributeHandler entityAttributeHandler;
 
-    public AttributeListener(AttributeService attributeService, ItemAttributeHandler itemAttributeHandler, EntityAttributeHandler entityAttributeHandler) {
-        this.attributeService = attributeService;
+    public AttributeListener(AttributeApi attributeApi, ItemAttributeHandler itemAttributeHandler, EntityAttributeHandler entityAttributeHandler) {
+        this.attributeApi = attributeApi;
         this.itemAttributeHandler = itemAttributeHandler;
         this.entityAttributeHandler = entityAttributeHandler;
     }
@@ -23,8 +23,8 @@ public class AttributeListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
         entityAttributeHandler.applyPlayerCaps(event.getPlayer());
-        attributeService.getAttributes().values().forEach(attribute ->
-                event.getPlayer().sendMessage("Loaded attribute: " + attribute.getKey())
+        attributeApi.getRegisteredDefinitions().forEach(attribute ->
+                event.getPlayer().sendMessage("Loaded attribute: " + attribute.key())
         );
     }
 }

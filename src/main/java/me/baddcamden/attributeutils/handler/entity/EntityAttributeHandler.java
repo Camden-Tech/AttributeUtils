@@ -1,29 +1,29 @@
 package me.baddcamden.attributeutils.handler.entity;
 
-import me.baddcamden.attributeutils.attributes.model.AttributeModel;
-import me.baddcamden.attributeutils.service.AttributeService;
+import me.baddcamden.attributeutils.api.AttributeApi;
+import me.baddcamden.attributeutils.api.AttributeComputation;
 import org.bukkit.entity.Player;
 
 import java.util.Optional;
 
 public class EntityAttributeHandler {
 
-    private final AttributeService attributeService;
+    private final AttributeApi attributeApi;
 
-    public EntityAttributeHandler(AttributeService attributeService) {
-        this.attributeService = attributeService;
+    public EntityAttributeHandler(AttributeApi attributeApi) {
+        this.attributeApi = attributeApi;
     }
 
     public void applyPlayerCaps(Player player) {
-        setFoodLevel(player, attributeService.getAttribute("max_hunger"));
-        setOxygen(player, attributeService.getAttribute("max_oxygen"));
+        setFoodLevel(player, attributeApi.queryAttribute("max_hunger", player));
+        setOxygen(player, attributeApi.queryAttribute("max_oxygen", player));
     }
 
-    private void setFoodLevel(Player player, Optional<AttributeModel> model) {
-        model.ifPresent(attribute -> player.setFoodLevel((int) attribute.getValue()));
+    private void setFoodLevel(Player player, Optional<AttributeComputation> computation) {
+        computation.ifPresent(attribute -> player.setFoodLevel((int) attribute.finalValue()));
     }
 
-    private void setOxygen(Player player, Optional<AttributeModel> model) {
-        model.ifPresent(attribute -> player.setMaximumAir((int) attribute.getMaxValue()));
+    private void setOxygen(Player player, Optional<AttributeComputation> computation) {
+        computation.ifPresent(attribute -> player.setMaximumAir((int) attribute.finalValue()));
     }
 }

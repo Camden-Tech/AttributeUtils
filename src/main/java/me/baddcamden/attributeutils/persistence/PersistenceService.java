@@ -1,7 +1,7 @@
 package me.baddcamden.attributeutils.persistence;
 
-import me.baddcamden.attributeutils.attributes.model.AttributeModel;
-import me.baddcamden.attributeutils.service.AttributeService;
+import me.baddcamden.attributeutils.api.AttributeApi;
+import me.baddcamden.attributeutils.api.AttributeDefinition;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -11,7 +11,7 @@ import java.nio.file.Path;
 
 public class PersistenceService {
 
-    public void loadAttributes(Path attributesFolder, AttributeService attributeService, FileConfiguration config) {
+    public void loadAttributes(Path attributesFolder, AttributeApi attributeApi, FileConfiguration config) {
         try {
             if (Files.notExists(attributesFolder)) {
                 Files.createDirectories(attributesFolder);
@@ -20,26 +20,34 @@ public class PersistenceService {
             throw new IllegalStateException("Unable to prepare attributes directory: " + attributesFolder, e);
         }
 
-        registerConfigCaps(attributeService, config.getConfigurationSection("global-attribute-caps"));
-        registerPlayerStats(attributeService, config);
+        registerConfigCaps(attributeApi, config.getConfigurationSection("global-attribute-caps"));
+        registerPlayerStats(attributeApi, config);
     }
 
-    private void registerConfigCaps(AttributeService attributeService, ConfigurationSection caps) {
+    private void registerConfigCaps(AttributeApi attributeApi, ConfigurationSection caps) {
         if (caps == null) {
             return;
         }
 
         for (String key : caps.getKeys(false)) {
             double capValue = caps.getDouble(key);
-            attributeService.registerAttribute(new AttributeModel(key, capValue, capValue));
+            attributeApi.registerAttributeDefinition(new AttributeDefinition(key, capValue, capValue));
         }
     }
 
-    private void registerPlayerStats(AttributeService attributeService, FileConfiguration config) {
+    private void registerPlayerStats(AttributeApi attributeApi, FileConfiguration config) {
         double maxHunger = config.getDouble("max-hunger", 20);
         double maxOxygen = config.getDouble("max-oxygen", 20);
 
-        attributeService.registerAttribute(new AttributeModel("max_hunger", maxHunger, maxHunger));
-        attributeService.registerAttribute(new AttributeModel("max_oxygen", maxOxygen, maxOxygen));
+        attributeApi.registerAttributeDefinition(new AttributeDefinition("max_hunger", maxHunger, maxHunger));
+        attributeApi.registerAttributeDefinition(new AttributeDefinition("max_oxygen", maxOxygen, maxOxygen));
+
+        attributeApi.registerVanillaBaseline("max_hunger", player -> player == null ? maxHunger : player.getFoodLevel());
+        attributeApi.registerVanillaBaseline("max_oxygen", player -> {
+            if (player == null) {
+                return maxOxygen;
+            }
+            return player.getMaximumAir();
+        });
     }
 }
