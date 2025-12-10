@@ -69,19 +69,25 @@ public class AttributePersistence {
 
         for (String key : section.getKeys(false)) {
             facade.getDefinition(key).ifPresentOrElse(definition -> {
-                double base = section.getDouble(key + ".base", definition.defaultBaseValue());
+                double defaultBase = section.getDouble(key + ".default-base",
+                        section.getDouble(key + ".base", definition.defaultBaseValue()));
+                double currentBase = section.getDouble(key + ".current-base",
+                        section.getDouble(key + ".base", definition.defaultCurrentValue()));
                 AttributeInstance instance = playerId == null
                         ? facade.getOrCreateGlobalInstance(definition.id())
                         : facade.getOrCreatePlayerInstance(playerId, definition.id());
-                instance.setBaseValue(definition.capConfig().clamp(base, playerId == null ? null : playerId.toString()));
+                String capKey = playerId == null ? null : playerId.toString();
+                instance.setDefaultBaseValue(definition.capConfig().clamp(defaultBase, capKey));
+                instance.setCurrentBaseValue(definition.capConfig().clamp(currentBase, capKey));
                 ConfigurationSection modifiers = section.getConfigurationSection(key + ".modifiers");
                 if (modifiers != null) {
                     for (String modKey : modifiers.getKeys(false)) {
                         ModifierOperation operation = ModifierOperation.valueOf(modifiers.getString(modKey + ".operation", "ADD").toUpperCase(Locale.ROOT));
                         double amount = modifiers.getDouble(modKey + ".amount", 0);
                         boolean temporary = modifiers.getBoolean(modKey + ".temporary", false);
-                        boolean defaultModifier = modifiers.getBoolean(modKey + ".default", false);
-                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, defaultModifier));
+                        boolean appliesToDefault = modifiers.getBoolean(modKey + ".default", false);
+                        boolean appliesToCurrent = modifiers.getBoolean(modKey + ".current", !appliesToDefault);
+                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, appliesToDefault, appliesToCurrent));
                     }
                 }
             }, () -> facade.compute(key, null));
@@ -92,13 +98,16 @@ public class AttributePersistence {
         for (Map.Entry<String, AttributeInstance> entry : instances.entrySet()) {
             String attributeId = entry.getKey();
             AttributeInstance instance = entry.getValue();
-            section.set(attributeId + ".base", instance.getBaseValue());
+            section.set(attributeId + ".default-base", instance.getDefaultBaseValue());
+            section.set(attributeId + ".current-base", instance.getCurrentBaseValue());
+            section.set(attributeId + ".base", instance.getDefaultBaseValue());
             ConfigurationSection modifiers = section.createSection(attributeId + ".modifiers");
             instance.getModifiers().forEach((key, modifier) -> {
                 modifiers.set(key + ".operation", modifier.operation().name());
                 modifiers.set(key + ".amount", modifier.amount());
                 modifiers.set(key + ".temporary", modifier.isTemporary());
                 modifiers.set(key + ".default", modifier.isDefaultModifier());
+                modifiers.set(key + ".current", modifier.appliesToCurrent());
             });
         }
     }

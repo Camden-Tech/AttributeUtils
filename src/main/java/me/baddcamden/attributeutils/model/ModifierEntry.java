@@ -7,7 +7,8 @@ public record ModifierEntry(String key,
                             ModifierOperation operation,
                             double amount,
                             boolean temporary,
-                            boolean defaultModifier) {
+                            boolean appliesToDefault,
+                            boolean appliesToCurrent) {
 
     private static final Pattern KEY_PATTERN = Pattern.compile("[a-z0-9_.-]+", Pattern.CASE_INSENSITIVE);
 
@@ -16,6 +17,9 @@ public record ModifierEntry(String key,
         Objects.requireNonNull(operation, "operation");
         if (!KEY_PATTERN.matcher(key).matches()) {
             throw new IllegalArgumentException("Modifier keys must match " + KEY_PATTERN.pattern());
+        }
+        if (!appliesToDefault && !appliesToCurrent) {
+            throw new IllegalArgumentException("Modifier must apply to at least one stage");
         }
     }
 
@@ -28,6 +32,10 @@ public record ModifierEntry(String key,
     }
 
     public boolean isDefaultModifier() {
-        return defaultModifier;
+        return appliesToDefault;
+    }
+
+    public boolean appliesToCurrent() {
+        return appliesToCurrent;
     }
 }

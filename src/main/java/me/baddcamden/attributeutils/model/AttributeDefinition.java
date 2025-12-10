@@ -20,6 +20,6 @@ public record AttributeDefinition(
     }
 
     public AttributeInstance newInstance() {
-        return new AttributeInstance(this, defaultBaseValue, defaultCurrentValue);
+        return new AttributeInstance(this, defaultBaseValue, defaultCurrentValue, null);
     }
 }

@@ -5,14 +5,14 @@ import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeInstance;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
 import me.baddcamden.attributeutils.model.ModifierEntry;
-import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 
 public class AttributeComputationEngine {
 
@@ -22,42 +22,43 @@ public class AttributeComputationEngine {
                                         VanillaAttributeSupplier vanillaSupplier,
                                         Player player) {
 
-        double baseDefault = resolveBase(definition, globalInstance, playerInstance);
-        Collection<ModifierEntry> allModifiers = collectAllModifiers(globalInstance, playerInstance);
-
-        List<ModifierEntry> defaultModifiers = allModifiers.stream()
-                .filter(ModifierEntry::isDefaultModifier)
-                .collect(Collectors.toList());
-
-        List<ModifierEntry> permanentModifiers = allModifiers.stream()
-                .filter(ModifierEntry::isPermanent)
-                .filter(entry -> !entry.isDefaultModifier())
-                .collect(Collectors.toList());
-
-        List<ModifierEntry> nonDefaultModifiers = allModifiers.stream()
-                .filter(entry -> !entry.isDefaultModifier())
-                .collect(Collectors.toList());
-
+        double defaultBaseline = resolveDefaultBase(definition, globalInstance, playerInstance);
         String capKey = resolveCapKey(globalInstance, playerInstance);
-        double rawDefault = definition.capConfig().clamp(baseDefault, capKey);
-        double defaultOnly = apply(rawDefault, defaultModifiers, definition, capKey);
-        double defaultFinal = apply(defaultOnly, filterTemporary(defaultModifiers, true), definition, capKey);
+        double rawDefault = definition.capConfig().clamp(defaultBaseline, capKey);
+        double defaultPermanent = apply(rawDefault,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultPermanentAdditives),
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultPermanentMultipliers),
+                definition,
+                capKey);
+        double defaultFinal = apply(defaultPermanent,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultTemporaryAdditives),
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultTemporaryMultipliers),
+                definition,
+                capKey);
 
         double rawCurrent = buildCurrentBaseline(definition, vanillaSupplier, player, globalInstance, playerInstance, rawDefault, defaultFinal);
-        double permanentOnly = apply(rawCurrent, permanentModifiers, definition, capKey);
-        double currentFinal = apply(permanentOnly, filterTemporary(nonDefaultModifiers, true), definition, capKey);
+        double currentPermanent = apply(rawCurrent,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentAdditives),
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentMultipliers),
+                definition,
+                capKey);
+        double currentFinal = apply(currentPermanent,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryAdditives),
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryMultipliers),
+                definition,
+                capKey);
 
-        return new AttributeValueStages(rawDefault, defaultOnly, defaultFinal, rawCurrent, permanentOnly, currentFinal);
+        return new AttributeValueStages(rawDefault, defaultPermanent, defaultFinal, rawCurrent, currentPermanent, currentFinal);
     }
 
-    private double resolveBase(AttributeDefinition definition, AttributeInstance globalInstance, AttributeInstance playerInstance) {
+    private double resolveDefaultBase(AttributeDefinition definition, AttributeInstance globalInstance, AttributeInstance playerInstance) {
         if (playerInstance != null) {
-            return playerInstance.getBaseValue();
+            return playerInstance.getDefaultBaseValue();
         }
         if (globalInstance != null) {
-            return globalInstance.getBaseValue();
+            return globalInstance.getDefaultBaseValue();
         }
-        return definition.defaultCurrentValue();
+        return definition.defaultBaseValue();
     }
 
     private String resolveCapKey(AttributeInstance globalInstance, AttributeInstance playerInstance) {
@@ -68,23 +69,6 @@ public class AttributeComputationEngine {
             return globalInstance.getCapOverrideKey();
         }
         return null;
-    }
-
-    private Collection<ModifierEntry> collectAllModifiers(AttributeInstance globalInstance, AttributeInstance playerInstance) {
-        if (globalInstance == null && playerInstance == null) {
-            return List.of();
-        }
-
-        if (globalInstance == null) {
-            return playerInstance.getModifiers().values();
-        }
-        if (playerInstance == null) {
-            return globalInstance.getModifiers().values();
-        }
-
-        List<ModifierEntry> combined = globalInstance.getModifiers().values().stream().collect(Collectors.toList());
-        combined.addAll(playerInstance.getModifiers().values());
-        return combined;
     }
 
     private double buildCurrentBaseline(AttributeDefinition definition,
@@ -98,27 +82,34 @@ public class AttributeComputationEngine {
             double vanilla = vanillaSupplier == null || player == null ? definition.defaultCurrentValue() : vanillaSupplier.getVanillaValue(player);
             double adjusted = vanilla;
             if (playerInstance != null) {
-                adjusted += playerInstance.getBaseValue() - definition.defaultCurrentValue();
+                adjusted += playerInstance.getCurrentBaseValue() - definition.defaultCurrentValue();
             } else if (globalInstance != null) {
-                adjusted += globalInstance.getBaseValue() - definition.defaultCurrentValue();
+                adjusted += globalInstance.getCurrentBaseValue() - definition.defaultCurrentValue();
             }
             return definition.capConfig().clamp(adjusted, resolveCapKey(globalInstance, playerInstance));
         }
 
-        double base = playerInstance != null ? playerInstance.getBaseValue() : definition.defaultBaseValue();
+        double base = playerInstance != null
+                ? playerInstance.getCurrentBaseValue()
+                : globalInstance != null ? globalInstance.getCurrentBaseValue() : definition.defaultCurrentValue();
         double defaultDelta = defaultFinal - rawDefault;
         double rawCurrent = base + defaultDelta;
         return definition.capConfig().clamp(rawCurrent, resolveCapKey(globalInstance, playerInstance));
     }
 
-    private double apply(double start, Collection<ModifierEntry> modifiers, AttributeDefinition definition, String capKey) {
+    private double apply(double start,
+                         Collection<ModifierEntry> additiveModifiers,
+                         Collection<ModifierEntry> multiplierModifiers,
+                         AttributeDefinition definition,
+                         String capKey) {
         double value = start;
         double multiplier = 1.0d;
 
-        for (ModifierEntry modifier : modifiers) {
-            if (modifier.operation() == ModifierOperation.ADD) {
-                value += modifier.amount();
-            } else if (definition.multiplierApplicability().canApply(modifier.key())) {
+        for (ModifierEntry modifier : additiveModifiers) {
+            value += modifier.amount();
+        }
+        for (ModifierEntry modifier : multiplierModifiers) {
+            if (definition.multiplierApplicability().canApply(modifier.key())) {
                 multiplier *= modifier.amount();
             }
         }
@@ -126,12 +117,22 @@ public class AttributeComputationEngine {
         return definition.capConfig().clamp(value * multiplier, capKey);
     }
 
-    private Collection<ModifierEntry> filterTemporary(Collection<ModifierEntry> modifiers, boolean includeTemporary) {
-        if (includeTemporary) {
-            return modifiers;
+    private Collection<ModifierEntry> collectModifiers(AttributeInstance globalInstance,
+                                                      AttributeInstance playerInstance,
+                                                      Function<AttributeInstance, Map<String, ModifierEntry>> extractor) {
+        if (globalInstance == null && playerInstance == null) {
+            return Collections.emptyList();
         }
-        return modifiers.stream()
-                .filter(ModifierEntry::isPermanent)
-                .collect(Collectors.toList());
+
+        if (globalInstance == null) {
+            return extractor.apply(playerInstance).values();
+        }
+        if (playerInstance == null) {
+            return extractor.apply(globalInstance).values();
+        }
+
+        List<ModifierEntry> combined = new ArrayList<>(extractor.apply(globalInstance).values());
+        combined.addAll(extractor.apply(playerInstance).values());
+        return combined;
     }
 }
