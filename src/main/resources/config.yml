@@ -3,7 +3,10 @@
 # Vanilla attribute defaults
 # Each entry seeds both the global and player baselines for the built-in
 # attributes listed below. Values are mirrored to base/current by default;
-# per-stage customization can be added later if needed.
+# per-stage customization can be added later if needed. Vanilla dynamic
+# attributes are limited to attack-damage, attack-speed, attack-knockback,
+# armor, armor-toughness, and knockback-resistance; the rest sync their
+# current baseline from the static default baseline.
 vanilla-attribute-defaults:
   max-health:
     bukkit-attributes: [MAX_HEALTH, GENERIC_MAX_HEALTH]
