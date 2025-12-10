@@ -12,7 +12,7 @@ public record MultiplierApplicability(boolean applyAll, Set<String> allowedKeys,
         ignoredKeys = normalize(ignoredKeys);
     }
 
-    public static MultiplierApplicability applyAll() {
+    public static MultiplierApplicability allowAllMultipliers() {
         return new MultiplierApplicability(true, Collections.emptySet(), Collections.emptySet());
     }
 
