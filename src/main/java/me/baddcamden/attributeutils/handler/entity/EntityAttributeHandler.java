@@ -18,6 +18,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+/**
+ * Integrates entity interactions with the attribute computation pipeline. Responsibilities include applying computed
+ * caps (current stage) to live player entities and translating command-provided baseline/cap values into persistent
+ * data for spawned entities so that subsequent computations start from the correct stage values.
+ */
 public class EntityAttributeHandler {
 
     private final AttributeFacade attributeFacade;

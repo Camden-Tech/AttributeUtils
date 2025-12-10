@@ -13,6 +13,11 @@ import java.util.regex.Pattern;
 
 import me.baddcamden.attributeutils.model.ModifierOperation;
 
+/**
+ * Utility functions for turning user input into normalized attribute keys and numeric values.
+ * Parsed keys are tied back to specific modifier buckets or baselines depending on the invoking command, while numeric
+ * inputs may be clamped against cap configuration to ensure stage boundaries are preserved before computation.
+ */
 public final class CommandParsingUtils {
 
     private static final Pattern NAMESPACED_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_.-]+$");

@@ -3,6 +3,10 @@ package me.baddcamden.attributeutils.api;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Bucket of modifiers keyed by source identifiers. Values are split between permanent and temporary collections so
+ * callers can purge temporary entries without affecting long-lived ones.
+ */
 class AttributeModifierSet {
 
     private final Map<String, Double> permanent = new ConcurrentHashMap<>();

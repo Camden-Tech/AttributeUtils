@@ -11,6 +11,25 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * Minimal API exposed to other plugins for registering attributes and querying computed values.
+ * <p>
+ * The API keeps two parallel concepts of a baseline:
+ * <ul>
+ *     <li><strong>Default baseline</strong>: the configured {@link AttributeDefinition#baseValue()} used when no
+ *     vanilla supplier is registered.</li>
+ *     <li><strong>Vanilla baseline</strong>: a supplier-driven value pulled for a specific player to reflect their
+ *     current in-game state. When absent, the default baseline is used.</li>
+ * </ul>
+ * Modifiers are tracked separately for global scope and per player using {@link AttributeModifierSet} buckets. When
+ * {@link #queryAttribute(String, org.bukkit.entity.Player)} is invoked the calculation proceeds as follows:
+ * <ol>
+ *     <li>Resolve the vanilla baseline (player-aware) and default baseline (definition value).</li>
+ *     <li>Sum permanent and temporary entries from the global and player modifier buckets.</li>
+ *     <li>Add the modifier totals to the default baseline to obtain a raw value.</li>
+ *     <li>Apply the definition's cap; no other implicit clamps are used.</li>
+ * </ol>
+ */
 public class AttributeApi {
 
     private final ConcurrentMap<String, AttributeDefinition> definitions = new ConcurrentHashMap<>();

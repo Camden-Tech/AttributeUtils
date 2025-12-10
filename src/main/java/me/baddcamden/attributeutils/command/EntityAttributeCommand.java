@@ -19,6 +19,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Handles entity-scoped attribute commands that adjust or view a target's baselines and modifiers.
+ * <p>
+ * Parsed player/entity selectors are mapped to {@link me.baddcamden.attributeutils.model.AttributeInstance}s where
+ * default/current baselines can be changed and modifier buckets are updated. Cap inputs are run through
+ * {@link me.baddcamden.attributeutils.model.CapConfig#clamp(double, java.util.UUID)} before being stored so later
+ * computations respect stage boundaries.
+ */
 public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
     private final Plugin plugin;
