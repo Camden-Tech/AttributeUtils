@@ -50,12 +50,13 @@ public class AttributeFacade {
     }
 
     public void registerDefinition(AttributeDefinition definition) {
-        definitions.put(definition.id().toLowerCase(Locale.ROOT), definition);
-        globalInstances.putIfAbsent(definition.id().toLowerCase(Locale.ROOT), new AttributeInstance(definition));
+        String normalizedId = normalize(definition.id());
+        definitions.put(normalizedId, definition);
+        globalInstances.putIfAbsent(normalizedId, new AttributeInstance(definition));
     }
 
     public void registerVanillaBaseline(String key, VanillaAttributeSupplier supplier) {
-        vanillaSuppliers.put(key.toLowerCase(Locale.ROOT), supplier);
+        vanillaSuppliers.put(normalize(key), supplier);
     }
 
     public Collection<AttributeDefinition> getDefinitions() {
@@ -66,19 +67,20 @@ public class AttributeFacade {
         if (id == null) {
             return Optional.empty();
         }
-        return Optional.ofNullable(definitions.get(id.toLowerCase(Locale.ROOT)));
+        return Optional.ofNullable(definitions.get(normalize(id)));
     }
 
     public AttributeValueStages compute(String id, Player player) {
-        AttributeDefinition definition = definitions.get(id.toLowerCase(Locale.ROOT));
+        AttributeDefinition definition = definitions.get(normalize(id));
         if (definition == null) {
             plugin.getLogger().warning("Attempted to compute unknown attribute: " + id);
             return new AttributeValueStages(0, 0, 0, 0, 0, 0);
         }
 
-        AttributeInstance global = globalInstances.get(definition.id());
+        String normalizedId = normalize(definition.id());
+        AttributeInstance global = globalInstances.get(normalizedId);
         AttributeInstance playerInstance = player == null ? null : getOrCreatePlayerInstance(player.getUniqueId(), definition);
-        VanillaAttributeSupplier vanillaSupplier = vanillaSuppliers.get(definition.id());
+        VanillaAttributeSupplier vanillaSupplier = vanillaSuppliers.get(normalizedId);
         return computationEngine.compute(definition, global, playerInstance, vanillaSupplier, player);
     }
 
@@ -93,7 +95,7 @@ public class AttributeFacade {
     }
 
     public void removeGlobalModifier(String attributeId, String key) {
-        AttributeInstance instance = globalInstances.get(attributeId.toLowerCase(Locale.ROOT));
+        AttributeInstance instance = globalInstances.get(normalize(attributeId));
         if (instance != null) {
             instance.removeModifier(key);
         }
@@ -104,7 +106,7 @@ public class AttributeFacade {
         if (store == null) {
             return;
         }
-        AttributeInstance instance = store.get(attributeId.toLowerCase(Locale.ROOT));
+        AttributeInstance instance = store.get(normalize(attributeId));
         if (instance != null) {
             instance.removeModifier(key);
         }
@@ -119,15 +121,16 @@ public class AttributeFacade {
     }
 
     public AttributeInstance getOrCreateGlobalInstance(String attributeId) {
-        AttributeDefinition definition = definitions.get(attributeId.toLowerCase(Locale.ROOT));
+        String normalizedId = normalize(attributeId);
+        AttributeDefinition definition = definitions.get(normalizedId);
         if (definition == null) {
             throw new IllegalArgumentException("Unknown attribute: " + attributeId);
         }
-        return globalInstances.computeIfAbsent(definition.id(), key -> new AttributeInstance(definition));
+        return globalInstances.computeIfAbsent(normalizedId, key -> new AttributeInstance(definition));
     }
 
     public AttributeInstance getOrCreatePlayerInstance(UUID playerId, String attributeId) {
-        AttributeDefinition definition = definitions.get(attributeId.toLowerCase(Locale.ROOT));
+        AttributeDefinition definition = definitions.get(normalize(attributeId));
         if (definition == null) {
             throw new IllegalArgumentException("Unknown attribute: " + attributeId);
         }
@@ -136,7 +139,8 @@ public class AttributeFacade {
 
     private AttributeInstance getOrCreatePlayerInstance(UUID playerId, AttributeDefinition definition) {
         Map<String, AttributeInstance> map = playerInstances.computeIfAbsent(playerId, ignored -> new HashMap<>());
-        return map.computeIfAbsent(definition.id(), ignored -> {
+        String normalizedId = normalize(definition.id());
+        return map.computeIfAbsent(normalizedId, ignored -> {
             AttributeInstance instance = new AttributeInstance(definition, definition.defaultBaseValue(), definition.defaultCurrentValue(), playerId.toString());
             instance.setCapOverrideKey(playerId.toString());
             return instance;
@@ -159,5 +163,9 @@ public class AttributeFacade {
             throw new IllegalArgumentException("Modifier keys must follow [plugin].[key] format");
         }
         return entry;
+    }
+
+    private String normalize(String id) {
+        return id.toLowerCase(Locale.ROOT);
     }
 }
