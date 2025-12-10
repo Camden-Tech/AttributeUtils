@@ -6,62 +6,91 @@
 # per-stage customization can be added later if needed.
 vanilla-attribute-defaults:
   max-health:
+    bukkit-attributes: [MAX_HEALTH, GENERIC_MAX_HEALTH]
     default-base: 20
   follow-range:
+    bukkit-attributes: [FOLLOW_RANGE, GENERIC_FOLLOW_RANGE]
     default-base: 32
   attack-damage:
+    bukkit-attributes: [ATTACK_DAMAGE, GENERIC_ATTACK_DAMAGE]
     default-base: 1
   attack-knockback:
+    bukkit-attributes: [ATTACK_KNOCKBACK, GENERIC_ATTACK_KNOCKBACK]
     default-base: 0
   attack-speed:
+    bukkit-attributes: [ATTACK_SPEED, GENERIC_ATTACK_SPEED]
     default-base: 4
   movement-speed:
+    bukkit-attributes: [MOVEMENT_SPEED, GENERIC_MOVEMENT_SPEED]
     default-base: 0.1
   flying-speed:
+    bukkit-attributes: [FLYING_SPEED, GENERIC_FLYING_SPEED]
     default-base: 0.4
   armor:
+    bukkit-attributes: [ARMOR, GENERIC_ARMOR]
     default-base: 0
   armor-toughness:
+    bukkit-attributes: [ARMOR_TOUGHNESS, GENERIC_ARMOR_TOUGHNESS]
     default-base: 0
   luck:
+    bukkit-attributes: [LUCK, GENERIC_LUCK]
     default-base: 0
   knockback-resistance:
+    bukkit-attributes: [KNOCKBACK_RESISTANCE, GENERIC_KNOCKBACK_RESISTANCE]
     default-base: 0
   max-hunger:
+    provider: food-level
     default-base: 20
   max-oxygen:
+    provider: maximum-air
     default-base: 20
   oxygen-bonus:
+    bukkit-attributes: [OXYGEN_BONUS, PLAYER_OXYGEN_BONUS]
     default-base: 0
   block-range:
+    bukkit-attributes: [BLOCK_INTERACTION_RANGE, PLAYER_BLOCK_INTERACTION_RANGE]
     default-base: 5
   interaction-range:
+    bukkit-attributes: [ENTITY_INTERACTION_RANGE, PLAYER_ENTITY_INTERACTION_RANGE]
     default-base: 3
   block-break-speed:
+    bukkit-attributes: [BLOCK_BREAK_SPEED, PLAYER_BLOCK_BREAK_SPEED]
     default-base: 1
   mining-efficiency:
+    bukkit-attributes: [MINING_EFFICIENCY, PLAYER_MINING_EFFICIENCY]
     default-base: 1
   gravity:
+    bukkit-attributes: [GRAVITY, GENERIC_GRAVITY]
     default-base: 1
   scale:
+    bukkit-attributes: [SCALE, GENERIC_SCALE]
     default-base: 1
   step-height:
+    bukkit-attributes: [STEP_HEIGHT, GENERIC_STEP_HEIGHT]
     default-base: 0.6
   safe-fall-distance:
+    bukkit-attributes: [SAFE_FALL_DISTANCE, GENERIC_SAFE_FALL_DISTANCE]
     default-base: 3
   fall-damage-multiplier:
+    bukkit-attributes: [FALL_DAMAGE_MULTIPLIER, GENERIC_FALL_DAMAGE_MULTIPLIER]
     default-base: 1
   jump-strength:
+    bukkit-attributes: [JUMP_STRENGTH, GENERIC_JUMP_STRENGTH]
     default-base: 1
   sneaking-speed:
+    bukkit-attributes: [SNEAKING_SPEED, PLAYER_SNEAKING_SPEED]
     default-base: 1
   sprint-speed:
+    bukkit-attributes: [SPRINT_SPEED, PLAYER_SPRINT_SPEED, PLAYER_SPRINTING_SPEED]
     default-base: 1
   swim-speed:
+    bukkit-attributes: [SWIM_SPEED, PLAYER_SWIM_SPEED, GENERIC_SWIM_SPEED]
     default-base: 1
   regeneration-rate:
+    provider: static
     default-base: 1
   damage-reduction:
+    provider: static
     default-base: 0
 
 # Global caps for core attributes
