@@ -19,6 +19,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Handles serialization of {@link AttributeInstance} state to YAML. Baselines for both default and
+ * current layers are stored alongside the last computed default final baseline so static
+ * attributes can keep their current deltas in sync. Modifier entries are written with their
+ * bucket flags so they can be restored into the correct stage buckets during reload. Caps are
+ * respected when loading to prevent persisted values from exceeding configured limits or override
+ * maxima.
+ */
 public class AttributePersistence {
 
     private final Path dataFolder;
@@ -65,6 +73,10 @@ public class AttributePersistence {
         save(config, folder.resolve(playerId.toString() + ".yml"));
     }
 
+    /**
+     * Loads instances into the facade, clamping baselines to cap values for the associated override
+     * key (player ID) and reconstructing modifier buckets with their configured stage flags.
+     */
     private void loadInstances(AttributeFacade facade, ConfigurationSection section, UUID playerId) {
         if (section == null) {
             return;
@@ -103,6 +115,11 @@ public class AttributePersistence {
         }
     }
 
+    /**
+     * Writes the full state of each instance: default/current baselines, the last default final
+     * baseline (used for resynchronizing static attributes), and all modifiers with their bucket
+     * metadata so they can be restored to the same computation stage.
+     */
     private void writeInstances(ConfigurationSection section, Map<String, AttributeInstance> instances) {
         for (Map.Entry<String, AttributeInstance> entry : instances.entrySet()) {
             String attributeId = entry.getKey();

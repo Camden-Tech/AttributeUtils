@@ -15,8 +15,30 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+/**
+ * Responsible for turning attribute state plus modifier buckets into a staged value snapshot.
+ * The engine evaluates in the following order:
+ * <ol>
+ *     <li>Establish the default baseline (global/player/current definition) and clamp to caps.</li>
+ *     <li>Apply default permanent modifiers then default temporary modifiers.</li>
+ *     <li>Synchronize the current baseline with the computed default final value when the
+ *     attribute is static.</li>
+ *     <li>Establish the current baseline (vanilla-aware for dynamic attributes) and clamp.</li>
+ *     <li>Apply current permanent modifiers then current temporary modifiers.</li>
+ *     <li>Clamp after each stage using {@link me.baddcamden.attributeutils.model.CapConfig} to
+ *     respect override keys.</li>
+ * </ol>
+ * Multipliers are multiplied together into a stage multiplier, then additive modifiers are stacked
+ * and multiplied either by the stage multiplier or by the subset referenced in
+ * {@link ModifierEntry#multiplierKeys()} depending on {@link ModifierEntry#useMultiplierKeys()}.
+ */
 public class AttributeComputationEngine {
 
+    /**
+     * Computes all stages for a single attribute, combining global and player modifier buckets.
+     * Caps, defaults and current baselines are resolved in one pass so callers can persist or apply
+     * the staged values directly.
+     */
     public AttributeValueStages compute(AttributeDefinition definition,
                                         AttributeInstance globalInstance,
                                         AttributeInstance playerInstance,

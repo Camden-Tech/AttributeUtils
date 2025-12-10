@@ -6,6 +6,13 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * Describes a single modifier entry and the computation buckets it participates in. A modifier can
+ * target the default layer, the current layer, or both. Additive modifiers apply their amount
+ * after multiplier buckets are compounded; multiplier modifiers contribute to the multiplicative
+ * product for a stage. When {@code useMultiplierKeys} is true the additive amount is multiplied
+ * only by the multipliers whose keys intersect with {@link #multiplierKeys()}.
+ */
 public record ModifierEntry(String key,
                             ModifierOperation operation,
                             double amount,
