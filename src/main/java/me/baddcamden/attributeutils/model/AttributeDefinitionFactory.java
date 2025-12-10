@@ -25,14 +25,14 @@ public final class AttributeDefinitionFactory {
                 "max_health",
                 "Max Health",
                 capConfig(config, "max_health", 100),
-                true,
+                false,
                 defaultBase(config, "max_health", 20)
         ));
         definitions.put("follow_range", cappedAttribute(
                 "follow_range",
                 "Follow Range",
                 capConfig(config, "follow_range", 256),
-                true,
+                false,
                 defaultBase(config, "follow_range", 32)
         ));
         definitions.put("attack_damage", cappedAttribute(
@@ -60,14 +60,14 @@ public final class AttributeDefinitionFactory {
                 "movement_speed",
                 "Movement Speed",
                 capConfig(config, "movement_speed", 1),
-                true,
+                false,
                 defaultBase(config, "movement_speed", 0.1)
         ));
         definitions.put("flying_speed", cappedAttribute(
                 "flying_speed",
                 "Flying Speed",
                 capConfig(config, "flying_speed", 1),
-                true,
+                false,
                 defaultBase(config, "flying_speed", 0.4)
         ));
         definitions.put("armor", cappedAttribute(
@@ -88,7 +88,7 @@ public final class AttributeDefinitionFactory {
                 "luck",
                 "Luck",
                 capConfig(config, "luck", 1024),
-                true,
+                false,
                 defaultBase(config, "luck", 0)
         ));
         definitions.put("knockback_resistance", cappedAttribute(
@@ -102,21 +102,21 @@ public final class AttributeDefinitionFactory {
                 "max_hunger",
                 "Max Hunger",
                 capConfig(config, "max_hunger", defaultBase(config, "max_hunger", 20)),
-                true,
+                false,
                 defaultBase(config, "max_hunger", 20)
         ));
         definitions.put("max_oxygen", cappedAttribute(
                 "max_oxygen",
                 "Max Oxygen",
                 capConfig(config, "max_oxygen", defaultBase(config, "max_oxygen", 20)),
-                true,
+                false,
                 defaultBase(config, "max_oxygen", 20)
         ));
         definitions.put("oxygen_bonus", cappedAttribute(
                 "oxygen_bonus",
                 "Oxygen Bonus",
                 capConfig(config, "oxygen_bonus", 60),
-                true,
+                false,
                 defaultBase(config, "oxygen_bonus", 0)
         ));
         definitions.put("block_range", cappedAttribute(
@@ -137,7 +137,7 @@ public final class AttributeDefinitionFactory {
                 "block_break_speed",
                 "Block Break Speed",
                 capConfig(config, "block_break_speed", 1024),
-                true,
+                false,
                 defaultBase(config, "block_break_speed", 1)
         ));
         definitions.put("mining_efficiency", cappedAttribute(
@@ -151,70 +151,70 @@ public final class AttributeDefinitionFactory {
                 "gravity",
                 "Gravity",
                 capConfig(config, "gravity", 10),
-                true,
+                false,
                 defaultBase(config, "gravity", 1)
         ));
         definitions.put("scale", cappedAttribute(
                 "scale",
                 "Scale",
                 capConfig(config, "scale", 10),
-                true,
+                false,
                 defaultBase(config, "scale", 1)
         ));
         definitions.put("step_height", cappedAttribute(
                 "step_height",
                 "Step Height",
                 capConfig(config, "step_height", 5),
-                true,
+                false,
                 defaultBase(config, "step_height", 0.6)
         ));
         definitions.put("safe_fall_distance", cappedAttribute(
                 "safe_fall_distance",
                 "Safe Fall Distance",
                 capConfig(config, "safe_fall_distance", 256),
-                true,
+                false,
                 defaultBase(config, "safe_fall_distance", 3)
         ));
         definitions.put("fall_damage_multiplier", cappedAttribute(
                 "fall_damage_multiplier",
                 "Fall Damage Multiplier",
                 capConfig(config, "fall_damage_multiplier", 10),
-                true,
+                false,
                 defaultBase(config, "fall_damage_multiplier", 1)
         ));
         definitions.put("jump_strength", cappedAttribute(
                 "jump_strength",
                 "Jump Strength",
                 capConfig(config, "jump_strength", 5),
-                true,
+                false,
                 defaultBase(config, "jump_strength", 1)
         ));
         definitions.put("sneaking_speed", cappedAttribute(
                 "sneaking_speed",
                 "Sneaking Speed",
                 capConfig(config, "sneaking_speed", 4),
-                true,
+                false,
                 defaultBase(config, "sneaking_speed", 1)
         ));
         definitions.put("sprint_speed", cappedAttribute(
                 "sprint_speed",
                 "Sprint Speed",
                 capConfig(config, "sprint_speed", 4),
-                true,
+                false,
                 defaultBase(config, "sprint_speed", 1)
         ));
         definitions.put("swim_speed", cappedAttribute(
                 "swim_speed",
                 "Swim Speed",
                 capConfig(config, "swim_speed", 4),
-                true,
+                false,
                 defaultBase(config, "swim_speed", 1)
         ));
         definitions.put("regeneration_rate", cappedAttribute(
                 "regeneration_rate",
                 "Regeneration Rate",
                 capConfig(config, "regeneration_rate", 100),
-                true,
+                false,
                 defaultBase(config, "regeneration_rate", 1)
         ));
         definitions.put("damage_reduction", cappedAttribute(
