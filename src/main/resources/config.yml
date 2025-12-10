@@ -30,3 +30,14 @@ custom-attribute-defaults:
 # Custom attribute loading
 load-custom-attributes-from-folder: true
 custom-attributes-folder: custom-attributes
+
+messages:
+  item-command:
+    no-permission: "&cYou do not have permission to generate attribute items."
+    usage: "&eUsage: /{label} <player> <material> <plugin.key> <value> [cap=<cap> ...]"
+    player-offline: "&cPlayer '{player}' is not online."
+    invalid-material: "&cUnknown material '{material}'."
+    unsupported-material: "&cThat material cannot hold attribute data."
+    unknown-attribute: "&cUnknown attribute '{attribute}'."
+    item-given: "&aGave {player} a {material} with attributes: {attributes}."
+    item-dropped: "&e{player}'s inventory was full; dropped a {material} with attributes: {attributes} at their feet."
