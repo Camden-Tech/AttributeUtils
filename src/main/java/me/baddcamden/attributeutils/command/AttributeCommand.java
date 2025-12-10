@@ -14,20 +14,51 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Command entrypoint for the plugin's {@code /attribute} command.
+ * <p>
+ * <ul>
+ *     <li>If executed by a player without arguments, it lists every registered attribute and
+ *     the player's computed values using {@link AttributeFacade#compute(String, Player)}.</li>
+ *     <li>If executed with {@code reload}, it reloads plugin configuration when the sender has
+ *     the {@code attributeutils.reload} permission.</li>
+ *     <li>Console senders are only able to reload; they are shown an informational message when
+ *     attempting to view player-focused attribute details.</li>
+ * </ul>
+ */
 public class AttributeCommand implements CommandExecutor, TabCompleter {
 
     private final AttributeFacade attributeFacade;
     private final Plugin plugin;
     private final CommandMessages messages;
 
+    /**
+     * Creates a new command handler wired to the attribute facade and plugin instance.
+     *
+     * @param attributeFacade facade used to access definitions and compute values.
+     * @param plugin          owning plugin used for configuration reloads and message formatting.
+     */
     public AttributeCommand(AttributeFacade attributeFacade, Plugin plugin) {
         this.attributeFacade = attributeFacade;
         this.plugin = plugin;
         this.messages = new CommandMessages(plugin);
     }
 
+    /**
+     * Executes the {@code /attribute} command.
+     *
+     * @param sender  command executor; reload is available to any sender with permission, but
+     *                attribute listings require an in-game {@link Player}.
+     * @param command command instance provided by Bukkit.
+     * @param label   label used to invoke the command.
+     * @param args    command arguments; if the first argument is {@code reload}, the plugin
+     *                configuration is refreshed.
+     * @return {@code true} to indicate the command was handled for both player and console
+     *         contexts.
+     */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        // Handle reload explicitly first to avoid evaluating sender type when unnecessary.
         if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
             if (!sender.hasPermission("attributeutils.reload")) {
                 sender.sendMessage(messages.format(
@@ -60,6 +91,21 @@ public class AttributeCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /**
+     * Builds the formatted output line for a player's attribute values.
+     *
+     * @param displayName human-friendly attribute display name.
+     * @param stages      computed stages for the player. Assumes {@link AttributeValueStages}
+     *                    provides raw and final values for both default (base) and current
+     *                    (including modifiers) states.
+     * @return formatted line including:
+     * <ul>
+     *     <li>{@code rawDefault}: base value before defaults are finalized.</li>
+     *     <li>{@code default}: finalized default value.</li>
+     *     <li>{@code rawCurrent}: current raw value before final modifiers.</li>
+     *     <li>{@code final}: finalized current value.</li>
+     * </ul>
+     */
     private String buildPlayerLine(String displayName, AttributeValueStages stages) {
         return ChatColor.GRAY + " - " + displayName + ChatColor.WHITE +
                 " rawDefault=" + stages.rawDefault() +
@@ -68,8 +114,21 @@ public class AttributeCommand implements CommandExecutor, TabCompleter {
                 " final=" + stages.currentFinal();
     }
 
+    /**
+     * Provides tab completion suggestions for the command.
+     *
+     * @param sender  command executor; only those with {@code attributeutils.reload} permission
+     *                receive the reload suggestion.
+     * @param command command instance provided by Bukkit.
+     * @param alias   alias used to invoke the command.
+     * @param args    current arguments; suggestions are offered only for the first argument when
+     *                it partially matches {@code reload}.
+     * @return singleton list containing {@code reload} when eligible, otherwise an empty list.
+     */
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        // Tab completion only exposes "reload" when the argument is in the first position,
+        // the sender has permission, and the partial input matches the literal.
         if (args.length == 1
                 && sender.hasPermission("attributeutils.reload")
                 && "reload".toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT))) {
