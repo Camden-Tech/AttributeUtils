@@ -99,6 +99,10 @@ public final class CommandParsingUtils {
 
     public record NamespacedAttributeKey(String plugin, String key) {
 
+        public String key() {
+            return key;
+        }
+
         public String asString() {
             return plugin + "." + key;
         }
