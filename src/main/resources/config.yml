@@ -31,6 +31,10 @@ custom-attribute-defaults:
 load-custom-attributes-from-folder: true
 custom-attributes-folder: custom-attributes
 
+entity-command:
+  disallowed-entities:
+    - PLAYER
+
 messages:
   item-command:
     no-permission: "&cYou do not have permission to generate attribute items."
@@ -41,3 +45,13 @@ messages:
     unknown-attribute: "&cUnknown attribute '{attribute}'."
     item-given: "&aGave {player} a {material} with attributes: {attributes}."
     item-dropped: "&e{player}'s inventory was full; dropped a {material} with attributes: {attributes} at their feet."
+  entity-command:
+    no-permission: "&cYou do not have permission to spawn attributed entities."
+    invalid-sender: "&cOnly players can spawn attributed entities."
+    usage: "&eUsage: /{label} <entityType> <plugin.key> <value> [cap=<cap> ...]"
+    invalid-entity: "&cUnknown entity type '{entity}'."
+    disallowed-entity: "&cThat entity type cannot be spawned with attributes."
+    missing-world: "&cCould not resolve your world to spawn the entity."
+    unknown-attribute: "&cUnknown attribute '{attribute}'."
+    spawn-failed: "&cAn error occurred while spawning the entity."
+    spawned: "&aSpawned {entity} with attributes: {attributes}."
