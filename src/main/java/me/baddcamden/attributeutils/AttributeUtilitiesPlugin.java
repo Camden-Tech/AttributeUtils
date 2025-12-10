@@ -152,17 +152,51 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     private VanillaAttributeSupplier createDynamicSupplier(String attributeId, Attribute attribute, double defaultBase) {
         switch (attributeId) {
-            case "attack_damage":
-            case "attack_knockback":
-            case "attack_speed":
             case "armor":
+                return player -> resolveArmorValue(player, attribute, defaultBase);
             case "armor_toughness":
+                return player -> resolveArmorToughnessValue(player, attribute, defaultBase);
             case "knockback_resistance":
-                Attribute finalAttribute = attribute;
-                return player -> getAttributeValue(player, finalAttribute, defaultBase);
+                return player -> resolveKnockbackResistanceValue(player, attribute, defaultBase);
+            case "attack_damage":
+                return player -> resolveAttackDamage(player, attribute, defaultBase);
+            case "attack_knockback":
+                return player -> resolveAttackKnockback(player, attribute, defaultBase);
+            case "attack_speed":
+                return player -> resolveAttackSpeed(player, attribute, defaultBase);
             default:
                 return null;
         }
+    }
+
+    private double resolveArmorValue(Player player, Attribute configuredAttribute, double fallback) {
+        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ARMOR;
+        return getAttributeValue(player, target, fallback);
+    }
+
+    private double resolveArmorToughnessValue(Player player, Attribute configuredAttribute, double fallback) {
+        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ARMOR_TOUGHNESS;
+        return getAttributeValue(player, target, fallback);
+    }
+
+    private double resolveKnockbackResistanceValue(Player player, Attribute configuredAttribute, double fallback) {
+        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_KNOCKBACK_RESISTANCE;
+        return getAttributeValue(player, target, fallback);
+    }
+
+    private double resolveAttackDamage(Player player, Attribute configuredAttribute, double fallback) {
+        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ATTACK_DAMAGE;
+        return getAttributeValue(player, target, fallback);
+    }
+
+    private double resolveAttackKnockback(Player player, Attribute configuredAttribute, double fallback) {
+        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ATTACK_KNOCKBACK;
+        return getAttributeValue(player, target, fallback);
+    }
+
+    private double resolveAttackSpeed(Player player, Attribute configuredAttribute, double fallback) {
+        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ATTACK_SPEED;
+        return getAttributeValue(player, target, fallback);
     }
 
     private double computeEquipmentAttribute(Player player, Attribute attribute, double fallback) {
