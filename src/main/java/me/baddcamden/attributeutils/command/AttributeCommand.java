@@ -1,5 +1,6 @@
 package me.baddcamden.attributeutils.command;
 
+import me.baddcamden.attributeutils.AttributeUtilitiesPlugin;
 import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
 import org.bukkit.ChatColor;
@@ -8,7 +9,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,7 +29,7 @@ import java.util.Locale;
 public class AttributeCommand implements CommandExecutor, TabCompleter {
 
     private final AttributeFacade attributeFacade;
-    private final Plugin plugin;
+    private final AttributeUtilitiesPlugin plugin;
     private final CommandMessages messages;
 
     /**
@@ -38,7 +38,7 @@ public class AttributeCommand implements CommandExecutor, TabCompleter {
      * @param attributeFacade facade used to access definitions and compute values.
      * @param plugin          owning plugin used for configuration reloads and message formatting.
      */
-    public AttributeCommand(AttributeFacade attributeFacade, Plugin plugin) {
+    public AttributeCommand(AttributeFacade attributeFacade, AttributeUtilitiesPlugin plugin) {
         this.attributeFacade = attributeFacade;
         this.plugin = plugin;
         this.messages = new CommandMessages(plugin);
@@ -67,7 +67,7 @@ public class AttributeCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            plugin.reloadConfig();
+            plugin.reloadAttributes();
             sender.sendMessage(messages.format(
                     "messages.attribute-command.reload-success",
                     "§aAttribute configuration reloaded."));
