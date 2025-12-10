@@ -8,6 +8,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Utility methods for building {@link AttributeDefinition} instances from configuration. The
+ * helpers mirror the engine's concepts: each definition has a default baseline, optional
+ * dynamic current baseline, and cap configuration that can be overridden via keyed entries.
+ */
 public final class AttributeDefinitionFactory {
 
     private AttributeDefinitionFactory() {
@@ -222,6 +227,11 @@ public final class AttributeDefinitionFactory {
         return definitions;
     }
 
+    /**
+     * Registers capped attributes found in configuration with the provided consumer. Each entry is
+     * converted into a {@link CapConfig} that respects per-key overrides so callers can map
+     * override keys (such as player identifiers) to distinct maxima.
+     */
     public static void registerConfigCaps(AttributeServiceConsumer consumer, ConfigurationSection caps) {
         registerConfigCaps(consumer, caps, Set.of());
     }

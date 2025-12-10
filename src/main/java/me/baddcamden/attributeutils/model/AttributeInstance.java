@@ -1,17 +1,44 @@
 package me.baddcamden.attributeutils.model;
 
-import me.baddcamden.attributeutils.model.CapConfig;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Holds the mutable state for a single attribute, including the baseline values and the
+ * individual modifier buckets used during computation.
+ *
+ * <p>Baselines come in two flavours:
+ * <ul>
+ *     <li><strong>Default</strong>: the configured base and its computed final value, used as
+ *     the reference point for all players.</li>
+ *     <li><strong>Current</strong>: the live base value for a specific player/global instance.
+ *     For static attributes the current baseline tracks the default baseline via
+ *     {@link #synchronizeCurrentBaseWithDefault(double, CapConfig)} so persisted deltas remain
+ *     meaningful after recomputation.</li>
+ * </ul></p>
+ *
+ * <p>Modifiers are split into additive and multiplicative buckets for both the default and
+ * current layers, and further divided into permanent and temporary buckets. This mirrors the
+ * computation stages in {@code AttributeComputationEngine}: permanent buckets run before
+ * temporary ones, and default buckets run before current buckets. Multipliers are always
+ * re-applied to additive stacks so the owning engine can reproduce vanilla-style stacking.</p>
+ */
 public final class AttributeInstance {
 
     private final AttributeDefinition definition;
     private double defaultBaseValue;
     private double currentBaseValue;
+    /**
+     * Cached result of the last default computation. Used to adjust the current baseline by
+     * the same delta when static attributes change so the persisted "current" deltas keep
+     * matching player-visible values.
+     */
     private double defaultFinalBaseline;
+    /**
+     * All registered modifiers keyed by normalized key. Buckets below hold references to the same
+     * entries to avoid duplication.
+     */
     private final Map<String, ModifierEntry> modifiers = new LinkedHashMap<>();
     private final Map<String, ModifierEntry> defaultPermanentAdditives = new LinkedHashMap<>();
     private final Map<String, ModifierEntry> defaultTemporaryAdditives = new LinkedHashMap<>();
@@ -108,6 +135,11 @@ public final class AttributeInstance {
         return Map.copyOf(currentTemporaryMultipliers);
     }
 
+    /**
+     * Registers a modifier and distributes it into the appropriate buckets for both the default
+     * and current stages. Buckets only retain a single entry per key; calling this method again
+     * with the same key replaces the previous modifier everywhere.
+     */
     public void addModifier(ModifierEntry modifier) {
         Objects.requireNonNull(modifier, "modifier");
         String key = modifier.key().toLowerCase();
@@ -117,6 +149,10 @@ public final class AttributeInstance {
         addToBucket(key, modifier, false);
     }
 
+    /**
+     * Removes a modifier from the flat map and from every bucket. Safe to call with unknown or
+     * null keys.
+     */
     public void removeModifier(String key) {
         if (key == null) {
             return;
@@ -152,6 +188,11 @@ public final class AttributeInstance {
         synchronizeCurrentBaseWithDefault(defaultFinal, definition.capConfig());
     }
 
+    /**
+     * Adjusts the current baseline by the same delta applied to the default baseline during
+     * computation, then clamps using the provided cap config and override key. This keeps current
+     * values that were previously persisted in line with recalculated defaults.
+     */
     public void synchronizeCurrentBaseWithDefault(double defaultFinal, CapConfig capConfig) {
         double delta = defaultFinal - defaultFinalBaseline;
         if (Math.abs(delta) < 1.0E-9) {

@@ -5,6 +5,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Controls which multiplier modifiers can participate in a computation. This allows attribute
+ * definitions to opt-in to specific multiplier buckets or opt-out of unwanted ones while still
+ * keeping additive modifiers intact.
+ */
 public record MultiplierApplicability(boolean applyAll, Set<String> allowedKeys, Set<String> ignoredKeys) {
 
     public MultiplierApplicability {

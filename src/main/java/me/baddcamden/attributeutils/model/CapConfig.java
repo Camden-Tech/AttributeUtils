@@ -3,6 +3,11 @@ package me.baddcamden.attributeutils.model;
 import java.util.Collections;
 import java.util.Map;
 
+/**
+ * Cap configuration for an attribute. Caps are applied after each computation stage to enforce a
+ * min/max range. The {@code overrideMaxValues} map allows specific contexts (e.g., player IDs) to
+ * supply alternative maxima while the global minimum always applies.
+ */
 public record CapConfig(double globalMin, double globalMax, Map<String, Double> overrideMaxValues) {
 
     public CapConfig {
