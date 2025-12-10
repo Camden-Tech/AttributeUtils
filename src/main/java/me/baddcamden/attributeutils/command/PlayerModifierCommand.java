@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,7 +46,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> <add|remove> <plugin.key> [amount] [durationSeconds]"));
+                    "§eUsage: /" + label + " <player> <add|remove> ..."));
             return true;
         }
 
@@ -68,11 +69,11 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleAdd(CommandSender sender, String label, String targetName, String[] args) {
-        if (args.length < 4) {
+        if (args.length < 6) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage-add",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> add <plugin.key> <amount> [durationSeconds] [multipliers=key1,key2]"));
+                    "§eUsage: /" + label + " <player> add <plugin.key> <modifierKey> <add|multiply> <amount> [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"));
             return true;
         }
 
@@ -85,13 +86,16 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[2], messages);
-        Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[3], "modifier amount", messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[3], messages);
+        Optional<ModifierOperation> operation = CommandParsingUtils.parseOperation(sender, args[4], messages);
+        Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[5], "modifier amount", messages);
         Optional<Double> durationSeconds = Optional.empty();
+        CommandParsingUtils.Scope scope = CommandParsingUtils.Scope.BOTH;
         boolean useMultiplierKeys = false;
         Set<String> multiplierKeys = Collections.emptySet();
 
-        for (int index = 4; index < args.length; index++) {
+        for (int index = 6; index < args.length; index++) {
             String arg = args[index];
             if (arg.startsWith("multipliers=")) {
                 String[] parts = arg.substring("multipliers=".length()).split(",");
@@ -102,6 +106,15 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                         .forEach(part -> parsedKeys.add(part.toLowerCase()));
                 useMultiplierKeys = true;
                 multiplierKeys = parsedKeys.isEmpty() ? Collections.emptySet() : parsedKeys;
+                continue;
+            }
+
+            if (arg.startsWith("scope=")) {
+                Optional<CommandParsingUtils.Scope> parsedScope = CommandParsingUtils.parseScope(sender, arg.substring("scope=".length()), messages);
+                if (parsedScope.isEmpty()) {
+                    return true;
+                }
+                scope = parsedScope.get();
                 continue;
             }
 
@@ -125,31 +138,31 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        if (key.isEmpty() || amount.isEmpty()) {
+        if (attributeKey.isEmpty() || modifierKey.isEmpty() || amount.isEmpty() || operation.isEmpty()) {
             return true;
         }
 
         if (amount.get() < 0) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.negative-amount",
-                    java.util.Map.of("amount", args[3]),
+                    java.util.Map.of("amount", args[5]),
                     "§cModifier amounts must be zero or positive."));
             return true;
         }
 
-        if (attributeFacade.getDefinition(key.get().key()).isEmpty()) {
+        if (attributeFacade.getDefinition(attributeKey.get().key()).isEmpty()) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.unknown-attribute",
-                    java.util.Map.of("attribute", key.get().asString()),
-                    "§cUnknown attribute '" + key.get().asString() + "'."));
+                    java.util.Map.of("attribute", attributeKey.get().asString()),
+                    "§cUnknown attribute '" + attributeKey.get().asString() + "'."));
             return true;
         }
 
-        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false, true, useMultiplierKeys, multiplierKeys);
-        attributeFacade.setPlayerModifier(target.getUniqueId(), key.get().key(), entry);
+        ModifierEntry entry = new ModifierEntry(modifierKey.get().asString(), operation.get(), amount.get(), durationSeconds.isPresent(), scope.appliesToDefault(), scope.appliesToCurrent(), useMultiplierKeys, multiplierKeys);
+        attributeFacade.setPlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry);
 
         durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,
-                () -> attributeFacade.removePlayerModifier(target.getUniqueId(), key.get().key(), entry.key()),
+                () -> attributeFacade.removePlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry.key()),
                 (long) (seconds * 20)));
 
         String durationLabel = durationSeconds.map(value -> value + "s temporary").orElse("permanent");
@@ -157,10 +170,13 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 "messages.modifier-command.added",
                 java.util.Map.of(
                         "amount", String.valueOf(amount.get()),
-                        "attribute", key.get().asString(),
+                        "attribute", attributeKey.get().asString(),
                         "player", target.getName(),
-                        "duration", durationLabel),
-                ChatColor.GREEN + "Applied a " + amount.get() + " modifier to " + key.get().asString()
+                        "duration", durationLabel,
+                        "modifier", modifierKey.get().asString(),
+                        "operation", operation.get().name()),
+                ChatColor.GREEN + "Applied a " + amount.get() + " " + operation.get().name().toLowerCase(Locale.ROOT)
+                        + " modifier (" + modifierKey.get().asString() + ") to " + attributeKey.get().asString()
                         + " for player " + target.getName() + " (" + durationLabel + ")."));
         return true;
     }
@@ -175,32 +191,33 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length < 3) {
+        if (args.length < 4) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage-remove",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> remove <plugin.key>"));
+                    "§eUsage: /" + label + " <player> remove <plugin.key> <modifierKey>"));
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[2], messages);
-        if (key.isEmpty()) {
+        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[3], messages);
+        if (attributeKey.isEmpty() || modifierKey.isEmpty()) {
             return true;
         }
 
-        if (attributeFacade.getDefinition(key.get().key()).isEmpty()) {
+        if (attributeFacade.getDefinition(attributeKey.get().key()).isEmpty()) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.unknown-attribute",
-                    java.util.Map.of("attribute", key.get().asString()),
-                    "§cUnknown attribute '" + key.get().asString() + "'."));
+                    java.util.Map.of("attribute", attributeKey.get().asString()),
+                    "§cUnknown attribute '" + attributeKey.get().asString() + "'."));
             return true;
         }
 
-        attributeFacade.removePlayerModifier(target.getUniqueId(), key.get().key(), key.get().asString());
+        attributeFacade.removePlayerModifier(target.getUniqueId(), attributeKey.get().key(), modifierKey.get().asString());
         sender.sendMessage(messages.format(
                 "messages.modifier-command.removed",
-                java.util.Map.of("attribute", key.get().asString(), "player", target.getName()),
-                ChatColor.GREEN + "Removed modifiers for " + key.get().asString() + " from player "
+                java.util.Map.of("attribute", attributeKey.get().asString(), "player", target.getName(), "modifier", modifierKey.get().asString()),
+                ChatColor.GREEN + "Removed modifier " + modifierKey.get().asString() + " for " + attributeKey.get().asString() + " from player "
                         + target.getName() + "."));
         return true;
     }
@@ -220,15 +237,27 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 4 && args[1].equalsIgnoreCase("add")) {
-            return Collections.singletonList("1");
+            return filter(attributeKeys(), args[3]);
+        }
+
+        if (args.length == 4 && args[1].equalsIgnoreCase("remove")) {
+            return filter(attributeKeys(), args[3]);
         }
 
         if (args.length == 5 && args[1].equalsIgnoreCase("add")) {
+            return filter(List.of("add", "multiply"), args[4]);
+        }
+
+        if (args.length == 6 && args[1].equalsIgnoreCase("add")) {
+            return Collections.singletonList("1");
+        }
+
+        if (args.length == 7 && args[1].equalsIgnoreCase("add")) {
             return Collections.singletonList("60");
         }
 
-        if (args.length >= 5 && args[1].equalsIgnoreCase("add")) {
-            return filter(Collections.singletonList("multipliers="), args[args.length - 1]);
+        if (args.length >= 7 && args[1].equalsIgnoreCase("add")) {
+            return filter(List.of("scope=", "multipliers="), args[args.length - 1]);
         }
 
         return Collections.emptyList();

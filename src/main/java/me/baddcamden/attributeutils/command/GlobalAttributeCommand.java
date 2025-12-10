@@ -35,26 +35,43 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length < 2) {
+        if (args.length < 1) {
             sender.sendMessage(messages.format(
                     "messages.global-command.usage",
                     Map.of("label", label),
-                    "§eUsage: /" + label + " <plugin.key> <baseValue> [cap=<capValue>]"));
+                    "§eUsage: /" + label + " <default|current|base|cap> ..."));
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[0], messages);
-        Optional<Double> baseValue = CommandParsingUtils.parseNumeric(sender, args[1], "base value", messages);
-        Double capOverride = null;
-        if (args.length >= 3) {
-            Optional<Double> cap = CommandParsingUtils.parseCapOverride(sender, args[2], messages);
-            if (cap.isEmpty()) {
+        String action = args[0].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "default":
+            case "current":
+            case "base":
+                return handleValueUpdate(sender, label, action, args);
+            case "cap":
+                return handleCapUpdate(sender, label, args);
+            default:
+                sender.sendMessage(messages.format(
+                        "messages.global-command.unknown-action",
+                        Map.of("action", args[0], "label", label),
+                        ChatColor.YELLOW + "Usage: /" + label + " <default|current|base|cap> ..."));
                 return true;
-            }
-            capOverride = cap.get();
+        }
+    }
+
+    private boolean handleValueUpdate(CommandSender sender, String label, String action, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.usage-value",
+                    Map.of("label", label, "action", action),
+                    "§eUsage: /" + label + " " + action + " <plugin.key> <value>"));
+            return true;
         }
 
-        if (key.isEmpty() || baseValue.isEmpty()) {
+        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[1], messages);
+        Optional<Double> value = CommandParsingUtils.parseNumeric(sender, args[2], "base value", messages);
+        if (key.isEmpty() || value.isEmpty()) {
             return true;
         }
 
@@ -67,7 +84,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (baseValue.get() < definition.capConfig().globalMin()) {
+        if (value.get() < definition.capConfig().globalMin()) {
             sender.sendMessage(messages.format(
                     "messages.global-command.negative-base",
                     Map.of("attribute", key.get().asString(), "minimum", String.valueOf(definition.capConfig().globalMin())),
@@ -75,32 +92,81 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        double base = definition.capConfig().clamp(baseValue.get(), null);
-        attributeFacade.getOrCreateGlobalInstance(definition.id()).setBaseValue(base);
-        if (capOverride != null) {
-            // update override map by replacing entry
-            definition.capConfig().overrideMaxValues().put(key.get().key(), capOverride);
+        double clamped = definition.capConfig().clamp(value.get(), null);
+        switch (action) {
+            case "default":
+                attributeFacade.getOrCreateGlobalInstance(definition.id()).setDefaultBaseValue(clamped);
+                break;
+            case "current":
+                attributeFacade.getOrCreateGlobalInstance(definition.id()).setCurrentBaseValue(clamped);
+                break;
+            default:
+                attributeFacade.getOrCreateGlobalInstance(definition.id()).setBaseValue(clamped);
+                break;
         }
 
         sender.sendMessage(messages.format(
                 "messages.global-command.updated",
-                Map.of("attribute", key.get().asString(), "value", String.valueOf(base)),
-                ChatColor.GREEN + "Global base for " + key.get().asString() + " set to " + base + "."));
+                Map.of("attribute", key.get().asString(), "value", String.valueOf(clamped)),
+                ChatColor.GREEN + "Global base for " + key.get().asString() + " set to " + clamped + "."));
+        return true;
+    }
+
+    private boolean handleCapUpdate(CommandSender sender, String label, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.usage-cap",
+                    Map.of("label", label),
+                    "§eUsage: /" + label + " cap <plugin.key> <capValue>"));
+            return true;
+        }
+
+        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[1], messages);
+        Optional<Double> capValue = CommandParsingUtils.parseNumeric(sender, args[2], "cap value", messages);
+        if (key.isEmpty() || capValue.isEmpty()) {
+            return true;
+        }
+
+        AttributeDefinition definition = attributeFacade.getDefinition(key.get().key()).orElse(null);
+        if (definition == null) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.unknown-attribute",
+                    Map.of("attribute", key.get().asString()),
+                    "§cUnknown attribute: " + key.get().key()));
+            return true;
+        }
+
+        if (capValue.get() < definition.capConfig().globalMin()) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.cap-below-min",
+                    Map.of("attribute", key.get().asString(), "minimum", String.valueOf(definition.capConfig().globalMin())),
+                    "§cCaps cannot be below the global minimum."));
+            return true;
+        }
+
+        definition.capConfig().overrideMaxValues().put(key.get().key(), capValue.get());
+        sender.sendMessage(messages.format(
+                "messages.global-command.cap-updated",
+                Map.of("attribute", key.get().asString(), "value", String.valueOf(capValue.get())),
+                ChatColor.GREEN + "Cap override for " + key.get().asString() + " set to " + capValue.get() + "."));
         return true;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(attributeKeys(), args[0]);
+            return filter(List.of("default", "current", "base", "cap"), args[0]);
         }
 
         if (args.length == 2) {
-            return Collections.singletonList("0");
+            return filter(attributeKeys(), args[1]);
         }
 
         if (args.length == 3) {
-            return filter(Collections.singletonList("cap="), args[2]);
+            if (args[0].equalsIgnoreCase("cap")) {
+                return Collections.singletonList("1");
+            }
+            return Collections.singletonList("0");
         }
 
         return Collections.emptyList();
