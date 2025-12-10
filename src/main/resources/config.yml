@@ -1,21 +1,102 @@
 # Default attribute utility configuration
 
+# Vanilla attribute defaults
+# Each entry seeds both the global and player baselines for the built-in
+# attributes listed below. Values are mirrored to base/current by default;
+# per-stage customization can be added later if needed.
+vanilla-attribute-defaults:
+  max-health:
+    default-base: 20
+  follow-range:
+    default-base: 32
+  attack-damage:
+    default-base: 1
+  attack-knockback:
+    default-base: 0
+  attack-speed:
+    default-base: 4
+  movement-speed:
+    default-base: 0.1
+  flying-speed:
+    default-base: 0.4
+  armor:
+    default-base: 0
+  armor-toughness:
+    default-base: 0
+  luck:
+    default-base: 0
+  knockback-resistance:
+    default-base: 0
+  max-hunger:
+    default-base: 20
+  max-oxygen:
+    default-base: 20
+  oxygen-bonus:
+    default-base: 0
+  block-range:
+    default-base: 5
+  interaction-range:
+    default-base: 3
+  block-break-speed:
+    default-base: 1
+  mining-efficiency:
+    default-base: 1
+  gravity:
+    default-base: 1
+  scale:
+    default-base: 1
+  step-height:
+    default-base: 0.6
+  safe-fall-distance:
+    default-base: 3
+  fall-damage-multiplier:
+    default-base: 1
+  jump-strength:
+    default-base: 1
+  sneaking-speed:
+    default-base: 1
+  sprint-speed:
+    default-base: 1
+  swim-speed:
+    default-base: 1
+  regeneration-rate:
+    default-base: 1
+  damage-reduction:
+    default-base: 0
+
 # Global caps for core attributes
+# Caps can be supplied as a scalar (max only) or a section with `min`,
+# `max`, and optional `overrides:` map entries for keyed caps.
 global-attribute-caps:
+  max-health: 100
+  follow-range: 256
   attack-damage: 100
-  armor: 100
-  movement-speed: 100
+  attack-knockback: 10
+  attack-speed: 40
+  movement-speed: 1
+  flying-speed: 1
+  armor: 40
+  armor-toughness: 20
+  luck: 1024
+  knockback-resistance: 1
+  max-hunger: 40
+  max-oxygen: 40
+  oxygen-bonus: 60
   block-range: 128
   interaction-range: 64
+  block-break-speed: 1024
   mining-efficiency: 1024
   gravity: 10
   scale: 10
+  step-height: 5
+  safe-fall-distance: 256
+  fall-damage-multiplier: 10
+  jump-strength: 5
+  sneaking-speed: 4
+  sprint-speed: 4
+  swim-speed: 4
   regeneration-rate: 100
   damage-reduction: 1
-
-# Player sustain values
-max-hunger: 20
-max-oxygen: 20
 
 # Sample custom attributes
 custom-attribute-defaults:

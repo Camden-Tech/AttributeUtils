@@ -1,4 +1,59 @@
 attributes:
+  max_health:
+    default-base: 20
+    current-base: 20
+    default-final-baseline: 20
+    modifiers: {}
+  follow_range:
+    default-base: 32
+    current-base: 32
+    default-final-baseline: 32
+    modifiers: {}
+  attack_damage:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  attack_knockback:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
+  attack_speed:
+    default-base: 4
+    current-base: 4
+    default-final-baseline: 4
+    modifiers: {}
+  movement_speed:
+    default-base: 0.1
+    current-base: 0.1
+    default-final-baseline: 0.1
+    modifiers: {}
+  flying_speed:
+    default-base: 0.4
+    current-base: 0.4
+    default-final-baseline: 0.4
+    modifiers: {}
+  armor:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
+  armor_toughness:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
+  luck:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
+  knockback_resistance:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
   max_hunger:
     default-base: 20
     current-base: 20
@@ -9,6 +64,11 @@ attributes:
     current-base: 20
     default-final-baseline: 20
     modifiers: {}
+  oxygen_bonus:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
   block_range:
     default-base: 5
     current-base: 5
@@ -18,6 +78,11 @@ attributes:
     default-base: 3
     current-base: 3
     default-final-baseline: 3
+    modifiers: {}
+  block_break_speed:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
     modifiers: {}
   mining_efficiency:
     default-base: 1
@@ -30,6 +95,41 @@ attributes:
     default-final-baseline: 1
     modifiers: {}
   scale:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  step_height:
+    default-base: 0.6
+    current-base: 0.6
+    default-final-baseline: 0.6
+    modifiers: {}
+  safe_fall_distance:
+    default-base: 3
+    current-base: 3
+    default-final-baseline: 3
+    modifiers: {}
+  fall_damage_multiplier:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  jump_strength:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  sneaking_speed:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  sprint_speed:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  swim_speed:
     default-base: 1
     current-base: 1
     default-final-baseline: 1

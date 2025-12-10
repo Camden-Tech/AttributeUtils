@@ -73,15 +73,32 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     private void registerVanillaBaselines() {
         attributeFacade.registerVanillaBaseline("max_health", player -> getAttributeValue(player, resolveAttribute("MAX_HEALTH", "GENERIC_MAX_HEALTH"), 20));
+        attributeFacade.registerVanillaBaseline("follow_range", player -> getAttributeValue(player, resolveAttribute("FOLLOW_RANGE", "GENERIC_FOLLOW_RANGE"), 32));
         attributeFacade.registerVanillaBaseline("attack_damage", player -> getAttributeValue(player, resolveAttribute("ATTACK_DAMAGE", "GENERIC_ATTACK_DAMAGE"), 1));
+        attributeFacade.registerVanillaBaseline("attack_knockback", player -> getAttributeValue(player, resolveAttribute("ATTACK_KNOCKBACK", "GENERIC_ATTACK_KNOCKBACK"), 0));
         attributeFacade.registerVanillaBaseline("attack_speed", player -> getAttributeValue(player, resolveAttribute("ATTACK_SPEED", "GENERIC_ATTACK_SPEED"), 4));
         attributeFacade.registerVanillaBaseline("movement_speed", player -> getAttributeValue(player, resolveAttribute("MOVEMENT_SPEED", "GENERIC_MOVEMENT_SPEED"), 0.1));
+        attributeFacade.registerVanillaBaseline("flying_speed", player -> getAttributeValue(player, resolveAttribute("FLYING_SPEED", "GENERIC_FLYING_SPEED"), 0.4));
         attributeFacade.registerVanillaBaseline("armor", player -> getAttributeValue(player, resolveAttribute("ARMOR", "GENERIC_ARMOR"), 0));
         attributeFacade.registerVanillaBaseline("armor_toughness", player -> getAttributeValue(player, resolveAttribute("ARMOR_TOUGHNESS", "GENERIC_ARMOR_TOUGHNESS"), 0));
         attributeFacade.registerVanillaBaseline("luck", player -> getAttributeValue(player, resolveAttribute("LUCK", "GENERIC_LUCK"), 0));
         attributeFacade.registerVanillaBaseline("knockback_resistance", player -> getAttributeValue(player, resolveAttribute("KNOCKBACK_RESISTANCE", "GENERIC_KNOCKBACK_RESISTANCE"), 0));
         attributeFacade.registerVanillaBaseline("max_hunger", Player::getFoodLevel);
         attributeFacade.registerVanillaBaseline("max_oxygen", Player::getMaximumAir);
+        attributeFacade.registerVanillaBaseline("oxygen_bonus", player -> getAttributeValue(player, resolveAttribute("OXYGEN_BONUS", "PLAYER_OXYGEN_BONUS"), 0));
+        attributeFacade.registerVanillaBaseline("block_range", player -> getAttributeValue(player, resolveAttribute("BLOCK_INTERACTION_RANGE", "PLAYER_BLOCK_INTERACTION_RANGE"), 5));
+        attributeFacade.registerVanillaBaseline("interaction_range", player -> getAttributeValue(player, resolveAttribute("ENTITY_INTERACTION_RANGE", "PLAYER_ENTITY_INTERACTION_RANGE"), 3));
+        attributeFacade.registerVanillaBaseline("block_break_speed", player -> getAttributeValue(player, resolveAttribute("BLOCK_BREAK_SPEED", "PLAYER_BLOCK_BREAK_SPEED"), 1));
+        attributeFacade.registerVanillaBaseline("mining_efficiency", player -> getAttributeValue(player, resolveAttribute("MINING_EFFICIENCY", "PLAYER_MINING_EFFICIENCY"), 1));
+        attributeFacade.registerVanillaBaseline("gravity", player -> getAttributeValue(player, resolveAttribute("GRAVITY", "GENERIC_GRAVITY"), 1));
+        attributeFacade.registerVanillaBaseline("scale", player -> getAttributeValue(player, resolveAttribute("SCALE", "GENERIC_SCALE"), 1));
+        attributeFacade.registerVanillaBaseline("step_height", player -> getAttributeValue(player, resolveAttribute("STEP_HEIGHT", "GENERIC_STEP_HEIGHT"), 0.6));
+        attributeFacade.registerVanillaBaseline("safe_fall_distance", player -> getAttributeValue(player, resolveAttribute("SAFE_FALL_DISTANCE", "GENERIC_SAFE_FALL_DISTANCE"), 3));
+        attributeFacade.registerVanillaBaseline("fall_damage_multiplier", player -> getAttributeValue(player, resolveAttribute("FALL_DAMAGE_MULTIPLIER", "GENERIC_FALL_DAMAGE_MULTIPLIER"), 1));
+        attributeFacade.registerVanillaBaseline("jump_strength", player -> getAttributeValue(player, resolveAttribute("JUMP_STRENGTH", "GENERIC_JUMP_STRENGTH"), 1));
+        attributeFacade.registerVanillaBaseline("sneaking_speed", player -> getAttributeValue(player, resolveAttribute("SNEAKING_SPEED", "PLAYER_SNEAKING_SPEED"), 1));
+        attributeFacade.registerVanillaBaseline("sprint_speed", player -> getAttributeValue(player, resolveAttribute("SPRINT_SPEED", "PLAYER_SPRINT_SPEED", "PLAYER_SPRINTING_SPEED"), 1));
+        attributeFacade.registerVanillaBaseline("swim_speed", player -> getAttributeValue(player, resolveAttribute("SWIM_SPEED", "PLAYER_SWIM_SPEED", "GENERIC_SWIM_SPEED"), 1));
     }
 
     private double getAttributeValue(Player player, Attribute attribute, double fallback) {
