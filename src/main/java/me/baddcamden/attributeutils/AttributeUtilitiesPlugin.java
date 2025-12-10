@@ -19,6 +19,7 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -38,24 +39,51 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        AttributeComputationEngine computationEngine = new AttributeComputationEngine();
-        this.attributeFacade = new AttributeFacade(this, computationEngine);
-        this.persistence = new AttributePersistence(getDataFolder().toPath());
-        this.itemAttributeHandler = new ItemAttributeHandler(attributeFacade, this);
-        this.entityAttributeHandler = new EntityAttributeHandler(attributeFacade, this);
-
-        loadDefinitions();
-        registerVanillaBaselines();
-        persistence.loadGlobals(attributeFacade);
-        loadCustomAttributes();
-        registerCommands();
-        registerListeners();
+        initializePlugin();
     }
 
     @Override
     public void onDisable() {
         getServer().getOnlinePlayers().forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId()));
         persistence.saveGlobals(attributeFacade);
+    }
+
+    public void reloadAttributes() {
+        if (persistence != null && attributeFacade != null) {
+            getServer().getOnlinePlayers().forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId()));
+            persistence.saveGlobals(attributeFacade);
+        }
+
+        reloadConfig();
+        initializePlugin();
+    }
+
+    private void initializePlugin() {
+        HandlerList.unregisterAll(this);
+
+        AttributeComputationEngine computationEngine = new AttributeComputationEngine();
+        AttributeFacade newAttributeFacade = new AttributeFacade(this, computationEngine);
+        AttributePersistence newPersistence = new AttributePersistence(getDataFolder().toPath());
+        ItemAttributeHandler newItemAttributeHandler = new ItemAttributeHandler(newAttributeFacade, this);
+        EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this);
+
+        this.attributeFacade = newAttributeFacade;
+        this.persistence = newPersistence;
+        this.itemAttributeHandler = newItemAttributeHandler;
+        this.entityAttributeHandler = newEntityAttributeHandler;
+
+        loadDefinitions();
+        registerVanillaBaselines();
+        newPersistence.loadGlobals(newAttributeFacade);
+        getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayer(newAttributeFacade, player.getUniqueId()));
+        loadCustomAttributes();
+        registerCommands();
+        registerListeners();
+
+        getServer().getOnlinePlayers().forEach(player -> {
+            newItemAttributeHandler.applyDefaults(player.getInventory());
+            newEntityAttributeHandler.applyPlayerCaps(player);
+        });
     }
 
     private void loadDefinitions() {
