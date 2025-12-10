@@ -23,12 +23,26 @@ public final class AttributeDefinitionFactory {
                 true,
                 defaultBase(config, "max_health", 20)
         ));
+        definitions.put("follow_range", cappedAttribute(
+                "follow_range",
+                "Follow Range",
+                capConfig(config, "follow_range", 256),
+                true,
+                defaultBase(config, "follow_range", 32)
+        ));
         definitions.put("attack_damage", cappedAttribute(
                 "attack_damage",
                 "Attack Damage",
                 capConfig(config, "attack_damage", 100),
                 true,
                 defaultBase(config, "attack_damage", 1)
+        ));
+        definitions.put("attack_knockback", cappedAttribute(
+                "attack_knockback",
+                "Attack Knockback",
+                capConfig(config, "attack_knockback", 10),
+                true,
+                defaultBase(config, "attack_knockback", 0)
         ));
         definitions.put("attack_speed", cappedAttribute(
                 "attack_speed",
@@ -43,6 +57,13 @@ public final class AttributeDefinitionFactory {
                 capConfig(config, "movement_speed", 1),
                 true,
                 defaultBase(config, "movement_speed", 0.1)
+        ));
+        definitions.put("flying_speed", cappedAttribute(
+                "flying_speed",
+                "Flying Speed",
+                capConfig(config, "flying_speed", 1),
+                true,
+                defaultBase(config, "flying_speed", 0.4)
         ));
         definitions.put("armor", cappedAttribute(
                 "armor",
@@ -86,6 +107,13 @@ public final class AttributeDefinitionFactory {
                 true,
                 defaultBase(config, "max_oxygen", 20)
         ));
+        definitions.put("oxygen_bonus", cappedAttribute(
+                "oxygen_bonus",
+                "Oxygen Bonus",
+                capConfig(config, "oxygen_bonus", 60),
+                true,
+                defaultBase(config, "oxygen_bonus", 0)
+        ));
         definitions.put("block_range", cappedAttribute(
                 "block_range",
                 "Block Interaction Range",
@@ -99,6 +127,13 @@ public final class AttributeDefinitionFactory {
                 capConfig(config, "interaction_range", 64),
                 false,
                 defaultBase(config, "interaction_range", 3)
+        ));
+        definitions.put("block_break_speed", cappedAttribute(
+                "block_break_speed",
+                "Block Break Speed",
+                capConfig(config, "block_break_speed", 1024),
+                true,
+                defaultBase(config, "block_break_speed", 1)
         ));
         definitions.put("mining_efficiency", cappedAttribute(
                 "mining_efficiency",
@@ -120,6 +155,55 @@ public final class AttributeDefinitionFactory {
                 capConfig(config, "scale", 10),
                 true,
                 defaultBase(config, "scale", 1)
+        ));
+        definitions.put("step_height", cappedAttribute(
+                "step_height",
+                "Step Height",
+                capConfig(config, "step_height", 5),
+                true,
+                defaultBase(config, "step_height", 0.6)
+        ));
+        definitions.put("safe_fall_distance", cappedAttribute(
+                "safe_fall_distance",
+                "Safe Fall Distance",
+                capConfig(config, "safe_fall_distance", 256),
+                true,
+                defaultBase(config, "safe_fall_distance", 3)
+        ));
+        definitions.put("fall_damage_multiplier", cappedAttribute(
+                "fall_damage_multiplier",
+                "Fall Damage Multiplier",
+                capConfig(config, "fall_damage_multiplier", 10),
+                true,
+                defaultBase(config, "fall_damage_multiplier", 1)
+        ));
+        definitions.put("jump_strength", cappedAttribute(
+                "jump_strength",
+                "Jump Strength",
+                capConfig(config, "jump_strength", 5),
+                true,
+                defaultBase(config, "jump_strength", 1)
+        ));
+        definitions.put("sneaking_speed", cappedAttribute(
+                "sneaking_speed",
+                "Sneaking Speed",
+                capConfig(config, "sneaking_speed", 4),
+                true,
+                defaultBase(config, "sneaking_speed", 1)
+        ));
+        definitions.put("sprint_speed", cappedAttribute(
+                "sprint_speed",
+                "Sprint Speed",
+                capConfig(config, "sprint_speed", 4),
+                true,
+                defaultBase(config, "sprint_speed", 1)
+        ));
+        definitions.put("swim_speed", cappedAttribute(
+                "swim_speed",
+                "Swim Speed",
+                capConfig(config, "swim_speed", 4),
+                true,
+                defaultBase(config, "swim_speed", 1)
         ));
         definitions.put("regeneration_rate", cappedAttribute(
                 "regeneration_rate",
