@@ -7,6 +7,7 @@ import me.baddcamden.attributeutils.command.GlobalAttributeCommand;
 import me.baddcamden.attributeutils.command.ItemAttributeCommand;
 import me.baddcamden.attributeutils.command.PlayerModifierCommand;
 import me.baddcamden.attributeutils.compute.AttributeComputationEngine;
+import me.baddcamden.attributeutils.api.VanillaAttributeSupplier;
 import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
