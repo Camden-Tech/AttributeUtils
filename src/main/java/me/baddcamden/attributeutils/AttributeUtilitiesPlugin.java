@@ -12,11 +12,13 @@ import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
 import me.baddcamden.attributeutils.model.AttributeDefinitionFactory;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 public class AttributeUtilitiesPlugin extends JavaPlugin {
 
@@ -48,8 +50,12 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void loadDefinitions() {
-        AttributeDefinitionFactory.vanillaAttributes(getConfig()).values().forEach(attributeFacade::registerDefinition);
-        AttributeDefinitionFactory.registerConfigCaps(attributeFacade::registerDefinition, getConfig().getConfigurationSection("global-attribute-caps"));
+        Map<String, me.baddcamden.attributeutils.model.AttributeDefinition> vanillaAttributes = AttributeDefinitionFactory.vanillaAttributes(getConfig());
+        vanillaAttributes.values().forEach(attributeFacade::registerDefinition);
+        AttributeDefinitionFactory.registerConfigCaps(
+                attributeFacade::registerDefinition,
+                getConfig().getConfigurationSection("global-attribute-caps"),
+                vanillaAttributes.keySet());
     }
 
     private void loadCustomAttributes() {
@@ -64,8 +70,24 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void registerVanillaBaselines() {
+        attributeFacade.registerVanillaBaseline("max_health", player -> getAttributeValue(player, Attribute.GENERIC_MAX_HEALTH, 20));
+        attributeFacade.registerVanillaBaseline("attack_damage", player -> getAttributeValue(player, Attribute.GENERIC_ATTACK_DAMAGE, 1));
+        attributeFacade.registerVanillaBaseline("attack_speed", player -> getAttributeValue(player, Attribute.GENERIC_ATTACK_SPEED, 4));
+        attributeFacade.registerVanillaBaseline("movement_speed", player -> getAttributeValue(player, Attribute.GENERIC_MOVEMENT_SPEED, 0.1));
+        attributeFacade.registerVanillaBaseline("armor", player -> getAttributeValue(player, Attribute.GENERIC_ARMOR, 0));
+        attributeFacade.registerVanillaBaseline("armor_toughness", player -> getAttributeValue(player, Attribute.GENERIC_ARMOR_TOUGHNESS, 0));
+        attributeFacade.registerVanillaBaseline("luck", player -> getAttributeValue(player, Attribute.GENERIC_LUCK, 0));
+        attributeFacade.registerVanillaBaseline("knockback_resistance", player -> getAttributeValue(player, Attribute.GENERIC_KNOCKBACK_RESISTANCE, 0));
         attributeFacade.registerVanillaBaseline("max_hunger", Player::getFoodLevel);
         attributeFacade.registerVanillaBaseline("max_oxygen", Player::getMaximumAir);
+    }
+
+    private double getAttributeValue(Player player, Attribute attribute, double fallback) {
+        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(attribute);
+        if (instance == null) {
+            return fallback;
+        }
+        return instance.getBaseValue();
     }
 
     private void registerCommands() {
