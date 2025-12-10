@@ -24,6 +24,13 @@ public final class AttributeDefinitionFactory {
         double knockbackResistance = 0;
         double maxHunger = config.getDouble("max-hunger", 20);
         double maxOxygen = config.getDouble("max-oxygen", 20);
+        double blockReach = 5;
+        double interactionRange = 3;
+        double miningEfficiency = 1;
+        double gravity = 1;
+        double scale = 1;
+        double regenerationRate = 1;
+        double damageReduction = 0;
 
         Map<String, AttributeDefinition> definitions = new LinkedHashMap<>();
         definitions.put("max_health", cappedAttribute("max_health", "Max Health", 100, true, maxHealth));
@@ -36,6 +43,13 @@ public final class AttributeDefinitionFactory {
         definitions.put("knockback_resistance", cappedAttribute("knockback_resistance", "Knockback Resistance", 1, true, knockbackResistance));
         definitions.put("max_hunger", cappedAttribute("max_hunger", "Max Hunger", maxHunger, true));
         definitions.put("max_oxygen", cappedAttribute("max_oxygen", "Max Oxygen", maxOxygen, true));
+        definitions.put("block_range", cappedAttribute("block_range", "Block Range", 128, false, blockReach));
+        definitions.put("interaction_range", cappedAttribute("interaction_range", "Interaction Range", 64, false, interactionRange));
+        definitions.put("mining_efficiency", cappedAttribute("mining_efficiency", "Mining Efficiency", 1024, false, miningEfficiency));
+        definitions.put("gravity", cappedAttribute("gravity", "Gravity", 10, true, gravity));
+        definitions.put("scale", cappedAttribute("scale", "Scale", 10, true, scale));
+        definitions.put("regeneration_rate", cappedAttribute("regeneration_rate", "Regeneration Rate", 100, true, regenerationRate));
+        definitions.put("damage_reduction", cappedAttribute("damage_reduction", "Damage Reduction", 1, false, damageReduction));
         return definitions;
     }
 

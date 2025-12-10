@@ -1,5 +1,7 @@
 package me.baddcamden.attributeutils.model;
 
+import me.baddcamden.attributeutils.model.CapConfig;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -9,6 +11,7 @@ public final class AttributeInstance {
     private final AttributeDefinition definition;
     private double defaultBaseValue;
     private double currentBaseValue;
+    private double defaultFinalBaseline;
     private final Map<String, ModifierEntry> modifiers = new LinkedHashMap<>();
     private final Map<String, ModifierEntry> defaultPermanentAdditives = new LinkedHashMap<>();
     private final Map<String, ModifierEntry> defaultTemporaryAdditives = new LinkedHashMap<>();
@@ -28,6 +31,7 @@ public final class AttributeInstance {
         this.definition = Objects.requireNonNull(definition, "definition");
         this.defaultBaseValue = defaultBaseValue;
         this.currentBaseValue = currentBaseValue;
+        this.defaultFinalBaseline = definition.defaultCurrentValue();
         this.capOverrideKey = capOverrideKey;
     }
 
@@ -58,6 +62,14 @@ public final class AttributeInstance {
 
     public void setCurrentBaseValue(double currentBaseValue) {
         this.currentBaseValue = currentBaseValue;
+    }
+
+    public double getDefaultFinalBaseline() {
+        return defaultFinalBaseline;
+    }
+
+    public void setDefaultFinalBaseline(double defaultFinalBaseline) {
+        this.defaultFinalBaseline = defaultFinalBaseline;
     }
 
     public Map<String, ModifierEntry> getModifiers() {
@@ -134,6 +146,19 @@ public final class AttributeInstance {
 
     public void setCapOverrideKey(String capOverrideKey) {
         this.capOverrideKey = capOverrideKey;
+    }
+
+    public void synchronizeCurrentBaseWithDefault(double defaultFinal) {
+        synchronizeCurrentBaseWithDefault(defaultFinal, definition.capConfig());
+    }
+
+    public void synchronizeCurrentBaseWithDefault(double defaultFinal, CapConfig capConfig) {
+        double delta = defaultFinal - defaultFinalBaseline;
+        if (Math.abs(delta) < 1.0E-9) {
+            return;
+        }
+        this.currentBaseValue = capConfig.clamp(currentBaseValue + delta, capOverrideKey);
+        this.defaultFinalBaseline = defaultFinal;
     }
 
     private void addToBucket(String key, ModifierEntry modifier, boolean defaultLayer) {

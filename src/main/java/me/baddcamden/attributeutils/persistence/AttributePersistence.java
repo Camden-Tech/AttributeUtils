@@ -12,8 +12,11 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class AttributePersistence {
@@ -73,12 +76,14 @@ public class AttributePersistence {
                         section.getDouble(key + ".base", definition.defaultBaseValue()));
                 double currentBase = section.getDouble(key + ".current-base",
                         section.getDouble(key + ".base", definition.defaultCurrentValue()));
+                double defaultFinalBaseline = section.getDouble(key + ".default-final-baseline", definition.defaultCurrentValue());
                 AttributeInstance instance = playerId == null
                         ? facade.getOrCreateGlobalInstance(definition.id())
                         : facade.getOrCreatePlayerInstance(playerId, definition.id());
                 String capKey = playerId == null ? null : playerId.toString();
                 instance.setDefaultBaseValue(definition.capConfig().clamp(defaultBase, capKey));
                 instance.setCurrentBaseValue(definition.capConfig().clamp(currentBase, capKey));
+                instance.setDefaultFinalBaseline(definition.capConfig().clamp(defaultFinalBaseline, capKey));
                 ConfigurationSection modifiers = section.getConfigurationSection(key + ".modifiers");
                 if (modifiers != null) {
                     for (String modKey : modifiers.getKeys(false)) {
@@ -87,7 +92,11 @@ public class AttributePersistence {
                         boolean temporary = modifiers.getBoolean(modKey + ".temporary", false);
                         boolean appliesToDefault = modifiers.getBoolean(modKey + ".default", false);
                         boolean appliesToCurrent = modifiers.getBoolean(modKey + ".current", !appliesToDefault);
-                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, appliesToDefault, appliesToCurrent));
+                        boolean useMultiplierKeys = modifiers.getBoolean(modKey + ".use-multiplier-keys", false);
+                        List<String> keyList = modifiers.getStringList(modKey + ".multiplier-keys");
+                        Set<String> normalizedKeys = new HashSet<>();
+                        keyList.stream().filter(entry -> entry != null && !entry.isBlank()).forEach(entry -> normalizedKeys.add(entry.toLowerCase(Locale.ROOT)));
+                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, appliesToDefault, appliesToCurrent, useMultiplierKeys, normalizedKeys));
                     }
                 }
             }, () -> facade.compute(key, null));
@@ -101,6 +110,7 @@ public class AttributePersistence {
             section.set(attributeId + ".default-base", instance.getDefaultBaseValue());
             section.set(attributeId + ".current-base", instance.getCurrentBaseValue());
             section.set(attributeId + ".base", instance.getDefaultBaseValue());
+            section.set(attributeId + ".default-final-baseline", instance.getDefaultFinalBaseline());
             ConfigurationSection modifiers = section.createSection(attributeId + ".modifiers");
             instance.getModifiers().forEach((key, modifier) -> {
                 modifiers.set(key + ".operation", modifier.operation().name());
@@ -108,6 +118,8 @@ public class AttributePersistence {
                 modifiers.set(key + ".temporary", modifier.isTemporary());
                 modifiers.set(key + ".default", modifier.isDefaultModifier());
                 modifiers.set(key + ".current", modifier.appliesToCurrent());
+                modifiers.set(key + ".use-multiplier-keys", modifier.useMultiplierKeys());
+                modifiers.set(key + ".multiplier-keys", List.copyOf(modifier.multiplierKeys()));
             });
         }
     }

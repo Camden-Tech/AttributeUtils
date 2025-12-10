@@ -1,0 +1,46 @@
+attributes:
+  max_hunger:
+    default-base: 20
+    current-base: 20
+    default-final-baseline: 20
+    modifiers: {}
+  max_oxygen:
+    default-base: 20
+    current-base: 20
+    default-final-baseline: 20
+    modifiers: {}
+  block_range:
+    default-base: 5
+    current-base: 5
+    default-final-baseline: 5
+    modifiers: {}
+  interaction_range:
+    default-base: 3
+    current-base: 3
+    default-final-baseline: 3
+    modifiers: {}
+  mining_efficiency:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  gravity:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  scale:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  regeneration_rate:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  damage_reduction:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
