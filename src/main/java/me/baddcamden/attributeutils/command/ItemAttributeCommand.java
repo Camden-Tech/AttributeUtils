@@ -18,6 +18,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Interprets item-focused commands that write attribute baselines and modifiers onto held items.
+ * Inputs map to the same stages as entity commands: {@code default/current/base} adjust baselines stored on the item
+ * metadata, while {@code cap} alters the cap enforced during computation. Modifier subcommands populate the item
+ * modifier buckets so they are included alongside player/global modifiers in the final stage.
+ */
 public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
 
     private final Plugin plugin;

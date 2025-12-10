@@ -21,6 +21,12 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Applies or removes modifiers from player buckets. User supplied values are written into the player's
+ * {@link me.baddcamden.attributeutils.model.AttributeInstance} modifier collection, preserving whether the modifier is
+ * temporary so the cleanup stage can purge it later. Caps are not changed here; they are respected when the
+ * computation engine aggregates stages.
+ */
 public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
 
     private final Plugin plugin;

@@ -16,6 +16,18 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Manages {@code /globalattribute} style commands that mutate global attribute state.
+ * <p>
+ * Player input maps directly to different baselines and caps:
+ * <ul>
+ *     <li>{@code default/current/base} update the corresponding baseline fields on the global instance before any
+ *     modifiers are considered.</li>
+ *     <li>{@code cap} updates the cap used by the computation engine when combining global and player modifiers.</li>
+ * </ul>
+ * Caps are enforced immediately using {@link me.baddcamden.attributeutils.model.CapConfig#clamp(double, java.util.UUID)}
+ * so that subsequent computations never exceed allowed values.
+ */
 public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     private final AttributeFacade attributeFacade;

@@ -6,6 +6,10 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.Map;
 
+/**
+ * Helper for rendering command feedback. Messages often include placeholders for stage terminology (default/current,
+ * modifiers, caps) so command handlers can communicate how user input maps to the computation pipeline.
+ */
 public class CommandMessages {
 
     private final Plugin plugin;

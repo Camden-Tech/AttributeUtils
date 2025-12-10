@@ -20,6 +20,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Bridges item metadata with the attribute pipeline. Default baselines are stamped onto items when players join,
+ * ensuring that the computation engine can combine item, player, and global modifier buckets during the current
+ * stage calculation. Cap overrides stored on items are also respected downstream.
+ */
 public class ItemAttributeHandler {
 
     private final AttributeFacade attributeFacade;

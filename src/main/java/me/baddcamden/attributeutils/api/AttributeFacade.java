@@ -18,6 +18,21 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
+/**
+ * Public façade for the richer computation pipeline backed by {@link me.baddcamden.attributeutils.compute.AttributeComputationEngine}.
+ * <p>
+ * The façade differentiates three stages for each attribute:
+ * <ul>
+ *     <li><strong>Default baseline</strong>: populated from the definition and stored in the global {@link AttributeInstance}.</li>
+ *     <li><strong>Current baseline</strong>: player-specific overrides created via {@link #getOrCreatePlayerInstance(UUID, String)}
+ *     which start from {@link me.baddcamden.attributeutils.model.AttributeDefinition#defaultCurrentValue()}.</li>
+ *     <li><strong>Modifiers</strong>: global and player modifier buckets, each of which includes temporary and permanent
+ *     entries. These modifiers are aggregated by the computation engine before any cap overrides.</li>
+ * </ul>
+ * Cap overrides are set per-player via {@link me.baddcamden.attributeutils.model.AttributeInstance#setCapOverrideKey(String)}
+ * and are honored by the computation engine when calculating the final stage values returned by
+ * {@link me.baddcamden.attributeutils.model.AttributeValueStages}.
+ */
 public class AttributeFacade {
 
     private static final Pattern SOURCE_KEY_PATTERN = Pattern.compile("[a-z0-9_-]+\\.[a-z0-9_.-]+", Pattern.CASE_INSENSITIVE);
