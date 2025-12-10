@@ -6,6 +6,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class AttributeDefinitionFactory {
 
@@ -13,21 +14,44 @@ public final class AttributeDefinitionFactory {
     }
 
     public static Map<String, AttributeDefinition> vanillaAttributes(FileConfiguration config) {
+        double maxHealth = 20;
+        double attackDamage = 1;
+        double attackSpeed = 4;
+        double movementSpeed = 0.1;
+        double armor = 0;
+        double armorToughness = 0;
+        double luck = 0;
+        double knockbackResistance = 0;
         double maxHunger = config.getDouble("max-hunger", 20);
         double maxOxygen = config.getDouble("max-oxygen", 20);
 
         Map<String, AttributeDefinition> definitions = new LinkedHashMap<>();
+        definitions.put("max_health", cappedAttribute("max_health", "Max Health", 100, true, maxHealth));
+        definitions.put("attack_damage", cappedAttribute("attack_damage", "Attack Damage", 100, true, attackDamage));
+        definitions.put("attack_speed", cappedAttribute("attack_speed", "Attack Speed", 40, true, attackSpeed));
+        definitions.put("movement_speed", cappedAttribute("movement_speed", "Movement Speed", 1, true, movementSpeed));
+        definitions.put("armor", cappedAttribute("armor", "Armor", 40, true, armor));
+        definitions.put("armor_toughness", cappedAttribute("armor_toughness", "Armor Toughness", 20, true, armorToughness));
+        definitions.put("luck", cappedAttribute("luck", "Luck", 1024, true, luck));
+        definitions.put("knockback_resistance", cappedAttribute("knockback_resistance", "Knockback Resistance", 1, true, knockbackResistance));
         definitions.put("max_hunger", cappedAttribute("max_hunger", "Max Hunger", maxHunger, true));
         definitions.put("max_oxygen", cappedAttribute("max_oxygen", "Max Oxygen", maxOxygen, true));
         return definitions;
     }
 
     public static void registerConfigCaps(AttributeServiceConsumer consumer, ConfigurationSection caps) {
+        registerConfigCaps(consumer, caps, Set.of());
+    }
+
+    public static void registerConfigCaps(AttributeServiceConsumer consumer, ConfigurationSection caps, Set<String> skipKeys) {
         if (caps == null) {
             return;
         }
 
         for (String key : caps.getKeys(false)) {
+            if (skipKeys.contains(key.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
             double capValue = caps.getDouble(key);
             consumer.accept(cappedAttribute(key, humanize(key), capValue));
         }
@@ -38,13 +62,17 @@ public final class AttributeDefinitionFactory {
     }
 
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic) {
+        return cappedAttribute(id, displayName, capValue, dynamic, capValue);
+    }
+
+    public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic, double defaultValue) {
         CapConfig capConfig = new CapConfig(0, capValue, Map.of());
         return new AttributeDefinition(
                 id.toLowerCase(Locale.ROOT),
                 displayName,
                 dynamic,
-                capValue,
-                capValue,
+                defaultValue,
+                defaultValue,
                 capConfig,
                 MultiplierApplicability.applyAll()
         );
