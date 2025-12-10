@@ -33,7 +33,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         AttributeComputationEngine computationEngine = new AttributeComputationEngine();
         this.attributeFacade = new AttributeFacade(this, computationEngine);
         this.persistence = new AttributePersistence(getDataFolder().toPath());
-        this.itemAttributeHandler = new ItemAttributeHandler(attributeFacade);
+        this.itemAttributeHandler = new ItemAttributeHandler(attributeFacade, this);
         this.entityAttributeHandler = new EntityAttributeHandler(attributeFacade);
 
         loadDefinitions();
@@ -123,7 +123,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
         PluginCommand itemsCommand = getCommand("attributeitems");
         if (itemsCommand != null) {
-            itemsCommand.setExecutor(new ItemAttributeCommand());
+            itemsCommand.setExecutor(new ItemAttributeCommand(this, itemAttributeHandler));
         }
 
         PluginCommand entitiesCommand = getCommand("attributeentities");
