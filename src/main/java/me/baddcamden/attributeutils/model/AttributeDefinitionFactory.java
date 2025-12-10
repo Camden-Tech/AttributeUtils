@@ -74,7 +74,7 @@ public final class AttributeDefinitionFactory {
                 defaultValue,
                 defaultValue,
                 capConfig,
-                MultiplierApplicability.applyAll()
+                MultiplierApplicability.allowAllMultipliers()
         );
     }
 
