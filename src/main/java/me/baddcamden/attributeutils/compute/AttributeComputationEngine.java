@@ -29,24 +29,32 @@ public class AttributeComputationEngine {
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultPermanentAdditives),
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultPermanentMultipliers),
                 definition,
-                capKey);
+                capKey,
+                true);
         double defaultFinal = apply(defaultPermanent,
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultTemporaryAdditives),
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultTemporaryMultipliers),
                 definition,
-                capKey);
+                capKey,
+                true);
+
+        if (!definition.dynamic()) {
+            syncCurrentBaseline(definition, baselineTarget(playerInstance, globalInstance), defaultFinal, capKey);
+        }
 
         double rawCurrent = buildCurrentBaseline(definition, vanillaSupplier, player, globalInstance, playerInstance, rawDefault, defaultFinal);
         double currentPermanent = apply(rawCurrent,
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentAdditives),
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentMultipliers),
                 definition,
-                capKey);
+                capKey,
+                false);
         double currentFinal = apply(currentPermanent,
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryAdditives),
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryMultipliers),
                 definition,
-                capKey);
+                capKey,
+                false);
 
         return new AttributeValueStages(rawDefault, defaultPermanent, defaultFinal, rawCurrent, currentPermanent, currentFinal);
     }
@@ -92,29 +100,27 @@ public class AttributeComputationEngine {
         double base = playerInstance != null
                 ? playerInstance.getCurrentBaseValue()
                 : globalInstance != null ? globalInstance.getCurrentBaseValue() : definition.defaultCurrentValue();
-        double defaultDelta = defaultFinal - rawDefault;
-        double rawCurrent = base + defaultDelta;
-        return definition.capConfig().clamp(rawCurrent, resolveCapKey(globalInstance, playerInstance));
+        return definition.capConfig().clamp(base, resolveCapKey(globalInstance, playerInstance));
     }
 
     private double apply(double start,
                          Collection<ModifierEntry> additiveModifiers,
                          Collection<ModifierEntry> multiplierModifiers,
                          AttributeDefinition definition,
-                         String capKey) {
-        double value = start;
-        double multiplier = 1.0d;
+                         String capKey,
+                         boolean defaultLayer) {
+        Collection<ModifierEntry> applicableMultipliers = multiplierModifiers.stream()
+                .filter(modifier -> definition.multiplierApplicability().canApply(modifier.key()))
+                .toList();
+
+        double value = start * aggregateMultiplier(applicableMultipliers, null, defaultLayer);
 
         for (ModifierEntry modifier : additiveModifiers) {
-            value += modifier.amount();
-        }
-        for (ModifierEntry modifier : multiplierModifiers) {
-            if (definition.multiplierApplicability().canApply(modifier.key())) {
-                multiplier *= modifier.amount();
-            }
+            double multiplier = aggregateMultiplier(applicableMultipliers, modifier, defaultLayer);
+            value += modifier.amount() * multiplier;
         }
 
-        return definition.capConfig().clamp(value * multiplier, capKey);
+        return definition.capConfig().clamp(value, capKey);
     }
 
     private Collection<ModifierEntry> collectModifiers(AttributeInstance globalInstance,
@@ -134,5 +140,54 @@ public class AttributeComputationEngine {
         List<ModifierEntry> combined = new ArrayList<>(extractor.apply(globalInstance).values());
         combined.addAll(extractor.apply(playerInstance).values());
         return combined;
+    }
+
+    private void syncCurrentBaseline(AttributeDefinition definition,
+                                     AttributeInstance baselineTarget,
+                                     double defaultFinal,
+                                     String capKey) {
+        if (baselineTarget == null) {
+            return;
+        }
+
+        double knownDefault = baselineTarget.getLastKnownDefaultFinal();
+        if (Double.isNaN(knownDefault)) {
+            baselineTarget.setLastKnownDefaultFinal(defaultFinal);
+            return;
+        }
+
+        double delta = defaultFinal - knownDefault;
+        if (Math.abs(delta) > 1.0e-9) {
+            double updatedCurrent = definition.capConfig().clamp(baselineTarget.getCurrentBaseValue() + delta, capKey);
+            baselineTarget.setCurrentBaseValue(updatedCurrent);
+            baselineTarget.setLastKnownDefaultFinal(defaultFinal);
+        }
+    }
+
+    private AttributeInstance baselineTarget(AttributeInstance playerInstance, AttributeInstance globalInstance) {
+        if (playerInstance != null) {
+            return playerInstance;
+        }
+        return globalInstance;
+    }
+
+    private double aggregateMultiplier(Collection<ModifierEntry> multipliers,
+                                       ModifierEntry additive,
+                                       boolean defaultLayer) {
+        double multiplier = 1.0d;
+        for (ModifierEntry entry : multipliers) {
+            if (defaultLayer && !entry.appliesToDefault()) {
+                continue;
+            }
+            if (!defaultLayer && !entry.appliesToCurrent()) {
+                continue;
+            }
+            if (additive != null && !additive.appliesAllMultipliers()
+                    && !additive.multiplierKeys().contains(entry.key().toLowerCase())) {
+                continue;
+            }
+            multiplier *= entry.amount();
+        }
+        return multiplier;
     }
 }

@@ -1,15 +1,20 @@
 # Default attribute utility configuration
-
 # Global caps for core attributes
 global-attribute-caps:
-  attack-damage: 100
+  attack_damage: 100
   armor: 100
-  movement-speed: 100
-
+  movement_speed: 100
+  block_interaction_range: 64
+  entity_interaction_range: 64
+  mining_efficiency: 64
+  block_break_speed: 1024
+  gravity: 2
+  scale: 10
+  regeneration_rate: 1024
+  damage_reduction: 1
 # Player sustain values
 max-hunger: 20
 max-oxygen: 20
-
 # Custom attribute loading
 load-custom-attributes-from-folder: true
 custom-attributes-folder: custom-attributes

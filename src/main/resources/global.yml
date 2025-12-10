@@ -1,0 +1,73 @@
+attributes:
+  max_health:
+    default-base: 20.0
+    current-base: 20.0
+    default-baseline: 20.0
+  attack_damage:
+    default-base: 1.0
+    current-base: 1.0
+    default-baseline: 1.0
+  attack_speed:
+    default-base: 4.0
+    current-base: 4.0
+    default-baseline: 4.0
+  movement_speed:
+    default-base: 0.1
+    current-base: 0.1
+    default-baseline: 0.1
+  armor:
+    default-base: 0.0
+    current-base: 0.0
+    default-baseline: 0.0
+  armor_toughness:
+    default-base: 0.0
+    current-base: 0.0
+    default-baseline: 0.0
+  luck:
+    default-base: 0.0
+    current-base: 0.0
+    default-baseline: 0.0
+  knockback_resistance:
+    default-base: 0.0
+    current-base: 0.0
+    default-baseline: 0.0
+  max_hunger:
+    default-base: 20.0
+    current-base: 20.0
+    default-baseline: 20.0
+  max_oxygen:
+    default-base: 20.0
+    current-base: 20.0
+    default-baseline: 20.0
+  block_interaction_range:
+    default-base: 4.5
+    current-base: 4.5
+    default-baseline: 4.5
+  entity_interaction_range:
+    default-base: 3.0
+    current-base: 3.0
+    default-baseline: 3.0
+  mining_efficiency:
+    default-base: 1.0
+    current-base: 1.0
+    default-baseline: 1.0
+  block_break_speed:
+    default-base: 1.0
+    current-base: 1.0
+    default-baseline: 1.0
+  gravity:
+    default-base: 0.08
+    current-base: 0.08
+    default-baseline: 0.08
+  scale:
+    default-base: 1.0
+    current-base: 1.0
+    default-baseline: 1.0
+  regeneration_rate:
+    default-base: 1.0
+    current-base: 1.0
+    default-baseline: 1.0
+  damage_reduction:
+    default-base: 0.0
+    current-base: 0.0
+    default-baseline: 0.0

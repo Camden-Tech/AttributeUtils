@@ -10,7 +10,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class PlayerModifierCommand implements CommandExecutor {
 
@@ -30,7 +33,7 @@ public class PlayerModifierCommand implements CommandExecutor {
         }
 
         if (args.length < 3) {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " <player> <add|remove> <plugin.key> [amount] [durationSeconds]");
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " <player> <add|remove> <plugin.key> [amount] [durationSeconds] [selectiveMultipliers] [multiplierKeys]");
             return true;
         }
 
@@ -51,7 +54,7 @@ public class PlayerModifierCommand implements CommandExecutor {
 
     private boolean handleAdd(CommandSender sender, String label, String targetName, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " <player> add <plugin.key> <amount> [durationSeconds]");
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " <player> add <plugin.key> <amount> [durationSeconds] [selectiveMultipliers] [multiplierKeys]");
             return true;
         }
 
@@ -64,6 +67,8 @@ public class PlayerModifierCommand implements CommandExecutor {
         Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[2]);
         Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[3], "modifier amount");
         Optional<Double> durationSeconds = Optional.empty();
+        boolean selectiveMultipliers = false;
+        Set<String> multiplierKeys = Set.of();
         if (args.length >= 5) {
             durationSeconds = CommandParsingUtils.parseNumeric(sender, args[4], "duration (seconds)");
             if (durationSeconds.isPresent() && durationSeconds.get() <= 0) {
@@ -72,11 +77,23 @@ public class PlayerModifierCommand implements CommandExecutor {
             }
         }
 
+        if (args.length >= 6) {
+            selectiveMultipliers = Boolean.parseBoolean(args[5]);
+        }
+
+        if (args.length >= 7) {
+            multiplierKeys = Arrays.stream(args[6].split(","))
+                    .map(String::trim)
+                    .filter(value -> !value.isEmpty())
+                    .map(String::toLowerCase)
+                    .collect(Collectors.toSet());
+        }
+
         if (key.isEmpty() || amount.isEmpty() || (args.length >= 5 && durationSeconds.isEmpty())) {
             return true;
         }
 
-        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false, true);
+        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false, true, selectiveMultipliers, multiplierKeys);
         attributeFacade.setPlayerModifier(target.getUniqueId(), key.get().key(), entry);
 
         durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,

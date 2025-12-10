@@ -19,6 +19,7 @@ public final class AttributeInstance {
     private final Map<String, ModifierEntry> currentPermanentMultipliers = new LinkedHashMap<>();
     private final Map<String, ModifierEntry> currentTemporaryMultipliers = new LinkedHashMap<>();
     private String capOverrideKey;
+    private double lastKnownDefaultFinal;
 
     public AttributeInstance(AttributeDefinition definition) {
         this(definition, definition.defaultBaseValue(), definition.defaultCurrentValue(), null);
@@ -29,6 +30,7 @@ public final class AttributeInstance {
         this.defaultBaseValue = defaultBaseValue;
         this.currentBaseValue = currentBaseValue;
         this.capOverrideKey = capOverrideKey;
+        this.lastKnownDefaultFinal = defaultBaseValue;
     }
 
     public AttributeDefinition getDefinition() {
@@ -58,6 +60,14 @@ public final class AttributeInstance {
 
     public void setCurrentBaseValue(double currentBaseValue) {
         this.currentBaseValue = currentBaseValue;
+    }
+
+    public double getLastKnownDefaultFinal() {
+        return lastKnownDefaultFinal;
+    }
+
+    public void setLastKnownDefaultFinal(double lastKnownDefaultFinal) {
+        this.lastKnownDefaultFinal = lastKnownDefaultFinal;
     }
 
     public Map<String, ModifierEntry> getModifiers() {

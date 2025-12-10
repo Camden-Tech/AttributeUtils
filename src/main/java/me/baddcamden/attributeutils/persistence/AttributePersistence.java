@@ -73,12 +73,14 @@ public class AttributePersistence {
                         section.getDouble(key + ".base", definition.defaultBaseValue()));
                 double currentBase = section.getDouble(key + ".current-base",
                         section.getDouble(key + ".base", definition.defaultCurrentValue()));
+                double defaultBaseline = section.getDouble(key + ".default-baseline", defaultBase);
                 AttributeInstance instance = playerId == null
                         ? facade.getOrCreateGlobalInstance(definition.id())
                         : facade.getOrCreatePlayerInstance(playerId, definition.id());
                 String capKey = playerId == null ? null : playerId.toString();
                 instance.setDefaultBaseValue(definition.capConfig().clamp(defaultBase, capKey));
                 instance.setCurrentBaseValue(definition.capConfig().clamp(currentBase, capKey));
+                instance.setLastKnownDefaultFinal(definition.capConfig().clamp(defaultBaseline, capKey));
                 ConfigurationSection modifiers = section.getConfigurationSection(key + ".modifiers");
                 if (modifiers != null) {
                     for (String modKey : modifiers.getKeys(false)) {
@@ -87,7 +89,8 @@ public class AttributePersistence {
                         boolean temporary = modifiers.getBoolean(modKey + ".temporary", false);
                         boolean appliesToDefault = modifiers.getBoolean(modKey + ".default", false);
                         boolean appliesToCurrent = modifiers.getBoolean(modKey + ".current", !appliesToDefault);
-                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, appliesToDefault, appliesToCurrent));
+                        boolean usesMultiplierFilter = modifiers.getBoolean(modKey + ".selective-multipliers", false);
+                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, appliesToDefault, appliesToCurrent, usesMultiplierFilter, modifiers.getStringList(modKey + ".multiplier-keys")));
                     }
                 }
             }, () -> facade.compute(key, null));
@@ -100,6 +103,7 @@ public class AttributePersistence {
             AttributeInstance instance = entry.getValue();
             section.set(attributeId + ".default-base", instance.getDefaultBaseValue());
             section.set(attributeId + ".current-base", instance.getCurrentBaseValue());
+            section.set(attributeId + ".default-baseline", instance.getLastKnownDefaultFinal());
             section.set(attributeId + ".base", instance.getDefaultBaseValue());
             ConfigurationSection modifiers = section.createSection(attributeId + ".modifiers");
             instance.getModifiers().forEach((key, modifier) -> {
@@ -108,6 +112,8 @@ public class AttributePersistence {
                 modifiers.set(key + ".temporary", modifier.isTemporary());
                 modifiers.set(key + ".default", modifier.isDefaultModifier());
                 modifiers.set(key + ".current", modifier.appliesToCurrent());
+                modifiers.set(key + ".selective-multipliers", modifier.usesMultiplierFilter());
+                modifiers.set(key + ".multiplier-keys", modifier.multiplierKeys());
             });
         }
     }

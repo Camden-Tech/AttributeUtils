@@ -24,6 +24,14 @@ public final class AttributeDefinitionFactory {
         double knockbackResistance = 0;
         double maxHunger = config.getDouble("max-hunger", 20);
         double maxOxygen = config.getDouble("max-oxygen", 20);
+        double blockInteractionRange = 4.5;
+        double entityInteractionRange = 3.0;
+        double miningEfficiency = 1.0;
+        double blockBreakSpeed = 1.0;
+        double gravity = 0.08;
+        double scale = 1.0;
+        double regenerationRate = 1.0;
+        double damageReduction = 0.0;
 
         Map<String, AttributeDefinition> definitions = new LinkedHashMap<>();
         definitions.put("max_health", cappedAttribute("max_health", "Max Health", 100, true, maxHealth));
@@ -36,6 +44,14 @@ public final class AttributeDefinitionFactory {
         definitions.put("knockback_resistance", cappedAttribute("knockback_resistance", "Knockback Resistance", 1, true, knockbackResistance));
         definitions.put("max_hunger", cappedAttribute("max_hunger", "Max Hunger", maxHunger, true));
         definitions.put("max_oxygen", cappedAttribute("max_oxygen", "Max Oxygen", maxOxygen, true));
+        definitions.put("block_interaction_range", cappedAttribute("block_interaction_range", "Block Interaction Range", 64, true, blockInteractionRange));
+        definitions.put("entity_interaction_range", cappedAttribute("entity_interaction_range", "Entity Interaction Range", 64, true, entityInteractionRange));
+        definitions.put("mining_efficiency", cappedAttribute("mining_efficiency", "Mining Efficiency", 64, true, miningEfficiency));
+        definitions.put("block_break_speed", cappedAttribute("block_break_speed", "Block Break Speed", 1024, true, blockBreakSpeed));
+        definitions.put("gravity", cappedAttribute("gravity", "Gravity", 2, true, gravity));
+        definitions.put("scale", cappedAttribute("scale", "Scale", 10, true, scale));
+        definitions.put("regeneration_rate", cappedAttribute("regeneration_rate", "Regeneration Rate", 1024, true, regenerationRate));
+        definitions.put("damage_reduction", cappedAttribute("damage_reduction", "Damage Reduction", 1, false, damageReduction));
         return definitions;
     }
 

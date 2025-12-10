@@ -30,6 +30,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        saveDefaultDataFiles();
         AttributeComputationEngine computationEngine = new AttributeComputationEngine();
         this.attributeFacade = new AttributeFacade(this, computationEngine);
         this.persistence = new AttributePersistence(getDataFolder().toPath());
@@ -46,6 +47,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        getServer().getOnlinePlayers().forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId()));
         persistence.saveGlobals(attributeFacade);
     }
 
@@ -69,6 +71,13 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         }
     }
 
+    private void saveDefaultDataFiles() {
+        saveResource("global.yml", false);
+        if (getConfig().getBoolean("load-custom-attributes-from-folder", true)) {
+            saveResource("custom-attributes/max_mana.yml", false);
+        }
+    }
+
     private void registerVanillaBaselines() {
         attributeFacade.registerVanillaBaseline("max_health", player -> getAttributeValue(player, resolveAttribute("MAX_HEALTH", "GENERIC_MAX_HEALTH"), 20));
         attributeFacade.registerVanillaBaseline("attack_damage", player -> getAttributeValue(player, resolveAttribute("ATTACK_DAMAGE", "GENERIC_ATTACK_DAMAGE"), 1));
@@ -80,6 +89,14 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         attributeFacade.registerVanillaBaseline("knockback_resistance", player -> getAttributeValue(player, resolveAttribute("KNOCKBACK_RESISTANCE", "GENERIC_KNOCKBACK_RESISTANCE"), 0));
         attributeFacade.registerVanillaBaseline("max_hunger", Player::getFoodLevel);
         attributeFacade.registerVanillaBaseline("max_oxygen", Player::getMaximumAir);
+        attributeFacade.registerVanillaBaseline("block_interaction_range", player -> getAttributeValue(player, resolveAttribute("PLAYER_BLOCK_INTERACTION_RANGE", "GENERIC_BLOCK_INTERACTION_RANGE", "BLOCK_INTERACTION_RANGE"), 4.5));
+        attributeFacade.registerVanillaBaseline("entity_interaction_range", player -> getAttributeValue(player, resolveAttribute("PLAYER_ENTITY_INTERACTION_RANGE", "GENERIC_ENTITY_INTERACTION_RANGE", "ENTITY_INTERACTION_RANGE"), 3.0));
+        attributeFacade.registerVanillaBaseline("mining_efficiency", player -> getAttributeValue(player, resolveAttribute("PLAYER_MINING_EFFICIENCY", "GENERIC_MINING_EFFICIENCY", "MINING_EFFICIENCY"), 1.0));
+        attributeFacade.registerVanillaBaseline("block_break_speed", player -> getAttributeValue(player, resolveAttribute("PLAYER_BLOCK_BREAK_SPEED", "GENERIC_BLOCK_BREAK_SPEED", "BLOCK_BREAK_SPEED"), 1.0));
+        attributeFacade.registerVanillaBaseline("gravity", player -> getAttributeValue(player, resolveAttribute("GRAVITY", "GENERIC_GRAVITY"), 0.08));
+        attributeFacade.registerVanillaBaseline("scale", player -> getAttributeValue(player, resolveAttribute("SCALE", "GENERIC_SCALE"), 1.0));
+        attributeFacade.registerVanillaBaseline("regeneration_rate", player -> getAttributeValue(player, resolveAttribute("REGENERATION_RATE", "GENERIC_REGENERATION_RATE"), 1.0));
+        attributeFacade.registerVanillaBaseline("damage_reduction", player -> getAttributeValue(player, resolveAttribute("DAMAGE_REDUCTION", "GENERIC_DAMAGE_REDUCTION"), 0.0));
     }
 
     private double getAttributeValue(Player player, Attribute attribute, double fallback) {

@@ -1,0 +1,13 @@
+id: max_mana
+display-name: Max Mana
+dynamic: false
+default-base: 100.0
+default-current: 100.0
+cap:
+  min: 0
+  max: 1000
+  overrides: {}
+multiplier-applicability:
+  apply-all: true
+  allowed: []
+  ignored: []
