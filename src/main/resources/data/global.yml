@@ -1,4 +1,44 @@
 attributes:
+  max_health:
+    default-base: 20
+    current-base: 20
+    default-final-baseline: 20
+    modifiers: {}
+  attack_damage:
+    default-base: 1
+    current-base: 1
+    default-final-baseline: 1
+    modifiers: {}
+  attack_speed:
+    default-base: 4
+    current-base: 4
+    default-final-baseline: 4
+    modifiers: {}
+  movement_speed:
+    default-base: 0.1
+    current-base: 0.1
+    default-final-baseline: 0.1
+    modifiers: {}
+  armor:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
+  armor_toughness:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
+  luck:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
+  knockback_resistance:
+    default-base: 0
+    current-base: 0
+    default-final-baseline: 0
+    modifiers: {}
   max_hunger:
     default-base: 20
     current-base: 20

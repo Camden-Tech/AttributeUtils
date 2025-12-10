@@ -1,10 +1,59 @@
 # Default attribute utility configuration
 
+# Vanilla attribute defaults
+# Each entry seeds both the global and player baselines for the built-in
+# attributes listed below. Values are mirrored to base/current by default;
+# per-stage customization can be added later if needed.
+vanilla-attribute-defaults:
+  max-health:
+    default-base: 20
+  attack-damage:
+    default-base: 1
+  attack-speed:
+    default-base: 4
+  movement-speed:
+    default-base: 0.1
+  armor:
+    default-base: 0
+  armor-toughness:
+    default-base: 0
+  luck:
+    default-base: 0
+  knockback-resistance:
+    default-base: 0
+  max-hunger:
+    default-base: 20
+  max-oxygen:
+    default-base: 20
+  block-range:
+    default-base: 5
+  interaction-range:
+    default-base: 3
+  mining-efficiency:
+    default-base: 1
+  gravity:
+    default-base: 1
+  scale:
+    default-base: 1
+  regeneration-rate:
+    default-base: 1
+  damage-reduction:
+    default-base: 0
+
 # Global caps for core attributes
+# Caps can be supplied as a scalar (max only) or a section with `min`,
+# `max`, and optional `overrides:` map entries for keyed caps.
 global-attribute-caps:
+  max-health: 100
   attack-damage: 100
-  armor: 100
-  movement-speed: 100
+  attack-speed: 40
+  movement-speed: 1
+  armor: 40
+  armor-toughness: 20
+  luck: 1024
+  knockback-resistance: 1
+  max-hunger: 40
+  max-oxygen: 40
   block-range: 128
   interaction-range: 64
   mining-efficiency: 1024
@@ -12,10 +61,6 @@ global-attribute-caps:
   scale: 10
   regeneration-rate: 100
   damage-reduction: 1
-
-# Player sustain values
-max-hunger: 20
-max-oxygen: 20
 
 # Sample custom attributes
 custom-attribute-defaults:

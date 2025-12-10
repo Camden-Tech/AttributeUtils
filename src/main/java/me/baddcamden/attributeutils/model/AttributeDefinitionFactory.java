@@ -14,42 +14,127 @@ public final class AttributeDefinitionFactory {
     }
 
     public static Map<String, AttributeDefinition> vanillaAttributes(FileConfiguration config) {
-        double maxHealth = 20;
-        double attackDamage = 1;
-        double attackSpeed = 4;
-        double movementSpeed = 0.1;
-        double armor = 0;
-        double armorToughness = 0;
-        double luck = 0;
-        double knockbackResistance = 0;
-        double maxHunger = config.getDouble("max-hunger", 20);
-        double maxOxygen = config.getDouble("max-oxygen", 20);
-        double blockReach = 5;
-        double interactionRange = 3;
-        double miningEfficiency = 1;
-        double gravity = 1;
-        double scale = 1;
-        double regenerationRate = 1;
-        double damageReduction = 0;
-
         Map<String, AttributeDefinition> definitions = new LinkedHashMap<>();
-        definitions.put("max_health", cappedAttribute("max_health", "Max Health", 100, true, maxHealth));
-        definitions.put("attack_damage", cappedAttribute("attack_damage", "Attack Damage", 100, true, attackDamage));
-        definitions.put("attack_speed", cappedAttribute("attack_speed", "Attack Speed", 40, true, attackSpeed));
-        definitions.put("movement_speed", cappedAttribute("movement_speed", "Movement Speed", 1, true, movementSpeed));
-        definitions.put("armor", cappedAttribute("armor", "Armor", 40, true, armor));
-        definitions.put("armor_toughness", cappedAttribute("armor_toughness", "Armor Toughness", 20, true, armorToughness));
-        definitions.put("luck", cappedAttribute("luck", "Luck", 1024, true, luck));
-        definitions.put("knockback_resistance", cappedAttribute("knockback_resistance", "Knockback Resistance", 1, true, knockbackResistance));
-        definitions.put("max_hunger", cappedAttribute("max_hunger", "Max Hunger", maxHunger, true));
-        definitions.put("max_oxygen", cappedAttribute("max_oxygen", "Max Oxygen", maxOxygen, true));
-        definitions.put("block_range", cappedAttribute("block_range", "Block Range", 128, false, blockReach));
-        definitions.put("interaction_range", cappedAttribute("interaction_range", "Interaction Range", 64, false, interactionRange));
-        definitions.put("mining_efficiency", cappedAttribute("mining_efficiency", "Mining Efficiency", 1024, false, miningEfficiency));
-        definitions.put("gravity", cappedAttribute("gravity", "Gravity", 10, true, gravity));
-        definitions.put("scale", cappedAttribute("scale", "Scale", 10, true, scale));
-        definitions.put("regeneration_rate", cappedAttribute("regeneration_rate", "Regeneration Rate", 100, true, regenerationRate));
-        definitions.put("damage_reduction", cappedAttribute("damage_reduction", "Damage Reduction", 1, false, damageReduction));
+
+        definitions.put("max_health", cappedAttribute(
+                "max_health",
+                "Max Health",
+                capConfig(config, "max_health", 100),
+                true,
+                defaultBase(config, "max_health", 20)
+        ));
+        definitions.put("attack_damage", cappedAttribute(
+                "attack_damage",
+                "Attack Damage",
+                capConfig(config, "attack_damage", 100),
+                true,
+                defaultBase(config, "attack_damage", 1)
+        ));
+        definitions.put("attack_speed", cappedAttribute(
+                "attack_speed",
+                "Attack Speed",
+                capConfig(config, "attack_speed", 40),
+                true,
+                defaultBase(config, "attack_speed", 4)
+        ));
+        definitions.put("movement_speed", cappedAttribute(
+                "movement_speed",
+                "Movement Speed",
+                capConfig(config, "movement_speed", 1),
+                true,
+                defaultBase(config, "movement_speed", 0.1)
+        ));
+        definitions.put("armor", cappedAttribute(
+                "armor",
+                "Armor",
+                capConfig(config, "armor", 40),
+                true,
+                defaultBase(config, "armor", 0)
+        ));
+        definitions.put("armor_toughness", cappedAttribute(
+                "armor_toughness",
+                "Armor Toughness",
+                capConfig(config, "armor_toughness", 20),
+                true,
+                defaultBase(config, "armor_toughness", 0)
+        ));
+        definitions.put("luck", cappedAttribute(
+                "luck",
+                "Luck",
+                capConfig(config, "luck", 1024),
+                true,
+                defaultBase(config, "luck", 0)
+        ));
+        definitions.put("knockback_resistance", cappedAttribute(
+                "knockback_resistance",
+                "Knockback Resistance",
+                capConfig(config, "knockback_resistance", 1),
+                true,
+                defaultBase(config, "knockback_resistance", 0)
+        ));
+        definitions.put("max_hunger", cappedAttribute(
+                "max_hunger",
+                "Max Hunger",
+                capConfig(config, "max_hunger", defaultBase(config, "max_hunger", 20)),
+                true,
+                defaultBase(config, "max_hunger", 20)
+        ));
+        definitions.put("max_oxygen", cappedAttribute(
+                "max_oxygen",
+                "Max Oxygen",
+                capConfig(config, "max_oxygen", defaultBase(config, "max_oxygen", 20)),
+                true,
+                defaultBase(config, "max_oxygen", 20)
+        ));
+        definitions.put("block_range", cappedAttribute(
+                "block_range",
+                "Block Interaction Range",
+                capConfig(config, "block_range", 128),
+                false,
+                defaultBase(config, "block_range", 5)
+        ));
+        definitions.put("interaction_range", cappedAttribute(
+                "interaction_range",
+                "Entity Interaction Range",
+                capConfig(config, "interaction_range", 64),
+                false,
+                defaultBase(config, "interaction_range", 3)
+        ));
+        definitions.put("mining_efficiency", cappedAttribute(
+                "mining_efficiency",
+                "Mining Efficiency",
+                capConfig(config, "mining_efficiency", 1024),
+                false,
+                defaultBase(config, "mining_efficiency", 1)
+        ));
+        definitions.put("gravity", cappedAttribute(
+                "gravity",
+                "Gravity",
+                capConfig(config, "gravity", 10),
+                true,
+                defaultBase(config, "gravity", 1)
+        ));
+        definitions.put("scale", cappedAttribute(
+                "scale",
+                "Scale",
+                capConfig(config, "scale", 10),
+                true,
+                defaultBase(config, "scale", 1)
+        ));
+        definitions.put("regeneration_rate", cappedAttribute(
+                "regeneration_rate",
+                "Regeneration Rate",
+                capConfig(config, "regeneration_rate", 100),
+                true,
+                defaultBase(config, "regeneration_rate", 1)
+        ));
+        definitions.put("damage_reduction", cappedAttribute(
+                "damage_reduction",
+                "Damage Reduction",
+                capConfig(config, "damage_reduction", 1),
+                false,
+                defaultBase(config, "damage_reduction", 0)
+        ));
         return definitions;
     }
 
@@ -63,11 +148,13 @@ public final class AttributeDefinitionFactory {
         }
 
         for (String key : caps.getKeys(false)) {
-            if (skipKeys.contains(key.toLowerCase(Locale.ROOT))) {
+            String normalizedKey = normalizeKey(key);
+            if (skipKeys.contains(normalizedKey)) {
                 continue;
             }
-            double capValue = caps.getDouble(key);
-            consumer.accept(cappedAttribute(key, humanize(key), capValue));
+            ConfigurationSection capSection = caps.getConfigurationSection(key);
+            double capValue = capSection == null ? caps.getDouble(key) : capSection.getDouble("max", caps.getDouble(key));
+            consumer.accept(cappedAttribute(normalizedKey, humanize(normalizedKey), capValue));
         }
     }
 
@@ -81,6 +168,14 @@ public final class AttributeDefinitionFactory {
 
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic, double defaultValue) {
         CapConfig capConfig = new CapConfig(0, capValue, Map.of());
+        return cappedAttribute(id, displayName, capConfig, dynamic, defaultValue);
+    }
+
+    public static AttributeDefinition cappedAttribute(String id,
+                                                      String displayName,
+                                                      CapConfig capConfig,
+                                                      boolean dynamic,
+                                                      double defaultValue) {
         return new AttributeDefinition(
                 id.toLowerCase(Locale.ROOT),
                 displayName,
@@ -102,5 +197,61 @@ public final class AttributeDefinitionFactory {
             return id;
         }
         return Character.toUpperCase(withSpaces.charAt(0)) + withSpaces.substring(1);
+    }
+
+    private static double defaultBase(FileConfiguration config, String attributeId, double fallback) {
+        return defaultValue(config, attributeId, "default-base", fallback);
+    }
+
+    private static double defaultValue(FileConfiguration config, String attributeId, String field, double fallback) {
+        String configKey = configKey(attributeId);
+        ConfigurationSection defaults = config.getConfigurationSection("vanilla-attribute-defaults");
+        if (defaults != null) {
+            ConfigurationSection entry = defaults.getConfigurationSection(configKey);
+            if (entry != null) {
+                return entry.getDouble(field, fallback);
+            }
+            if (defaults.isSet(configKey)) {
+                return defaults.getDouble(configKey, fallback);
+            }
+        }
+
+        if (config.isSet(configKey)) {
+            return config.getDouble(configKey, fallback);
+        }
+        return fallback;
+    }
+
+    private static CapConfig capConfig(FileConfiguration config, String attributeId, double defaultMax) {
+        double min = 0;
+        double max = defaultMax;
+        Map<String, Double> overrides = new LinkedHashMap<>();
+        ConfigurationSection caps = config.getConfigurationSection("global-attribute-caps");
+        String configKey = configKey(attributeId);
+        if (caps != null) {
+            ConfigurationSection capSection = caps.getConfigurationSection(configKey);
+            if (capSection != null) {
+                min = capSection.getDouble("min", min);
+                max = capSection.getDouble("max", max);
+                ConfigurationSection overrideSection = capSection.getConfigurationSection("overrides");
+                if (overrideSection != null) {
+                    for (String key : overrideSection.getKeys(false)) {
+                        overrides.put(normalizeKey(key), overrideSection.getDouble(key));
+                    }
+                }
+            } else if (caps.isSet(configKey)) {
+                max = caps.getDouble(configKey, max);
+            }
+        }
+
+        return new CapConfig(min, max, overrides);
+    }
+
+    private static String configKey(String attributeId) {
+        return attributeId.toLowerCase(Locale.ROOT).replace('_', '-');
+    }
+
+    private static String normalizeKey(String key) {
+        return key.toLowerCase(Locale.ROOT).replace('-', '_');
     }
 }
