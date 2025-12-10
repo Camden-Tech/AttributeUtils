@@ -7,54 +7,65 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-public class ItemAttributeCommand implements CommandExecutor {
+public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
 
     private final Plugin plugin;
     private final ItemAttributeHandler itemAttributeHandler;
+    private final me.baddcamden.attributeutils.api.AttributeFacade attributeFacade;
+    private final CommandMessages messages;
 
-    public ItemAttributeCommand(Plugin plugin, ItemAttributeHandler itemAttributeHandler) {
+    public ItemAttributeCommand(Plugin plugin, ItemAttributeHandler itemAttributeHandler, me.baddcamden.attributeutils.api.AttributeFacade attributeFacade) {
         this.plugin = plugin;
         this.itemAttributeHandler = itemAttributeHandler;
+        this.attributeFacade = attributeFacade;
+        this.messages = new CommandMessages(plugin);
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("attributeutils.command.items")) {
-            sender.sendMessage(formatMessage("messages.item-command.no-permission", Map.of(),
+            sender.sendMessage(messages.format("messages.item-command.no-permission", Map.of(),
                     ChatColor.RED + "You do not have permission to generate attribute items."));
             return true;
         }
 
         if (args.length < 4) {
-            sender.sendMessage(formatMessage("messages.item-command.usage", Map.of("label", label),
+            sender.sendMessage(messages.format("messages.item-command.usage", Map.of("label", label),
                     ChatColor.YELLOW + "Usage: /" + label + " <player> <material> <plugin.key> <value> [cap=<cap> ...]"));
             return true;
         }
 
         Player target = Bukkit.getPlayerExact(args[0]);
         if (target == null) {
-            sender.sendMessage(formatMessage("messages.item-command.player-offline", Map.of("player", args[0]),
+            sender.sendMessage(messages.format("messages.item-command.player-offline", Map.of("player", args[0]),
                     ChatColor.RED + "Player '" + args[0] + "' is not online."));
             return true;
         }
 
         Material material = resolveMaterial(args[1]);
         if (material == null) {
-            sender.sendMessage(formatMessage("messages.item-command.invalid-material", Map.of("material", args[1]),
+            sender.sendMessage(messages.format("messages.item-command.invalid-material", Map.of("material", args[1]),
                     ChatColor.RED + "Unknown material '" + args[1] + "'."));
             return true;
         }
 
-        List<CommandParsingUtils.AttributeDefinition> definitions = CommandParsingUtils.parseAttributeDefinitions(sender, args, 2);
+        List<CommandParsingUtils.AttributeDefinition> definitions = CommandParsingUtils.parseAttributeDefinitions(
+                sender,
+                args,
+                2,
+                messages,
+                key -> attributeFacade.getDefinition(key).isPresent());
         if (definitions.isEmpty()) {
             return true;
         }
@@ -64,11 +75,11 @@ public class ItemAttributeCommand implements CommandExecutor {
             buildResult = itemAttributeHandler.buildAttributeItem(material, definitions);
         } catch (IllegalArgumentException ex) {
             if ("unsupported-material".equalsIgnoreCase(ex.getMessage())) {
-                sender.sendMessage(formatMessage("messages.item-command.unsupported-material", Map.of("material", material.name()),
+                sender.sendMessage(messages.format("messages.item-command.unsupported-material", Map.of("material", material.name()),
                         ChatColor.RED + "That material cannot hold attribute data."));
                 return true;
             }
-            sender.sendMessage(formatMessage("messages.item-command.unknown-attribute", Map.of("attribute", ex.getMessage()),
+            sender.sendMessage(messages.format("messages.item-command.unknown-attribute", Map.of("attribute", ex.getMessage()),
                     ChatColor.RED + "Unknown attribute: " + ex.getMessage()));
             return true;
         }
@@ -81,7 +92,7 @@ public class ItemAttributeCommand implements CommandExecutor {
         String path = deliveryResult.dropped()
                 ? "messages.item-command.item-dropped"
                 : "messages.item-command.item-given";
-        sender.sendMessage(formatMessage(path, placeholders, ChatColor.GREEN + "Gave item."));
+        sender.sendMessage(messages.format(path, placeholders, ChatColor.GREEN + "Gave item."));
         return true;
     }
 
@@ -101,15 +112,61 @@ public class ItemAttributeCommand implements CommandExecutor {
         }
     }
 
-    private String formatMessage(String path, Map<String, String> placeholders, String fallback) {
-        FileConfiguration config = plugin.getConfig();
-        String message = config.getString(path, fallback);
-        if (message == null || message.isBlank()) {
-            message = fallback;
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            return filter(playerNames(), args[0]);
         }
-        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
-            message = message.replace("{" + entry.getKey() + "}", entry.getValue());
+
+        if (args.length == 2) {
+            return filter(materials(), args[1]);
         }
-        return ChatColor.translateAlternateColorCodes('&', message);
+
+        if (args.length >= 3) {
+            int relativeIndex = args.length - 3;
+            // Expect key at the beginning of a definition cycle
+            if (relativeIndex % 3 == 0 || args[args.length - 1].startsWith("cap=")) {
+                return filter(attributeKeys(), args[args.length - 1]);
+            }
+            if (relativeIndex % 3 == 2) {
+                List<String> options = new ArrayList<>(attributeKeys());
+                options.add("cap=");
+                return filter(options, args[args.length - 1]);
+            }
+        }
+
+        return List.of();
+    }
+
+    private List<String> attributeKeys() {
+        return attributeFacade.getDefinitions().stream()
+                .map(me.baddcamden.attributeutils.model.AttributeDefinition::id)
+                .sorted()
+                .toList();
+    }
+
+    private List<String> playerNames() {
+        return plugin.getServer().getOnlinePlayers().stream()
+                .map(Player::getName)
+                .sorted()
+                .toList();
+    }
+
+    private List<String> materials() {
+        return java.util.Arrays.stream(Material.values())
+                .map(Enum::name)
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    private List<String> filter(List<String> options, String prefix) {
+        String lower = prefix.toLowerCase(Locale.ROOT);
+        List<String> matches = new ArrayList<>();
+        for (String option : options) {
+            if (option.toLowerCase(Locale.ROOT).startsWith(lower)) {
+                matches.add(option);
+            }
+        }
+        return matches;
     }
 }

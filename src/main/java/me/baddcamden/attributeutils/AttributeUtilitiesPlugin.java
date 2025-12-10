@@ -12,6 +12,7 @@ import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
 import me.baddcamden.attributeutils.model.AttributeDefinitionFactory;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
+import me.baddcamden.attributeutils.command.CommandMessages;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
@@ -106,29 +107,41 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void registerCommands() {
+        CommandMessages messages = new CommandMessages(this);
+
         PluginCommand attributesCommand = getCommand("attributes");
         if (attributesCommand != null) {
-            attributesCommand.setExecutor(new AttributeCommand(attributeFacade, this));
+            AttributeCommand attributeCommand = new AttributeCommand(attributeFacade, this);
+            attributesCommand.setExecutor(attributeCommand);
+            attributesCommand.setTabCompleter(attributeCommand);
         }
 
         PluginCommand globalsCommand = getCommand("attributeglobals");
         if (globalsCommand != null) {
-            globalsCommand.setExecutor(new GlobalAttributeCommand(attributeFacade));
+            GlobalAttributeCommand globalAttributeCommand = new GlobalAttributeCommand(attributeFacade, messages);
+            globalsCommand.setExecutor(globalAttributeCommand);
+            globalsCommand.setTabCompleter(globalAttributeCommand);
         }
 
         PluginCommand modifiersCommand = getCommand("attributemodifiers");
         if (modifiersCommand != null) {
-            modifiersCommand.setExecutor(new PlayerModifierCommand(this, attributeFacade));
+            PlayerModifierCommand modifierCommand = new PlayerModifierCommand(this, attributeFacade);
+            modifiersCommand.setExecutor(modifierCommand);
+            modifiersCommand.setTabCompleter(modifierCommand);
         }
 
         PluginCommand itemsCommand = getCommand("attributeitems");
         if (itemsCommand != null) {
-            itemsCommand.setExecutor(new ItemAttributeCommand(this, itemAttributeHandler));
+            ItemAttributeCommand itemAttributeCommand = new ItemAttributeCommand(this, itemAttributeHandler, attributeFacade);
+            itemsCommand.setExecutor(itemAttributeCommand);
+            itemsCommand.setTabCompleter(itemAttributeCommand);
         }
 
         PluginCommand entitiesCommand = getCommand("attributeentities");
         if (entitiesCommand != null) {
-            entitiesCommand.setExecutor(new EntityAttributeCommand(this, entityAttributeHandler));
+            EntityAttributeCommand entityAttributeCommand = new EntityAttributeCommand(this, entityAttributeHandler, attributeFacade);
+            entitiesCommand.setExecutor(entityAttributeCommand);
+            entitiesCommand.setTabCompleter(entityAttributeCommand);
         }
     }
 
