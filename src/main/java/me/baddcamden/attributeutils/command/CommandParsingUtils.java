@@ -11,6 +11,8 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
+import me.baddcamden.attributeutils.model.ModifierOperation;
+
 public final class CommandParsingUtils {
 
     private static final Pattern NAMESPACED_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_.-]+$");
@@ -75,6 +77,36 @@ public final class CommandParsingUtils {
         return capValue;
     }
 
+    public static Optional<ModifierOperation> parseOperation(CommandSender sender, String raw, CommandMessages messages) {
+        try {
+            return Optional.of(ModifierOperation.valueOf(raw.toUpperCase(Locale.ROOT)));
+        } catch (IllegalArgumentException ex) {
+            sender.sendMessage(messages.format(
+                    "messages.shared.operation-invalid",
+                    Map.of("value", raw),
+                    "§cOperation must be ADD or MULTIPLY, not '" + raw + "'."));
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<Scope> parseScope(CommandSender sender, String raw, CommandMessages messages) {
+        String lower = raw.toLowerCase(Locale.ROOT);
+        switch (lower) {
+            case "default":
+                return Optional.of(Scope.DEFAULT);
+            case "current":
+                return Optional.of(Scope.CURRENT);
+            case "both":
+                return Optional.of(Scope.BOTH);
+            default:
+                sender.sendMessage(messages.format(
+                        "messages.shared.scope-invalid",
+                        Map.of("value", raw),
+                        "§cScope must be default, current, or both."));
+                return Optional.empty();
+        }
+    }
+
     public static List<AttributeDefinition> parseAttributeDefinitions(
             CommandSender sender,
             String[] args,
@@ -137,6 +169,20 @@ public final class CommandParsingUtils {
         }
 
         return definitions;
+    }
+
+    public enum Scope {
+        DEFAULT,
+        CURRENT,
+        BOTH;
+
+        public boolean appliesToDefault() {
+            return this == DEFAULT || this == BOTH;
+        }
+
+        public boolean appliesToCurrent() {
+            return this == CURRENT || this == BOTH;
+        }
     }
 
     public record NamespacedAttributeKey(String plugin, String key) {
