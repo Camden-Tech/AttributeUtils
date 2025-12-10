@@ -12,21 +12,16 @@ import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
 import me.baddcamden.attributeutils.model.AttributeDefinitionFactory;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
+import me.baddcamden.attributeutils.compute.VanillaDynamicResolvers;
 import me.baddcamden.attributeutils.command.CommandMessages;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
-
 public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     private AttributeFacade attributeFacade;
@@ -120,7 +115,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
                         getLogger().warning("Vanilla baseline '" + key + "' specifies unknown Bukkit attributes: " + candidates);
                     }
                     String attributeId = key.toLowerCase(java.util.Locale.ROOT).replace('-', '_');
-                    VanillaAttributeSupplier dynamicSupplier = createDynamicSupplier(attributeId, attribute, defaultBase);
+                    VanillaAttributeSupplier dynamicSupplier = VanillaDynamicResolvers.create(attributeId, attribute, defaultBase);
                     if (dynamicSupplier != null) {
                         supplier = player -> dynamicSupplier.getVanillaValue(player);
                         break;
@@ -139,81 +134,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private double getAttributeValue(Player player, Attribute attribute, double fallback) {
-        if (attribute == null) {
-            return fallback;
-        }
-        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(attribute);
-        if (instance != null) {
-            return instance.getValue();
-        }
-
-        return computeEquipmentAttribute(player, attribute, fallback);
-    }
-
-    private VanillaAttributeSupplier createDynamicSupplier(String attributeId, Attribute attribute, double defaultBase) {
-        switch (attributeId) {
-            case "attack_damage":
-            case "attack_knockback":
-            case "attack_speed":
-            case "armor":
-            case "armor_toughness":
-            case "knockback_resistance":
-                Attribute finalAttribute = attribute;
-                return player -> getAttributeValue(player, finalAttribute, defaultBase);
-            default:
-                return null;
-        }
-    }
-
-    private double computeEquipmentAttribute(Player player, Attribute attribute, double fallback) {
-        if (player == null || attribute == null) {
-            return fallback;
-        }
-
-        org.bukkit.inventory.EntityEquipment equipment = player.getEquipment();
-        if (equipment == null) {
-            return fallback;
-        }
-
-        Map<EquipmentSlot, ItemStack> slots = new HashMap<>();
-        slots.put(EquipmentSlot.HAND, equipment.getItemInMainHand());
-        slots.put(EquipmentSlot.OFF_HAND, equipment.getItemInOffHand());
-        slots.put(EquipmentSlot.HEAD, equipment.getHelmet());
-        slots.put(EquipmentSlot.CHEST, equipment.getChestplate());
-        slots.put(EquipmentSlot.LEGS, equipment.getLeggings());
-        slots.put(EquipmentSlot.FEET, equipment.getBoots());
-
-        double additive = 0d;
-        double multiplicative = 1d;
-
-        for (Map.Entry<EquipmentSlot, ItemStack> entry : slots.entrySet()) {
-            ItemStack item = entry.getValue();
-            if (item == null) {
-                continue;
-            }
-            ItemMeta meta = item.getItemMeta();
-            if (meta == null) {
-                continue;
-            }
-
-            Iterable<AttributeModifier> modifiers = meta.getAttributeModifiers(attribute);
-            if (modifiers == null) {
-                continue;
-            }
-
-            for (AttributeModifier modifier : modifiers) {
-                EquipmentSlot slot = modifier.getSlot();
-                if (slot != null && slot != entry.getKey()) {
-                    continue;
-                }
-                switch (modifier.getOperation()) {
-                    case ADD_NUMBER -> additive += modifier.getAmount();
-                    default -> multiplicative *= 1 + modifier.getAmount();
-                }
-            }
-        }
-
-        return (fallback + additive) * multiplicative;
+        return VanillaDynamicResolvers.computeAttributeValue(player, attribute, fallback);
     }
 
     private Attribute resolveAttribute(java.util.List<String> candidates) {
