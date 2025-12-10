@@ -1,9 +1,9 @@
 package me.baddcamden.attributeutils.model;
 
-public record AttributeValueStages(double rawDefault,
-                                   double defaultOnly,
+public record AttributeValueStages(double defaultBase,
+                                   double defaultPermanent,
                                    double defaultFinal,
-                                   double rawCurrent,
+                                   double currentBase,
                                    double currentPermanent,
                                    double currentFinal) {
 }

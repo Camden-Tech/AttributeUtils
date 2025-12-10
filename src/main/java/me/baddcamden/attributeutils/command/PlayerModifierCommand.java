@@ -76,7 +76,7 @@ public class PlayerModifierCommand implements CommandExecutor {
             return true;
         }
 
-        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false);
+        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false, true);
         attributeFacade.setPlayerModifier(target.getUniqueId(), key.get().key(), entry);
 
         durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,

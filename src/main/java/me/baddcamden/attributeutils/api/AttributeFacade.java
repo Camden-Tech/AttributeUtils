@@ -122,7 +122,7 @@ public class AttributeFacade {
     private AttributeInstance getOrCreatePlayerInstance(UUID playerId, AttributeDefinition definition) {
         Map<String, AttributeInstance> map = playerInstances.computeIfAbsent(playerId, ignored -> new HashMap<>());
         return map.computeIfAbsent(definition.id(), ignored -> {
-            AttributeInstance instance = new AttributeInstance(definition, definition.defaultCurrentValue(), playerId.toString());
+            AttributeInstance instance = new AttributeInstance(definition, definition.defaultBaseValue(), definition.defaultCurrentValue(), playerId.toString());
             instance.setCapOverrideKey(playerId.toString());
             return instance;
         });
