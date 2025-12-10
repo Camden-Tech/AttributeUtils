@@ -97,22 +97,7 @@ public final class CommandParsingUtils {
         return definitions;
     }
 
-    public static class NamespacedAttributeKey {
-        private final String plugin;
-        private final String key;
-
-        public NamespacedAttributeKey(String plugin, String key) {
-            this.plugin = plugin;
-            this.key = key;
-        }
-
-        public String getPlugin() {
-            return plugin;
-        }
-
-        public String getKey() {
-            return key;
-        }
+    public record NamespacedAttributeKey(String plugin, String key) {
 
         public String asString() {
             return plugin + "." + key;
