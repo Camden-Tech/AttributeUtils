@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 public class AttributeComputationEngine {
@@ -35,6 +36,8 @@ public class AttributeComputationEngine {
                 collectModifiers(globalInstance, playerInstance, AttributeInstance::getDefaultTemporaryMultipliers),
                 definition,
                 capKey);
+
+        synchronizeCurrentBaseline(definition, globalInstance, playerInstance, defaultFinal);
 
         double rawCurrent = buildCurrentBaseline(definition, vanillaSupplier, player, globalInstance, playerInstance, rawDefault, defaultFinal);
         double currentPermanent = apply(rawCurrent,
@@ -92,9 +95,7 @@ public class AttributeComputationEngine {
         double base = playerInstance != null
                 ? playerInstance.getCurrentBaseValue()
                 : globalInstance != null ? globalInstance.getCurrentBaseValue() : definition.defaultCurrentValue();
-        double defaultDelta = defaultFinal - rawDefault;
-        double rawCurrent = base + defaultDelta;
-        return definition.capConfig().clamp(rawCurrent, resolveCapKey(globalInstance, playerInstance));
+        return definition.capConfig().clamp(base, resolveCapKey(globalInstance, playerInstance));
     }
 
     private double apply(double start,
@@ -102,19 +103,32 @@ public class AttributeComputationEngine {
                          Collection<ModifierEntry> multiplierModifiers,
                          AttributeDefinition definition,
                          String capKey) {
-        double value = start;
-        double multiplier = 1.0d;
+        List<ModifierEntry> applicableMultipliers = multiplierModifiers.stream()
+                .filter(modifier -> definition.multiplierApplicability().canApply(modifier.key()))
+                .toList();
+
+        double baselineMultiplier = multiplierProduct(applicableMultipliers, null);
+        double value = start * baselineMultiplier;
 
         for (ModifierEntry modifier : additiveModifiers) {
-            value += modifier.amount();
-        }
-        for (ModifierEntry modifier : multiplierModifiers) {
-            if (definition.multiplierApplicability().canApply(modifier.key())) {
-                multiplier *= modifier.amount();
-            }
+            double additiveMultiplier = modifier.useMultiplierKeys()
+                    ? multiplierProduct(applicableMultipliers, modifier.multiplierKeys())
+                    : baselineMultiplier;
+            value += modifier.amount() * additiveMultiplier;
         }
 
-        return definition.capConfig().clamp(value * multiplier, capKey);
+        return definition.capConfig().clamp(value, capKey);
+    }
+
+    private double multiplierProduct(Collection<ModifierEntry> multipliers, Set<String> allowedKeys) {
+        if (multipliers == null || multipliers.isEmpty()) {
+            return 1.0d;
+        }
+
+        return multipliers.stream()
+                .filter(modifier -> allowedKeys == null || allowedKeys.contains(modifier.key().toLowerCase()))
+                .mapToDouble(ModifierEntry::amount)
+                .reduce(1.0d, (left, right) -> left * right);
     }
 
     private Collection<ModifierEntry> collectModifiers(AttributeInstance globalInstance,
@@ -134,5 +148,23 @@ public class AttributeComputationEngine {
         List<ModifierEntry> combined = new ArrayList<>(extractor.apply(globalInstance).values());
         combined.addAll(extractor.apply(playerInstance).values());
         return combined;
+    }
+
+    private void synchronizeCurrentBaseline(AttributeDefinition definition,
+                                            AttributeInstance globalInstance,
+                                            AttributeInstance playerInstance,
+                                            double defaultFinal) {
+        if (definition.dynamic()) {
+            return;
+        }
+
+        if (playerInstance != null) {
+            playerInstance.synchronizeCurrentBaseWithDefault(defaultFinal, definition.capConfig());
+            return;
+        }
+
+        if (globalInstance != null) {
+            globalInstance.synchronizeCurrentBaseWithDefault(defaultFinal, definition.capConfig());
+        }
     }
 }

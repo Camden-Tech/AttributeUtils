@@ -46,6 +46,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        getServer().getOnlinePlayers().forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId()));
         persistence.saveGlobals(attributeFacade);
     }
 

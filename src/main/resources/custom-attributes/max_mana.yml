@@ -1,0 +1,10 @@
+id: example.maxmana
+display-name: "Max Mana"
+dynamic: false
+default-base: 100
+default-current: 100
+cap:
+  min: 0
+  max: 250
+multipliers:
+  apply-all: true

@@ -5,10 +5,27 @@ global-attribute-caps:
   attack-damage: 100
   armor: 100
   movement-speed: 100
+  block-range: 128
+  interaction-range: 64
+  mining-efficiency: 1024
+  gravity: 10
+  scale: 10
+  regeneration-rate: 100
+  damage-reduction: 1
 
 # Player sustain values
 max-hunger: 20
 max-oxygen: 20
+
+# Sample custom attributes
+custom-attribute-defaults:
+  example.maxmana:
+    display: "Max Mana"
+    default-base: 100
+    default-current: 100
+    dynamic: false
+    min: 0
+    max: 250
 
 # Custom attribute loading
 load-custom-attributes-from-folder: true

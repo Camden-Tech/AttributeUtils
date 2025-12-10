@@ -10,7 +10,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 public class PlayerModifierCommand implements CommandExecutor {
 
@@ -51,7 +55,7 @@ public class PlayerModifierCommand implements CommandExecutor {
 
     private boolean handleAdd(CommandSender sender, String label, String targetName, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " <player> add <plugin.key> <amount> [durationSeconds]");
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /" + label + " <player> add <plugin.key> <amount> [durationSeconds] [multipliers=key1,key2]");
             return true;
         }
 
@@ -64,19 +68,43 @@ public class PlayerModifierCommand implements CommandExecutor {
         Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[2]);
         Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[3], "modifier amount");
         Optional<Double> durationSeconds = Optional.empty();
-        if (args.length >= 5) {
-            durationSeconds = CommandParsingUtils.parseNumeric(sender, args[4], "duration (seconds)");
-            if (durationSeconds.isPresent() && durationSeconds.get() <= 0) {
+        boolean useMultiplierKeys = false;
+        Set<String> multiplierKeys = Collections.emptySet();
+
+        for (int index = 4; index < args.length; index++) {
+            String arg = args[index];
+            if (arg.startsWith("multipliers=")) {
+                String[] parts = arg.substring("multipliers=".length()).split(",");
+                Set<String> parsedKeys = new HashSet<>();
+                Arrays.stream(parts)
+                        .map(String::trim)
+                        .filter(part -> !part.isEmpty())
+                        .forEach(part -> parsedKeys.add(part.toLowerCase()));
+                useMultiplierKeys = true;
+                multiplierKeys = parsedKeys.isEmpty() ? Collections.emptySet() : parsedKeys;
+                continue;
+            }
+
+            if (durationSeconds.isPresent()) {
+                sender.sendMessage(ChatColor.RED + "Unexpected argument '" + arg + "'.");
+                return true;
+            }
+
+            durationSeconds = CommandParsingUtils.parseNumeric(sender, arg, "duration (seconds)");
+            if (durationSeconds.isEmpty()) {
+                return true;
+            }
+            if (durationSeconds.get() <= 0) {
                 sender.sendMessage(ChatColor.RED + "Duration must be greater than zero when provided.");
                 return true;
             }
         }
 
-        if (key.isEmpty() || amount.isEmpty() || (args.length >= 5 && durationSeconds.isEmpty())) {
+        if (key.isEmpty() || amount.isEmpty()) {
             return true;
         }
 
-        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false, true);
+        ModifierEntry entry = new ModifierEntry(key.get().asString(), ModifierOperation.ADD, amount.get(), durationSeconds.isPresent(), false, true, useMultiplierKeys, multiplierKeys);
         attributeFacade.setPlayerModifier(target.getUniqueId(), key.get().key(), entry);
 
         durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,
