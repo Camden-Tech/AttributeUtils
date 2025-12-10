@@ -14,7 +14,7 @@ commands:
     permission: attributeutils.command.globals
   attributemodifiers:
     description: Add or remove player attribute modifiers.
-    usage: /<command> <player> <add|remove> <plugin.key> [amount] [durationSeconds]
+    usage: /<command> <player> <add|remove> <plugin.key> [amount] [durationSeconds] [multipliers=key1,key2]
     permission: attributeutils.command.modifiers
   attributeitems:
     description: Generate items with attribute data.

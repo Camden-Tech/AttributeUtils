@@ -36,6 +36,40 @@ entity-command:
     - PLAYER
 
 messages:
+  shared:
+    attribute-key-format: "&cAttribute keys must follow the [plugin].[key] format (e.g. example.max_health)."
+    attribute-key-segments: "&cAttribute keys must include both a plugin namespace and key segment."
+    invalid-numeric: "&cInvalid {label}: '{value}'. Provide a numeric value."
+    cap-format: "&cCap overrides must be provided as cap=<value>."
+    cap-nonnegative: "&cCap overrides must be zero or positive."
+    definition-missing: "&cProvide attribute definitions as <plugin>.<key> <value> [cap=<cap>]."
+    definition-missing-value: "&cAttribute definitions must include a numeric value after the key."
+    unknown-attribute: "&cUnknown attribute '{attribute}'."
+    negative-value: "&cAttribute values must be zero or positive."
+  attribute-command:
+    reload-no-permission: "&cYou do not have permission to reload attributes."
+    reload-success: "&aAttribute configuration reloaded."
+    invalid-sender: "&eAttributes are player-focused; use in-game for details."
+    header: "&bRegistered attributes:"
+  global-command:
+    no-permission: "&cYou do not have permission to edit global attribute defaults or caps."
+    usage: "&eUsage: /{label} <plugin.key> <baseValue> [cap=<capValue>]"
+    unknown-attribute: "&cUnknown attribute: {attribute}"
+    negative-base: "&cBase values must be at least {minimum}."
+    updated: "&aGlobal base for {attribute} set to {value}."
+  modifier-command:
+    no-permission: "&cYou do not have permission to manage player attribute modifiers."
+    usage: "&eUsage: /{label} <player> <add|remove> <plugin.key> [amount] [durationSeconds]"
+    usage-add: "&eUsage: /{label} <player> add <plugin.key> <amount> [durationSeconds] [multipliers=key1,key2]"
+    usage-remove: "&eUsage: /{label} <player> remove <plugin.key>"
+    unknown-action: "&cUnknown action '{action}'. Use add or remove."
+    player-offline: "&cPlayer '{player}' is not online."
+    unexpected-argument: "&cUnexpected argument '{argument}'."
+    positive-duration: "&cDuration must be greater than zero when provided."
+    negative-amount: "&cModifier amounts must be zero or positive."
+    unknown-attribute: "&cUnknown attribute '{attribute}'."
+    added: "&aApplied a {amount} modifier to {attribute} for player {player} ({duration})."
+    removed: "&aRemoved modifiers for {attribute} from player {player}."
   item-command:
     no-permission: "&cYou do not have permission to generate attribute items."
     usage: "&eUsage: /{label} <player> <material> <plugin.key> <value> [cap=<cap> ...]"
