@@ -96,18 +96,6 @@ public class EntityAttributeHandler {
 
     public void applyVanillaAttribute(Player player, String attributeId) {
         org.bukkit.attribute.Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
-        if (target == null && isHunger(attributeId)) {
-            AttributeValueStages hunger = attributeFacade.compute("max_hunger", player);
-            applyHungerCap(player, hunger);
-            return;
-        }
-        if (target == null && isOxygen(attributeId)) {
-            applyOxygenCaps(player);
-            return;
-        }
-        if (target == null) {
-            target = resolveAttribute(attributeId);
-        }
         if (target == null) {
             return;
         }
@@ -138,48 +126,5 @@ public class EntityAttributeHandler {
                 org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER
         );
         instance.addTransientModifier(modifier);
-    }
-
-    private Attribute resolveAttribute(String attributeId) {
-        String normalized = attributeId.toUpperCase(Locale.ROOT);
-        try {
-            return Attribute.valueOf(normalized);
-        } catch (IllegalArgumentException ignored) {
-            // continue
-        }
-
-        try {
-            return Attribute.valueOf("GENERIC_" + normalized);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-    }
-
-    private boolean isHunger(String attributeId) {
-        return "max_hunger".equalsIgnoreCase(attributeId);
-    }
-
-    private boolean isOxygen(String attributeId) {
-        return "max_oxygen".equalsIgnoreCase(attributeId) || "oxygen_bonus".equalsIgnoreCase(attributeId);
-    }
-
-    private void applyHungerCap(Player player, AttributeValueStages hunger) {
-        int cappedHunger = (int) Math.round(hunger.currentFinal());
-        player.setFoodLevel(cappedHunger);
-    }
-
-    private void applyOxygenCaps(Player player) {
-        AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
-        AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
-        int maxAir = (int) Math.round(oxygen.currentFinal() + oxygenBonus.currentFinal());
-        player.setMaximumAir(maxAir);
-
-        int currentAir = player.getRemainingAir();
-        int clampedAir = Math.min(Math.max(currentAir, 0), maxAir);
-        // Refill the player's air to the updated maximum so the change is immediately visible.
-        if (clampedAir < maxAir) {
-            clampedAir = maxAir;
-        }
-        player.setRemainingAir(clampedAir);
     }
 }
