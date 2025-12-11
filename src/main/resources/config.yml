@@ -46,7 +46,7 @@ vanilla-attribute-defaults:
     default-base: 20
   max-oxygen:
     provider: maximum-air
-    default-base: 20
+    default-base: 300
   oxygen-bonus:
     bukkit-attributes: [OXYGEN_BONUS, PLAYER_OXYGEN_BONUS]
     default-base: 0
@@ -84,10 +84,14 @@ vanilla-attribute-defaults:
     bukkit-attributes: [SNEAKING_SPEED, PLAYER_SNEAKING_SPEED]
     default-base: 1
   sprint-speed:
-    bukkit-attributes: [SPRINT_SPEED, PLAYER_SPRINT_SPEED, PLAYER_SPRINTING_SPEED]
+    # Bukkit 1.21.10 exposes no sprint-specific attribute; use a static baseline to avoid
+    # warning spam while retaining configurable defaults.
+    provider: static
     default-base: 1
   swim-speed:
-    bukkit-attributes: [SWIM_SPEED, PLAYER_SWIM_SPEED, GENERIC_SWIM_SPEED]
+    # Bukkit 1.21.10 exposes no swim-specific attribute; use a static baseline to avoid
+    # warning spam while retaining configurable defaults.
+    provider: static
     default-base: 1
   regeneration-rate:
     provider: static
@@ -112,8 +116,8 @@ global-attribute-caps:
   luck: 1024
   knockback-resistance: 1
   max-hunger: 40
-  max-oxygen: 40
-  oxygen-bonus: 60
+  max-oxygen: 600
+  oxygen-bonus: 300
   block-range: 128
   interaction-range: 64
   block-break-speed: 1024

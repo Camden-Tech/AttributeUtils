@@ -60,9 +60,9 @@ attributes:
     default-final-baseline: 20
     modifiers: {}
   max_oxygen:
-    default-base: 20
-    current-base: 20
-    default-final-baseline: 20
+    default-base: 300
+    current-base: 300
+    default-final-baseline: 300
     modifiers: {}
   oxygen_bonus:
     default-base: 0

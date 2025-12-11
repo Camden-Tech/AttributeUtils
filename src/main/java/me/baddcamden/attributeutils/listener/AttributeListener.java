@@ -106,7 +106,8 @@ public class AttributeListener implements Listener {
     @EventHandler
     public void onAirChange(EntityAirChangeEvent event) {
         if (event.getEntity() instanceof org.bukkit.entity.Player player) {
-            double cap = attributeFacade.compute("max_oxygen", player).currentFinal();
+            double cap = attributeFacade.compute("max_oxygen", player).currentFinal()
+                    + attributeFacade.compute("oxygen_bonus", player).currentFinal();
             // Enforce the oxygen cap within the handler to keep the player's air value consistent with
             // calculated attribute limits before the server processes the change.
             if (event.getAmount() > cap) {
