@@ -199,33 +199,56 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private double resolveArmorValue(Player player, Attribute configuredAttribute, double fallback) {
-        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ARMOR;
+        Attribute target = configuredAttribute != null
+                ? configuredAttribute
+                : resolveAttributeByNames("GENERIC_ARMOR", "ARMOR");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveArmorToughnessValue(Player player, Attribute configuredAttribute, double fallback) {
-        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ARMOR_TOUGHNESS;
+        Attribute target = configuredAttribute != null
+                ? configuredAttribute
+                : resolveAttributeByNames("GENERIC_ARMOR_TOUGHNESS", "ARMOR_TOUGHNESS");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveKnockbackResistanceValue(Player player, Attribute configuredAttribute, double fallback) {
-        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_KNOCKBACK_RESISTANCE;
+        Attribute target = configuredAttribute != null
+                ? configuredAttribute
+                : resolveAttributeByNames("GENERIC_KNOCKBACK_RESISTANCE", "KNOCKBACK_RESISTANCE");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveAttackDamage(Player player, Attribute configuredAttribute, double fallback) {
-        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ATTACK_DAMAGE;
+        Attribute target = configuredAttribute != null
+                ? configuredAttribute
+                : resolveAttributeByNames("GENERIC_ATTACK_DAMAGE", "ATTACK_DAMAGE");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveAttackKnockback(Player player, Attribute configuredAttribute, double fallback) {
-        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ATTACK_KNOCKBACK;
+        Attribute target = configuredAttribute != null
+                ? configuredAttribute
+                : resolveAttributeByNames("GENERIC_ATTACK_KNOCKBACK", "ATTACK_KNOCKBACK");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveAttackSpeed(Player player, Attribute configuredAttribute, double fallback) {
-        Attribute target = configuredAttribute != null ? configuredAttribute : Attribute.GENERIC_ATTACK_SPEED;
+        Attribute target = configuredAttribute != null
+                ? configuredAttribute
+                : resolveAttributeByNames("GENERIC_ATTACK_SPEED", "ATTACK_SPEED");
         return getAttributeValue(player, target, fallback);
+    }
+
+    private Attribute resolveAttributeByNames(String... names) {
+        for (String name : names) {
+            try {
+                return Attribute.valueOf(name);
+            } catch (IllegalArgumentException ignored) {
+                // try the next option
+            }
+        }
+        return null;
     }
 
     private double computeEquipmentAttribute(Player player, Attribute attribute, double fallback) {
