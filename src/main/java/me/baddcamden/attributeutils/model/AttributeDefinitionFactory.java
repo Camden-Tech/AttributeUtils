@@ -108,14 +108,14 @@ public final class AttributeDefinitionFactory {
         definitions.put("max_oxygen", cappedAttribute(
                 "max_oxygen",
                 "Max Oxygen",
-                capConfig(config, "max_oxygen", defaultBase(config, "max_oxygen", 20)),
+                capConfig(config, "max_oxygen", defaultBase(config, "max_oxygen", 300)),
                 false,
-                defaultBase(config, "max_oxygen", 20)
+                defaultBase(config, "max_oxygen", 300)
         ));
         definitions.put("oxygen_bonus", cappedAttribute(
                 "oxygen_bonus",
                 "Oxygen Bonus",
-                capConfig(config, "oxygen_bonus", 60),
+                capConfig(config, "oxygen_bonus", 300),
                 false,
                 defaultBase(config, "oxygen_bonus", 0)
         ));

@@ -38,7 +38,8 @@ public class EntityAttributeHandler {
         player.setFoodLevel((int) Math.round(hunger.currentFinal()));
 
         AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
-        player.setMaximumAir((int) Math.round(oxygen.currentFinal()));
+        AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
+        player.setMaximumAir((int) Math.round(oxygen.currentFinal() + oxygenBonus.currentFinal()));
     }
 
     public SpawnedEntityResult spawnAttributedEntity(Location location,

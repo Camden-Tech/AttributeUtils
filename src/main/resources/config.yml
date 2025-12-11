@@ -46,7 +46,7 @@ vanilla-attribute-defaults:
     default-base: 20
   max-oxygen:
     provider: maximum-air
-    default-base: 20
+    default-base: 300
   oxygen-bonus:
     bukkit-attributes: [OXYGEN_BONUS, PLAYER_OXYGEN_BONUS]
     default-base: 0
@@ -116,8 +116,8 @@ global-attribute-caps:
   luck: 1024
   knockback-resistance: 1
   max-hunger: 40
-  max-oxygen: 40
-  oxygen-bonus: 60
+  max-oxygen: 600
+  oxygen-bonus: 300
   block-range: 128
   interaction-range: 64
   block-break-speed: 1024
