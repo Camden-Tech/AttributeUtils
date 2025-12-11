@@ -74,11 +74,17 @@ public class ItemAttributeHandler {
             capOverride.ifPresent(cap -> container.set(capKey(attributeDefinition.id()), PersistentDataType.DOUBLE, cap));
 
             String loreLine = ChatColor.GRAY + attributeDefinition.displayName() + ChatColor.WHITE + ": " + clampedValue;
-            capOverride.ifPresent(cap -> loreLine += ChatColor.GRAY + " (cap " + cap + ")");
+            if (capOverride.isPresent()) {
+                double cap = capOverride.get();
+                loreLine += ChatColor.GRAY + " (cap " + cap + ")";
+            }
             lore.add(loreLine);
 
             String summaryLine = attributeDefinition.id() + "=" + clampedValue;
-            capOverride.ifPresent(cap -> summaryLine += " (cap " + cap + ")");
+            if (capOverride.isPresent()) {
+                double cap = capOverride.get();
+                summaryLine += " (cap " + cap + ")";
+            }
             summary.add(summaryLine);
         }
 
