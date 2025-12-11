@@ -84,10 +84,14 @@ vanilla-attribute-defaults:
     bukkit-attributes: [SNEAKING_SPEED, PLAYER_SNEAKING_SPEED]
     default-base: 1
   sprint-speed:
-    bukkit-attributes: [SPRINT_SPEED, PLAYER_SPRINT_SPEED, PLAYER_SPRINTING_SPEED]
+    # Bukkit 1.21.10 exposes no sprint-specific attribute; use a static baseline to avoid
+    # warning spam while retaining configurable defaults.
+    provider: static
     default-base: 1
   swim-speed:
-    bukkit-attributes: [SWIM_SPEED, PLAYER_SWIM_SPEED, GENERIC_SWIM_SPEED]
+    # Bukkit 1.21.10 exposes no swim-specific attribute; use a static baseline to avoid
+    # warning spam while retaining configurable defaults.
+    provider: static
     default-base: 1
   regeneration-rate:
     provider: static
