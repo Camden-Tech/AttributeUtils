@@ -125,11 +125,14 @@ public class EntityAttributeHandler {
 
         java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        // Ensure any previous modifier with the same UUID is cleared before re-applying. Using
-        // the UUID-based remover handles both persistent and transient modifiers so we don't
-        // attempt to add a duplicate and trigger an IllegalArgumentException on newer Bukkit
-        // versions.
-        instance.removeModifier(modifierId);
+        // Ensure any previous modifier with the same UUID is cleared before re-applying to avoid
+        // triggering duplicate modifier exceptions on newer Bukkit versions that do not support
+        // UUID-based removal.
+        for (org.bukkit.attribute.AttributeModifier modifier : instance.getModifiers()) {
+            if (modifier.getUniqueId().equals(modifierId)) {
+                instance.removeModifier(modifier);
+            }
+        }
 
         double baseline = instance.getValue();
         double computed = attributeFacade.compute(attributeId, player).currentFinal();
