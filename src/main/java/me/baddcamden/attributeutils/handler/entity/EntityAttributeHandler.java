@@ -6,6 +6,7 @@ import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -40,11 +41,9 @@ public class EntityAttributeHandler {
 
     public void applyPlayerCaps(Player player) {
         AttributeValueStages hunger = attributeFacade.compute("max_hunger", player);
-        player.setFoodLevel((int) Math.round(hunger.currentFinal()));
+        applyHungerCap(player, hunger);
 
-        AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
-        AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
-        player.setMaximumAir((int) Math.round(oxygen.currentFinal() + oxygenBonus.currentFinal()));
+        applyOxygenCaps(player);
     }
 
     public SpawnedEntityResult spawnAttributedEntity(Location location,
