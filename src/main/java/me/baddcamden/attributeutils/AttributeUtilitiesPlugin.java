@@ -35,6 +35,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     private AttributePersistence persistence;
     private ItemAttributeHandler itemAttributeHandler;
     private EntityAttributeHandler entityAttributeHandler;
+    private Map<String, Attribute> vanillaAttributeTargets;
 
     @Override
     public void onEnable() {
@@ -64,8 +65,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         AttributeComputationEngine computationEngine = new AttributeComputationEngine();
         AttributeFacade newAttributeFacade = new AttributeFacade(this, computationEngine);
         AttributePersistence newPersistence = new AttributePersistence(getDataFolder().toPath());
+        vanillaAttributeTargets = new HashMap<>();
         ItemAttributeHandler newItemAttributeHandler = new ItemAttributeHandler(newAttributeFacade, this);
-        EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this);
+        EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this, vanillaAttributeTargets);
 
         this.attributeFacade = newAttributeFacade;
         this.persistence = newPersistence;
@@ -113,6 +115,8 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             return;
         }
 
+        vanillaAttributeTargets.clear();
+
         defaults.getKeys(false).forEach(key -> {
             ConfigurationSection entry = defaults.getConfigurationSection(key);
             if (entry == null) {
@@ -129,6 +133,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             String provider = entry.getString("provider", "attribute").toLowerCase(java.util.Locale.ROOT);
 
             VanillaAttributeSupplier supplier;
+            Attribute attribute = null;
             switch (provider) {
                 case "food-level":
                     supplier = Player::getFoodLevel;
@@ -144,7 +149,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
                     if (candidates.isEmpty()) {
                         getLogger().warning("Vanilla baseline '" + key + "' is missing 'bukkit-attributes'; using default value only.");
                     }
-                    Attribute attribute = resolveAttribute(candidates);
+                    attribute = resolveAttribute(candidates);
                     if (attribute == null) {
                         getLogger().warning("Vanilla baseline '" + key + "' specifies unknown Bukkit attributes: " + candidates);
                     }
@@ -163,6 +168,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             }
 
             String attributeId = key.toLowerCase(java.util.Locale.ROOT).replace('-', '_');
+            if (attribute != null) {
+                vanillaAttributeTargets.put(attributeId, attribute);
+            }
             attributeFacade.registerVanillaBaseline(attributeId, supplier);
         });
     }
@@ -342,7 +350,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
         PluginCommand modifiersCommand = getCommand("attributemodifiers");
         if (modifiersCommand != null) {
-            PlayerModifierCommand modifierCommand = new PlayerModifierCommand(this, attributeFacade);
+            PlayerModifierCommand modifierCommand = new PlayerModifierCommand(this, attributeFacade, entityAttributeHandler);
             modifiersCommand.setExecutor(modifierCommand);
             modifiersCommand.setTabCompleter(modifierCommand);
         }
