@@ -125,10 +125,11 @@ public class EntityAttributeHandler {
 
         java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        org.bukkit.attribute.AttributeModifier existing = instance.getModifier(modifierId);
-        if (existing != null) {
-            instance.removeModifier(existing);
-        }
+        // Ensure any previous modifier with the same UUID is cleared before re-applying. Using
+        // the UUID-based remover handles both persistent and transient modifiers so we don't
+        // attempt to add a duplicate and trigger an IllegalArgumentException on newer Bukkit
+        // versions.
+        instance.removeModifier(modifierId);
 
         double baseline = instance.getValue();
         double computed = attributeFacade.compute(attributeId, player).currentFinal();
@@ -143,7 +144,17 @@ public class EntityAttributeHandler {
                 delta,
                 org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER
         );
-        instance.addTransientModifier(modifier);
+        // Use transient modifiers when available to avoid persisting runtime adjustments, but
+        // gracefully fall back to regular modifiers on servers that do not support them.
+        try {
+            java.lang.reflect.Method transientMethod = instance.getClass()
+                    .getMethod("addTransientModifier", org.bukkit.attribute.AttributeModifier.class);
+            transientMethod.invoke(instance, modifier);
+        } catch (NoSuchMethodException ignored) {
+            instance.addModifier(modifier);
+        } catch (ReflectiveOperationException ex) {
+            instance.addModifier(modifier);
+        }
     }
 
     private Attribute resolveAttribute(String attributeId) {
