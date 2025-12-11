@@ -128,7 +128,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             double defaultBase = entry.getDouble("default-base");
             String provider = entry.getString("provider", "attribute").toLowerCase(java.util.Locale.ROOT);
 
-            java.util.function.ToDoubleFunction<Player> supplier;
+            VanillaAttributeSupplier supplier;
             switch (provider) {
                 case "food-level":
                     supplier = Player::getFoodLevel;
