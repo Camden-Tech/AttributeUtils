@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Integrates entity interactions with the attribute computation pipeline. Responsibilities include applying computed
@@ -35,9 +34,9 @@ public class EntityAttributeHandler {
     public EntityAttributeHandler(AttributeFacade attributeFacade,
                                   Plugin plugin,
                                   Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets) {
-        this.attributeFacade = Objects.requireNonNull(attributeFacade, "attributeFacade");
-        this.plugin = Objects.requireNonNull(plugin, "plugin");
-        this.vanillaAttributeTargets = Objects.requireNonNull(vanillaAttributeTargets, "vanillaAttributeTargets");
+        this.attributeFacade = attributeFacade;
+        this.plugin = plugin;
+        this.vanillaAttributeTargets = vanillaAttributeTargets;
     }
 
     public void applyPlayerCaps(Player player) {
