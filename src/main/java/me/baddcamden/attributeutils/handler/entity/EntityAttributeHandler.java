@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Map;
 
 /**
  * Integrates entity interactions with the attribute computation pipeline. Responsibilities include applying computed
@@ -27,10 +28,14 @@ public class EntityAttributeHandler {
 
     private final AttributeFacade attributeFacade;
     private final Plugin plugin;
+    private final Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets;
 
-    public EntityAttributeHandler(AttributeFacade attributeFacade, Plugin plugin) {
+    public EntityAttributeHandler(AttributeFacade attributeFacade,
+                                  Plugin plugin,
+                                  Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets) {
         this.attributeFacade = attributeFacade;
         this.plugin = plugin;
+        this.vanillaAttributeTargets = vanillaAttributeTargets;
     }
 
     public void applyPlayerCaps(Player player) {
@@ -88,5 +93,39 @@ public class EntityAttributeHandler {
     }
 
     public record SpawnedEntityResult(Entity entity, String summary) {
+    }
+
+    public void applyVanillaAttribute(Player player, String attributeId) {
+        org.bukkit.attribute.Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
+        if (target == null) {
+            return;
+        }
+
+        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(target);
+        if (instance == null) {
+            return;
+        }
+
+        java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        org.bukkit.attribute.AttributeModifier existing = instance.getModifier(modifierId);
+        if (existing != null) {
+            instance.removeModifier(existing);
+        }
+
+        double baseline = instance.getValue();
+        double computed = attributeFacade.compute(attributeId, player).currentFinal();
+        double delta = computed - baseline;
+        if (Math.abs(delta) < 0.0000001) {
+            return;
+        }
+
+        org.bukkit.attribute.AttributeModifier modifier = new org.bukkit.attribute.AttributeModifier(
+                modifierId,
+                "attributeutils:" + attributeId,
+                delta,
+                org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER
+        );
+        instance.addTransientModifier(modifier);
     }
 }

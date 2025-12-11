@@ -1,6 +1,7 @@
 package me.baddcamden.attributeutils.command;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.model.ModifierEntry;
 import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.ChatColor;
@@ -31,11 +32,15 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
 
     private final Plugin plugin;
     private final AttributeFacade attributeFacade;
+    private final EntityAttributeHandler entityAttributeHandler;
     private final CommandMessages messages;
 
-    public PlayerModifierCommand(Plugin plugin, AttributeFacade attributeFacade) {
+    public PlayerModifierCommand(Plugin plugin,
+                                 AttributeFacade attributeFacade,
+                                 EntityAttributeHandler entityAttributeHandler) {
         this.plugin = plugin;
         this.attributeFacade = attributeFacade;
+        this.entityAttributeHandler = entityAttributeHandler;
         this.messages = new CommandMessages(plugin);
     }
 
@@ -166,9 +171,15 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
 
         ModifierEntry entry = new ModifierEntry(modifierKey.get().asString(), operation.get(), amount.get(), durationSeconds.isPresent(), scope.appliesToDefault(), scope.appliesToCurrent(), useMultiplierKeys, multiplierKeys);
         attributeFacade.setPlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry);
+        entityAttributeHandler.applyVanillaAttribute(target, attributeKey.get().key());
 
         durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,
-                () -> attributeFacade.removePlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry.key()),
+                () -> {
+                    attributeFacade.removePlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry.key());
+                    if (target.isOnline()) {
+                        entityAttributeHandler.applyVanillaAttribute(target, attributeKey.get().key());
+                    }
+                },
                 (long) (seconds * 20)));
 
         String durationLabel = durationSeconds.map(value -> value + "s temporary").orElse("permanent");
@@ -220,6 +231,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         }
 
         attributeFacade.removePlayerModifier(target.getUniqueId(), attributeKey.get().key(), modifierKey.get().asString());
+        entityAttributeHandler.applyVanillaAttribute(target, attributeKey.get().key());
         sender.sendMessage(messages.format(
                 "messages.modifier-command.removed",
                 java.util.Map.of("attribute", attributeKey.get().asString(), "player", target.getName(), "modifier", modifierKey.get().asString()),
