@@ -84,7 +84,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage-add",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> add <plugin> <name> <modifierKey> <add|multiply> <amount> [temporary|permanent] [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"));
+                    "§eUsage: /" + label + " <player> add <plugin> <name> <modifierKey> <add|multiply> <amount> [temporary|permanent] [duration=<seconds>] [scope=default|current|both] [multipliers=key1,key2]"));
             return true;
         }
 
@@ -137,6 +137,28 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 scope = parsedScope.get();
+                continue;
+            }
+
+            if (arg.startsWith("duration=")) {
+                if (durationSeconds.isPresent()) {
+                    sender.sendMessage(messages.format(
+                            "messages.modifier-command.unexpected-argument",
+                            java.util.Map.of("argument", arg),
+                            "§cUnexpected argument '" + arg + "'."));
+                    return true;
+                }
+
+                durationSeconds = CommandParsingUtils.parseNumeric(sender, arg.substring("duration=".length()), "duration (seconds)", messages);
+                if (durationSeconds.isEmpty()) {
+                    return true;
+                }
+                if (durationSeconds.get() <= 0) {
+                    sender.sendMessage(messages.format(
+                            "messages.modifier-command.positive-duration",
+                            "§cDuration must be greater than zero when provided."));
+                    return true;
+                }
                 continue;
             }
 
@@ -296,16 +318,56 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return Collections.singletonList("1");
         }
 
-        if (args.length == 8 && args[1].equalsIgnoreCase("add")) {
-            List<String> options = new ArrayList<>();
-            options.add("60");
-            options.addAll(scopeOptions());
-            options.add("multipliers=");
-            return filter(options, args[7]);
-        }
-
         if (args.length >= 8 && args[1].equalsIgnoreCase("add")) {
-            return filter(scopeAndMultiplierOptions(), args[args.length - 1]);
+            List<String> options = new ArrayList<>();
+            boolean hasTemporary = false;
+            boolean hasPermanent = false;
+            boolean hasDuration = false;
+            boolean hasScope = false;
+            boolean hasMultipliers = false;
+
+            for (int index = 7; index < args.length - 1; index++) {
+                String option = args[index];
+                if (option.equalsIgnoreCase("temporary")) {
+                    hasTemporary = true;
+                    continue;
+                }
+                if (option.equalsIgnoreCase("permanent")) {
+                    hasPermanent = true;
+                    continue;
+                }
+                if (option.startsWith("scope=")) {
+                    hasScope = true;
+                    continue;
+                }
+                if (option.startsWith("multipliers=")) {
+                    hasMultipliers = true;
+                    continue;
+                }
+                if (option.startsWith("duration=")) {
+                    hasDuration = true;
+                    continue;
+                }
+                if (isNumeric(option)) {
+                    hasDuration = true;
+                }
+            }
+
+            if (!hasTemporary && !hasPermanent) {
+                options.add("temporary");
+                options.add("permanent");
+            }
+            if (!hasDuration) {
+                options.add("duration=60");
+            }
+            if (!hasScope) {
+                options.addAll(scopeOptions());
+            }
+            if (!hasMultipliers) {
+                options.add("multipliers=");
+            }
+
+            return filter(options, args[args.length - 1]);
         }
 
         return Collections.emptyList();
@@ -313,12 +375,6 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
 
     private List<String> scopeOptions() {
         return List.of("scope=default", "scope=current", "scope=both");
-    }
-
-    private List<String> scopeAndMultiplierOptions() {
-        List<String> options = new ArrayList<>(scopeOptions());
-        options.add("multipliers=");
-        return options;
     }
 
     private List<String> attributePlugins() {
@@ -358,5 +414,14 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             }
         }
         return matches;
+    }
+
+    private boolean isNumeric(String value) {
+        try {
+            Double.parseDouble(value);
+            return true;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
     }
 }
