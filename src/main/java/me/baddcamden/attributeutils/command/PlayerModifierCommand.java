@@ -189,7 +189,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
 
         boolean temporary = durationSeconds.isPresent() || Boolean.TRUE.equals(temporaryExplicit);
 
-        ModifierEntry entry = new ModifierEntry(modifierKey.get().asString(), operation.get(), amount.get(), temporary, scope.appliesToDefault(), scope.appliesToCurrent(), useMultiplierKeys, multiplierKeys);
+        ModifierEntry entry = new ModifierEntry(modifierKey.get().asString(), operation.get(), amount.get(), temporary, scope.appliesToDefault(), scope.appliesToCurrent(), useMultiplierKeys, multiplierKeys, durationSeconds.orElse(null));
         attributeFacade.setPlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry);
         entityAttributeHandler.applyVanillaAttribute(target, attributeKey.get().key());
 
