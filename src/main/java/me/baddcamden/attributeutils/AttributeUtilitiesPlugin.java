@@ -26,8 +26,12 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 public class AttributeUtilitiesPlugin extends JavaPlugin {
 
@@ -45,14 +49,18 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        getServer().getOnlinePlayers().forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId()));
-        persistence.saveGlobals(attributeFacade);
+        List<CompletableFuture<Void>> saves = new ArrayList<>();
+        getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId())));
+        saves.add(persistence.saveGlobalsAsync(attributeFacade));
+        CompletableFuture.allOf(saves.toArray(new CompletableFuture[0])).join();
     }
 
     public void reloadAttributes() {
         if (persistence != null && attributeFacade != null) {
-            getServer().getOnlinePlayers().forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId()));
-            persistence.saveGlobals(attributeFacade);
+            List<CompletableFuture<Void>> saves = new ArrayList<>();
+            getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId())));
+            saves.add(persistence.saveGlobalsAsync(attributeFacade));
+            CompletableFuture.allOf(saves.toArray(new CompletableFuture[0])).join();
         }
 
         reloadConfig();
@@ -64,7 +72,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
         AttributeComputationEngine computationEngine = new AttributeComputationEngine();
         AttributeFacade newAttributeFacade = new AttributeFacade(this, computationEngine);
-        AttributePersistence newPersistence = new AttributePersistence(getDataFolder().toPath());
+        AttributePersistence newPersistence = new AttributePersistence(getDataFolder().toPath(), this);
         vanillaAttributeTargets = new HashMap<>();
         ItemAttributeHandler newItemAttributeHandler = new ItemAttributeHandler(newAttributeFacade, this);
         EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this, vanillaAttributeTargets);
@@ -76,16 +84,16 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
         loadDefinitions();
         registerVanillaBaselines();
-        newPersistence.loadGlobals(newAttributeFacade);
-        getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayer(newAttributeFacade, player.getUniqueId()));
+        newPersistence.loadGlobalsAsync(newAttributeFacade);
+        Executor syncExecutor = command -> getServer().getScheduler().runTask(this, command);
+        getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayerAsync(newAttributeFacade, player.getUniqueId())
+                .thenRunAsync(() -> {
+                    newItemAttributeHandler.applyDefaults(player.getInventory());
+                    newEntityAttributeHandler.applyPlayerCaps(player);
+                }, syncExecutor));
         loadCustomAttributes();
         registerCommands();
         registerListeners();
-
-        getServer().getOnlinePlayers().forEach(player -> {
-            newItemAttributeHandler.applyDefaults(player.getInventory());
-            newEntityAttributeHandler.applyPlayerCaps(player);
-        });
     }
 
     private void loadDefinitions() {
@@ -371,7 +379,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new AttributeListener(attributeFacade, persistence, itemAttributeHandler, entityAttributeHandler), this);
+        getServer().getPluginManager().registerEvents(new AttributeListener(this, attributeFacade, persistence, itemAttributeHandler, entityAttributeHandler), this);
     }
 
     public AttributeFacade getAttributeFacade() {
