@@ -84,7 +84,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage-add",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> add <plugin> <name> <modifierKey> <add|multiply> <amount> [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"));
+                    "§eUsage: /" + label + " <player> add <plugin> <name> <modifierKey> <add|multiply> <amount> [temporary|permanent] [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"));
             return true;
         }
 
@@ -102,12 +102,23 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         Optional<ModifierOperation> operation = CommandParsingUtils.parseOperation(sender, args[5], messages);
         Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[6], "modifier amount", messages);
         Optional<Double> durationSeconds = Optional.empty();
+        Boolean temporaryExplicit = null;
         CommandParsingUtils.Scope scope = CommandParsingUtils.Scope.BOTH;
         boolean useMultiplierKeys = false;
         Set<String> multiplierKeys = Collections.emptySet();
 
         for (int index = 7; index < args.length; index++) {
             String arg = args[index];
+            if (arg.equalsIgnoreCase("temporary")) {
+                temporaryExplicit = true;
+                continue;
+            }
+
+            if (arg.equalsIgnoreCase("permanent")) {
+                temporaryExplicit = false;
+                continue;
+            }
+
             if (arg.startsWith("multipliers=")) {
                 String[] parts = arg.substring("multipliers=".length()).split(",");
                 Set<String> parsedKeys = new HashSet<>();
@@ -169,7 +180,16 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        ModifierEntry entry = new ModifierEntry(modifierKey.get().asString(), operation.get(), amount.get(), durationSeconds.isPresent(), scope.appliesToDefault(), scope.appliesToCurrent(), useMultiplierKeys, multiplierKeys);
+        if (durationSeconds.isPresent() && Boolean.FALSE.equals(temporaryExplicit)) {
+            sender.sendMessage(messages.format(
+                    "messages.modifier-command.permanent-duration",
+                    "§cPermanent modifiers cannot include a duration."));
+            return true;
+        }
+
+        boolean temporary = durationSeconds.isPresent() || Boolean.TRUE.equals(temporaryExplicit);
+
+        ModifierEntry entry = new ModifierEntry(modifierKey.get().asString(), operation.get(), amount.get(), temporary, scope.appliesToDefault(), scope.appliesToCurrent(), useMultiplierKeys, multiplierKeys);
         attributeFacade.setPlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry);
         entityAttributeHandler.applyVanillaAttribute(target, attributeKey.get().key());
 
@@ -182,7 +202,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 },
                 (long) (seconds * 20)));
 
-        String durationLabel = durationSeconds.map(value -> value + "s temporary").orElse("permanent");
+        String durationLabel = temporary
+                ? durationSeconds.map(value -> value + "s temporary").orElse("temporary")
+                : "permanent";
         sender.sendMessage(messages.format(
                 "messages.modifier-command.added",
                 java.util.Map.of(
