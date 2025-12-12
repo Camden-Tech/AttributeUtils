@@ -1,6 +1,7 @@
 package me.baddcamden.attributeutils.command;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.model.AttributeDefinition;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
