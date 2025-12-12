@@ -129,10 +129,10 @@ public class EntityAttributeHandler {
 
         java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        org.bukkit.attribute.AttributeModifier existing = instance.getModifier(modifierId);
-        if (existing != null) {
-            instance.removeModifier(existing);
-        }
+        instance.getModifiers().stream()
+                .filter(modifier -> modifier.getUniqueId().equals(modifierId))
+                .findFirst()
+                .ifPresent(instance::removeModifier);
 
         double baseline = instance.getValue();
         double computed = attributeFacade.compute(attributeId, player).currentFinal();
