@@ -1,7 +1,6 @@
 package me.baddcamden.attributeutils.command;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
-import me.baddcamden.attributeutils.model.AttributeDefinition;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -32,10 +31,12 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     private final AttributeFacade attributeFacade;
     private final CommandMessages messages;
+    private final String defaultNamespace;
 
-    public GlobalAttributeCommand(AttributeFacade attributeFacade, CommandMessages messages) {
+    public GlobalAttributeCommand(AttributeFacade attributeFacade, CommandMessages messages, String defaultNamespace) {
         this.attributeFacade = attributeFacade;
         this.messages = messages;
+        this.defaultNamespace = defaultNamespace == null ? "" : defaultNamespace.toLowerCase(Locale.ROOT);
     }
 
     @Override
@@ -73,16 +74,16 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleValueUpdate(CommandSender sender, String label, String action, String[] args) {
-        if (args.length < 3) {
+        if (args.length < 4) {
             sender.sendMessage(messages.format(
                     "messages.global-command.usage-value",
                     Map.of("label", label, "action", action),
-                    "§eUsage: /" + label + " " + action + " <plugin.key> <value>"));
+                    "§eUsage: /" + label + " " + action + " <plugin> <name> <value>"));
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[1], messages);
-        Optional<Double> value = CommandParsingUtils.parseNumeric(sender, args[2], "base value", messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[1], args[2], messages);
+        Optional<Double> value = CommandParsingUtils.parseNumeric(sender, args[3], "base value", messages);
         if (key.isEmpty() || value.isEmpty()) {
             return true;
         }
@@ -125,16 +126,16 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleCapUpdate(CommandSender sender, String label, String[] args) {
-        if (args.length < 3) {
+        if (args.length < 4) {
             sender.sendMessage(messages.format(
                     "messages.global-command.usage-cap",
                     Map.of("label", label),
-                    "§eUsage: /" + label + " cap <plugin.key> <capValue>"));
+                    "§eUsage: /" + label + " cap <plugin> <name> <capValue>"));
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[1], messages);
-        Optional<Double> capValue = CommandParsingUtils.parseNumeric(sender, args[2], "cap value", messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> key = CommandParsingUtils.parseAttributeKey(sender, args[1], args[2], messages);
+        Optional<Double> capValue = CommandParsingUtils.parseNumeric(sender, args[3], "cap value", messages);
         if (key.isEmpty() || capValue.isEmpty()) {
             return true;
         }
@@ -171,10 +172,14 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 2) {
-            return filter(attributeKeys(), args[1]);
+            return filter(attributePlugins(), args[1]);
         }
 
         if (args.length == 3) {
+            return filter(attributeNames(args[1]), args[2]);
+        }
+
+        if (args.length == 4) {
             if (args[0].equalsIgnoreCase("cap")) {
                 return Collections.singletonList("1");
             }
@@ -184,11 +189,25 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
         return Collections.emptyList();
     }
 
-    private List<String> attributeKeys() {
-        return attributeFacade.getDefinitions().stream()
-                .map(AttributeDefinition::id)
+    private List<String> attributePlugins() {
+        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), pluginName()).stream()
+                .map(value -> value.split("\\.", 2)[0])
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private List<String> attributeNames(String plugin) {
+        String normalized = plugin == null ? "" : plugin.toLowerCase(Locale.ROOT);
+        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), pluginName()).stream()
+                .filter(value -> value.startsWith(normalized + "."))
+                .map(value -> value.split("\\.", 2)[1])
                 .sorted(Comparator.naturalOrder())
                 .toList();
+    }
+
+    private String pluginName() {
+        return defaultNamespace;
     }
 
     private List<String> filter(List<String> options, String prefix) {

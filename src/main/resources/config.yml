@@ -154,14 +154,14 @@ entity-command:
 
 messages:
   shared:
-    attribute-key-format: "&cAttribute keys must follow the [plugin].[key] format (e.g. example.max_health)."
-    attribute-key-segments: "&cAttribute keys must include both a plugin namespace and key segment."
+    attribute-key-format: "&cAttribute keys must use alphanumeric plugin and name segments (e.g. example max_health)."
+    attribute-key-segments: "&cAttribute keys must include both a plugin and name segment."
     invalid-numeric: "&cInvalid {label}: '{value}'. Provide a numeric value."
     cap-format: "&cCap overrides must be provided as cap=<value>."
     cap-nonnegative: "&cCap overrides must be zero or positive."
     operation-invalid: "&cOperation must be ADD or MULTIPLY, not '{value}'."
     scope-invalid: "&cScope must be default, current, or both."
-    definition-missing: "&cProvide attribute definitions as <plugin>.<key> <value> [cap=<cap>]."
+    definition-missing: "&cProvide attribute definitions as <plugin> <name> <value> [cap=<cap>]."
     definition-missing-value: "&cAttribute definitions must include a numeric value after the key."
     unknown-attribute: "&cUnknown attribute '{attribute}'."
     negative-value: "&cAttribute values must be zero or positive."
@@ -173,8 +173,8 @@ messages:
   global-command:
     no-permission: "&cYou do not have permission to edit global attribute defaults or caps."
     usage: "&eUsage: /{label} <default|current|base|cap> ..."
-    usage-value: "&eUsage: /{label} {action} <plugin.key> <value>"
-    usage-cap: "&eUsage: /{label} cap <plugin.key> <capValue>"
+    usage-value: "&eUsage: /{label} {action} <plugin> <name> <value>"
+    usage-cap: "&eUsage: /{label} cap <plugin> <name> <capValue>"
     unknown-attribute: "&cUnknown attribute: {attribute}"
     negative-base: "&cBase values must be at least {minimum}."
     cap-below-min: "&cCaps cannot be below the global minimum of {minimum}."
@@ -184,8 +184,8 @@ messages:
   modifier-command:
     no-permission: "&cYou do not have permission to manage player attribute modifiers."
     usage: "&eUsage: /{label} <player> <add|remove> ..."
-    usage-add: "&eUsage: /{label} <player> add <plugin.key> <modifierKey> <add|multiply> <amount> [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"
-    usage-remove: "&eUsage: /{label} <player> remove <plugin.key> <modifierKey>"
+    usage-add: "&eUsage: /{label} <player> add <plugin> <name> <modifierKey> <add|multiply> <amount> [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"
+    usage-remove: "&eUsage: /{label} <player> remove <plugin> <name> <modifierKey>"
     unknown-action: "&cUnknown action '{action}'. Use add or remove."
     player-offline: "&cPlayer '{player}' is not online."
     unexpected-argument: "&cUnexpected argument '{argument}'."
@@ -196,7 +196,7 @@ messages:
     removed: "&aRemoved modifier {modifier} for {attribute} from player {player}."
   item-command:
     no-permission: "&cYou do not have permission to generate attribute items."
-    usage: "&eUsage: /{label} <player> <material> <plugin.key> <value> [cap=<cap> ...]"
+    usage: "&eUsage: /{label} <player> <material> <plugin> <name> <value> [cap=<cap> ...]"
     player-offline: "&cPlayer '{player}' is not online."
     invalid-material: "&cUnknown material '{material}'."
     unsupported-material: "&cThat material cannot hold attribute data."
@@ -206,7 +206,7 @@ messages:
   entity-command:
     no-permission: "&cYou do not have permission to spawn attributed entities."
     invalid-sender: "&cOnly players can spawn attributed entities."
-    usage: "&eUsage: /{label} <entityType> <plugin.key> <value> [cap=<cap> ...]"
+    usage: "&eUsage: /{label} <entityType> <plugin> <name> <value> [cap=<cap> ...]"
     invalid-entity: "&cUnknown entity type '{entity}'."
     disallowed-entity: "&cThat entity type cannot be spawned with attributes."
     missing-world: "&cCould not resolve your world to spawn the entity."

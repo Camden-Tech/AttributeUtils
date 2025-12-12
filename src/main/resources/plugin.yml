@@ -18,11 +18,11 @@ commands:
     permission: attributeutils.command.modifiers
   attributeitems:
     description: Generate items with attribute data.
-    usage: /<command> <player> <material> <plugin.key> <value> [cap=<cap> ...]
+    usage: /<command> <player> <material> <plugin> <name> <value> [cap=<cap> ...]
     permission: attributeutils.command.items
   attributeentities:
     description: Spawn entities with inline attribute definitions.
-    usage: /<command> <entityType> <plugin.key> <value> [cap=<cap> ...]
+    usage: /<command> <entityType> <plugin> <name> <value> [cap=<cap> ...]
     permission: attributeutils.command.entities
 permissions:
   attributeutils.command.attributes:

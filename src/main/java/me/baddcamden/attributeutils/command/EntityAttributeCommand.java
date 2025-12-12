@@ -57,9 +57,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length < 3) {
+        if (args.length < 4) {
             sender.sendMessage(messages.format("messages.entity-command.usage", Map.of("label", label),
-                    ChatColor.YELLOW + "Usage: /" + label + " <entityType> <plugin.key> <value> [cap=<cap> ...]"));
+                    ChatColor.YELLOW + "Usage: /" + label + " <entityType> <plugin> <name> <value> [cap=<cap> ...]"));
             return true;
         }
 
@@ -155,22 +155,40 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
         if (args.length >= 2) {
             int relativeIndex = args.length - 2;
-            if (relativeIndex % 3 == 0 || args[args.length - 1].startsWith("cap=")) {
-                return filter(attributeKeys(), args[args.length - 1]);
+            int cyclePosition = relativeIndex % 4;
+            if (cyclePosition == 0) {
+                return filter(attributePlugins(), args[args.length - 1]);
             }
-            if (relativeIndex % 3 == 2) {
-                List<String> options = new ArrayList<>(attributeKeys());
+            if (cyclePosition == 1) {
+                return filter(attributeNames(args[args.length - 2]), args[args.length - 1]);
+            }
+            if (cyclePosition == 2) {
+                List<String> options = new ArrayList<>();
+                options.add("0");
                 options.add("cap=");
                 return filter(options, args[args.length - 1]);
             }
+            List<String> options = new ArrayList<>(attributePlugins());
+            options.add("cap=");
+            return filter(options, args[args.length - 1]);
         }
 
         return List.of();
     }
 
-    private List<String> attributeKeys() {
-        return attributeFacade.getDefinitions().stream()
-                .map(me.baddcamden.attributeutils.model.AttributeDefinition::id)
+    private List<String> attributePlugins() {
+        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName()).stream()
+                .map(value -> value.split("\\.", 2)[0])
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private List<String> attributeNames(String pluginName) {
+        String normalized = pluginName == null ? "" : pluginName.toLowerCase(Locale.ROOT);
+        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName()).stream()
+                .filter(value -> value.startsWith(normalized + "."))
+                .map(value -> value.split("\\.", 2)[1])
                 .sorted()
                 .toList();
     }
