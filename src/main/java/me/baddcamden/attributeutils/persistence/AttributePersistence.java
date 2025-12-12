@@ -105,10 +105,17 @@ public class AttributePersistence {
                         boolean appliesToDefault = modifiers.getBoolean(modKey + ".default", false);
                         boolean appliesToCurrent = modifiers.getBoolean(modKey + ".current", !appliesToDefault);
                         boolean useMultiplierKeys = modifiers.getBoolean(modKey + ".use-multiplier-keys", false);
+                        Double durationSeconds = null;
+                        if (temporary && modifiers.contains(modKey + ".duration-seconds")) {
+                            double duration = modifiers.getDouble(modKey + ".duration-seconds", 0);
+                            if (duration > 0) {
+                                durationSeconds = duration;
+                            }
+                        }
                         List<String> keyList = modifiers.getStringList(modKey + ".multiplier-keys");
                         Set<String> normalizedKeys = new HashSet<>();
                         keyList.stream().filter(entry -> entry != null && !entry.isBlank()).forEach(entry -> normalizedKeys.add(entry.toLowerCase(Locale.ROOT)));
-                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, appliesToDefault, appliesToCurrent, useMultiplierKeys, normalizedKeys));
+                        instance.addModifier(new ModifierEntry(modKey, operation, amount, temporary, appliesToDefault, appliesToCurrent, useMultiplierKeys, normalizedKeys, durationSeconds));
                     }
                 }
             }, () -> facade.compute(key, null));
@@ -137,6 +144,9 @@ public class AttributePersistence {
                 modifiers.set(key + ".current", modifier.appliesToCurrent());
                 modifiers.set(key + ".use-multiplier-keys", modifier.useMultiplierKeys());
                 modifiers.set(key + ".multiplier-keys", List.copyOf(modifier.multiplierKeys()));
+                if (modifier.isTemporary()) {
+                    modifier.durationSecondsOptional().ifPresent(duration -> modifiers.set(key + ".duration-seconds", duration));
+                }
             });
         }
     }
