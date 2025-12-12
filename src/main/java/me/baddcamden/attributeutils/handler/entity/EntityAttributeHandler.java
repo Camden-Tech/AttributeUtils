@@ -211,14 +211,15 @@ public class EntityAttributeHandler {
         AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
         AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
         int maxAir = (int) Math.round(oxygen.currentFinal() + oxygenBonus.currentFinal());
+
+        int priorMaxAir = player.getMaximumAir();
         player.setMaximumAir(maxAir);
 
         int currentAir = player.getRemainingAir();
-        int clampedAir = Math.min(Math.max(currentAir, 0), maxAir);
-        // Refill the player's air to the updated maximum so the change is immediately visible.
-        if (clampedAir < maxAir) {
-            clampedAir = maxAir;
-        }
-        player.setRemainingAir(clampedAir);
+        int clampedAir = Math.max(currentAir, 0);
+        double priorMax = Math.max(priorMaxAir, 0);
+        double ratio = priorMax > 0 ? Math.min(clampedAir / priorMax, 1.0) : 0;
+        int scaledAir = (int) Math.round(maxAir * ratio);
+        player.setRemainingAir(scaledAir);
     }
 }
