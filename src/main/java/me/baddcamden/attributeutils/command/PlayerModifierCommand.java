@@ -80,11 +80,11 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleAdd(CommandSender sender, String label, String targetName, String[] args) {
-        if (args.length < 6) {
+        if (args.length < 7) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage-add",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> add <plugin.key> <modifierKey> <add|multiply> <amount> [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"));
+                    "§eUsage: /" + label + " <player> add <plugin> <name> <modifierKey> <add|multiply> <amount> [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"));
             return true;
         }
 
@@ -97,16 +97,16 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], messages);
-        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[3], messages);
-        Optional<ModifierOperation> operation = CommandParsingUtils.parseOperation(sender, args[4], messages);
-        Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[5], "modifier amount", messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], args[3], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[4], messages);
+        Optional<ModifierOperation> operation = CommandParsingUtils.parseOperation(sender, args[5], messages);
+        Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[6], "modifier amount", messages);
         Optional<Double> durationSeconds = Optional.empty();
         CommandParsingUtils.Scope scope = CommandParsingUtils.Scope.BOTH;
         boolean useMultiplierKeys = false;
         Set<String> multiplierKeys = Collections.emptySet();
 
-        for (int index = 6; index < args.length; index++) {
+        for (int index = 7; index < args.length; index++) {
             String arg = args[index];
             if (arg.startsWith("multipliers=")) {
                 String[] parts = arg.substring("multipliers=".length()).split(",");
@@ -156,7 +156,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         if (amount.get() < 0) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.negative-amount",
-                    java.util.Map.of("amount", args[5]),
+                    java.util.Map.of("amount", args[6]),
                     "§cModifier amounts must be zero or positive."));
             return true;
         }
@@ -208,16 +208,16 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length < 4) {
+        if (args.length < 5) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage-remove",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> remove <plugin.key> <modifierKey>"));
+                    "§eUsage: /" + label + " <player> remove <plugin> <name> <modifierKey>"));
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], messages);
-        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[3], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], args[3], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[4], messages);
         if (attributeKey.isEmpty() || modifierKey.isEmpty()) {
             return true;
         }
@@ -251,41 +251,59 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 3) {
-            return filter(attributeKeys(), args[2]);
+            return filter(attributePlugins(), args[2]);
         }
 
-        if (args.length == 4 && args[1].equalsIgnoreCase("add")) {
-            return filter(attributeKeys(), args[3]);
-        }
-
-        if (args.length == 4 && args[1].equalsIgnoreCase("remove")) {
-            return filter(attributeKeys(), args[3]);
+        if (args.length == 4) {
+            return filter(attributeNames(args[2]), args[3]);
         }
 
         if (args.length == 5 && args[1].equalsIgnoreCase("add")) {
-            return filter(List.of("add", "multiply"), args[4]);
+            return filter(namespacedAttributeKeys(), args[4]);
+        }
+
+        if (args.length == 5 && args[1].equalsIgnoreCase("remove")) {
+            return filter(namespacedAttributeKeys(), args[4]);
         }
 
         if (args.length == 6 && args[1].equalsIgnoreCase("add")) {
-            return Collections.singletonList("1");
+            return filter(List.of("add", "multiply"), args[5]);
         }
 
         if (args.length == 7 && args[1].equalsIgnoreCase("add")) {
+            return Collections.singletonList("1");
+        }
+
+        if (args.length == 8 && args[1].equalsIgnoreCase("add")) {
             return Collections.singletonList("60");
         }
 
-        if (args.length >= 7 && args[1].equalsIgnoreCase("add")) {
+        if (args.length >= 8 && args[1].equalsIgnoreCase("add")) {
             return filter(List.of("scope=", "multipliers="), args[args.length - 1]);
         }
 
         return Collections.emptyList();
     }
 
-    private List<String> attributeKeys() {
-        return attributeFacade.getDefinitions().stream()
-                .map(me.baddcamden.attributeutils.model.AttributeDefinition::id)
+    private List<String> attributePlugins() {
+        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName()).stream()
+                .map(value -> value.split("\\.", 2)[0])
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private List<String> attributeNames(String pluginName) {
+        String normalized = pluginName == null ? "" : pluginName.toLowerCase(Locale.ROOT);
+        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName()).stream()
+                .filter(value -> value.startsWith(normalized + "."))
+                .map(value -> value.split("\\.", 2)[1])
                 .sorted(Comparator.naturalOrder())
                 .toList();
+    }
+
+    private List<String> namespacedAttributeKeys() {
+        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName());
     }
 
     private List<String> playerNames() {

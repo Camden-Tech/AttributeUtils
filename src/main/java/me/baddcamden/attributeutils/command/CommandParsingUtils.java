@@ -3,11 +3,14 @@ package me.baddcamden.attributeutils.command;
 import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -20,30 +23,56 @@ import me.baddcamden.attributeutils.model.ModifierOperation;
  */
 public final class CommandParsingUtils {
 
-    private static final Pattern NAMESPACED_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_.-]+$");
+    private static final Pattern PLUGIN_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
+    private static final Pattern KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9_.-]+$");
 
     private CommandParsingUtils() {
     }
 
-    public static Optional<NamespacedAttributeKey> parseAttributeKey(CommandSender sender, String raw, CommandMessages messages) {
-        if (!NAMESPACED_KEY_PATTERN.matcher(raw).matches()) {
+    public static Optional<NamespacedAttributeKey> parseAttributeKey(CommandSender sender,
+                                                                    String pluginSegment,
+                                                                    String keySegment,
+                                                                    CommandMessages messages) {
+        if (pluginSegment == null || pluginSegment.isBlank() || keySegment == null || keySegment.isBlank()) {
+            sender.sendMessage(messages.format(
+                    "messages.shared.attribute-key-segments",
+                    Map.of("plugin", pluginSegment == null ? "" : pluginSegment, "name", keySegment == null ? "" : keySegment),
+                    "§cAttribute keys must include both a plugin and name segment."));
+            return Optional.empty();
+        }
+
+        if (!PLUGIN_PATTERN.matcher(pluginSegment).matches() || !KEY_PATTERN.matcher(keySegment).matches()) {
             sender.sendMessage(messages.format(
                     "messages.shared.attribute-key-format",
-                    Map.of("value", raw),
-                    "§cAttribute keys must follow the [plugin].[key] format (e.g. example.max_health)."));
+                    Map.of("plugin", pluginSegment, "name", keySegment),
+                    "§cAttribute keys must use alphanumeric plugin and name segments (e.g. example max_health)."));
+            return Optional.empty();
+        }
+
+        String normalizedPlugin = pluginSegment.toLowerCase(Locale.ROOT);
+        String normalizedKey = keySegment.toLowerCase(Locale.ROOT).replace('-', '_');
+        return Optional.of(new NamespacedAttributeKey(normalizedPlugin, normalizedKey));
+    }
+
+    public static Optional<NamespacedAttributeKey> parseAttributeKey(CommandSender sender, String raw, CommandMessages messages) {
+        if (raw == null || raw.isBlank()) {
+            sender.sendMessage(messages.format(
+                    "messages.shared.attribute-key-segments",
+                    Map.of("plugin", "", "name", ""),
+                    "§cAttribute keys must include both a plugin and name segment."));
             return Optional.empty();
         }
 
         String[] parts = raw.split("\\.", 2);
-        if (parts.length < 2 || parts[0].isBlank() || parts[1].isBlank()) {
+        if (parts.length < 2) {
             sender.sendMessage(messages.format(
                     "messages.shared.attribute-key-segments",
-                    Map.of("value", raw),
-                    "§cAttribute keys must include both a plugin namespace and key segment."));
+                    Map.of("plugin", raw, "name", ""),
+                    "§cAttribute keys must include both a plugin and name segment."));
             return Optional.empty();
         }
 
-        return Optional.of(new NamespacedAttributeKey(parts[0], parts[1]));
+        return parseAttributeKey(sender, parts[0], parts[1], messages);
     }
 
     public static Optional<Double> parseNumeric(CommandSender sender, String raw, String label, CommandMessages messages) {
@@ -128,16 +157,16 @@ public final class CommandParsingUtils {
         List<AttributeDefinition> definitions = new ArrayList<>();
         int index = startIndex;
         while (index < args.length) {
-            if (index + 1 >= args.length) {
+            if (index + 2 >= args.length) {
                 sender.sendMessage(messages.format(
                         "messages.shared.definition-missing-value",
-                        Map.of("key", args[index]),
+                        Map.of("plugin", args[index], "name", index + 1 < args.length ? args[index + 1] : ""),
                         "§cAttribute definitions must include a numeric value after the key."));
                 return Collections.emptyList();
             }
 
-            Optional<NamespacedAttributeKey> key = parseAttributeKey(sender, args[index], messages);
-            Optional<Double> value = parseNumeric(sender, args[index + 1], "attribute value", messages);
+            Optional<NamespacedAttributeKey> key = parseAttributeKey(sender, args[index], args[index + 1], messages);
+            Optional<Double> value = parseNumeric(sender, args[index + 2], "attribute value", messages);
             if (key.isEmpty() || value.isEmpty()) {
                 return Collections.emptyList();
             }
@@ -153,21 +182,21 @@ public final class CommandParsingUtils {
             if (value.get() < 0) {
                 sender.sendMessage(messages.format(
                         "messages.shared.negative-value",
-                        Map.of("attribute", key.get().asString(), "value", args[index + 1]),
+                        Map.of("attribute", key.get().asString(), "value", args[index + 2]),
                         "§cAttribute values must be zero or positive."));
                 return Collections.emptyList();
             }
 
             Double capOverride = null;
-            if (index + 2 < args.length && args[index + 2].startsWith("cap=")) {
-                Optional<Double> cap = parseCapOverride(sender, args[index + 2], messages);
+            if (index + 3 < args.length && args[index + 3].startsWith("cap=")) {
+                Optional<Double> cap = parseCapOverride(sender, args[index + 3], messages);
                 if (cap.isEmpty()) {
                     return Collections.emptyList();
                 }
                 capOverride = cap.get();
-                index += 3;
+                index += 4;
             } else {
-                index += 2;
+                index += 3;
             }
 
             definitions.add(new AttributeDefinition(key.get(), value.get(), capOverride));
@@ -199,6 +228,31 @@ public final class CommandParsingUtils {
         public String asString() {
             return plugin + "." + key;
         }
+    }
+
+    public static List<String> namespacedCompletions(Collection<me.baddcamden.attributeutils.model.AttributeDefinition> definitions,
+                                                     String defaultPlugin) {
+        if (definitions == null) {
+            return List.of();
+        }
+        String fallbackPlugin = defaultPlugin == null ? "" : defaultPlugin.toLowerCase(Locale.ROOT);
+        Set<String> unique = new HashSet<>();
+        for (me.baddcamden.attributeutils.model.AttributeDefinition definition : definitions) {
+            String id = definition.id();
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            String normalizedId = id.toLowerCase(Locale.ROOT);
+            if (normalizedId.contains(".")) {
+                unique.add(normalizedId);
+            }
+            if (!fallbackPlugin.isBlank()) {
+                unique.add(fallbackPlugin + "." + normalizedId);
+            }
+        }
+        List<String> result = new ArrayList<>(unique);
+        Collections.sort(result);
+        return result;
     }
 
     public static class AttributeDefinition {
