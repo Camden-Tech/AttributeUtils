@@ -275,14 +275,28 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 8 && args[1].equalsIgnoreCase("add")) {
-            return Collections.singletonList("60");
+            List<String> options = new ArrayList<>();
+            options.add("60");
+            options.addAll(scopeOptions());
+            options.add("multipliers=");
+            return filter(options, args[7]);
         }
 
         if (args.length >= 8 && args[1].equalsIgnoreCase("add")) {
-            return filter(List.of("scope=", "multipliers="), args[args.length - 1]);
+            return filter(scopeAndMultiplierOptions(), args[args.length - 1]);
         }
 
         return Collections.emptyList();
+    }
+
+    private List<String> scopeOptions() {
+        return List.of("scope=default", "scope=current", "scope=both");
+    }
+
+    private List<String> scopeAndMultiplierOptions() {
+        List<String> options = new ArrayList<>(scopeOptions());
+        options.add("multipliers=");
+        return options;
     }
 
     private List<String> attributePlugins() {

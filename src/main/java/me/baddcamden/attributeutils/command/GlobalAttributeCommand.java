@@ -167,12 +167,16 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> actions = List.of("default", "current", "base", "cap");
         if (args.length == 1) {
-            return filter(List.of("default", "current", "base", "cap"), args[0]);
+            return filter(actions, args[0]);
         }
 
         if (args.length == 2) {
-            return filter(attributePlugins(), args[1]);
+            if (actions.contains(args[0].toLowerCase(Locale.ROOT))) {
+                return filter(attributePlugins(), args[1]);
+            }
+            return filter(actions, args[1]);
         }
 
         if (args.length == 3) {

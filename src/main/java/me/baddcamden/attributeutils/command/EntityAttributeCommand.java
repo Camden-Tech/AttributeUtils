@@ -165,10 +165,12 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
             if (cyclePosition == 2) {
                 List<String> options = new ArrayList<>();
                 options.add("0");
+                options.add("cap=0");
                 options.add("cap=");
                 return filter(options, args[args.length - 1]);
             }
             List<String> options = new ArrayList<>(attributePlugins());
+            options.add("cap=0");
             options.add("cap=");
             return filter(options, args[args.length - 1]);
         }
