@@ -10,6 +10,13 @@ import org.bukkit.event.entity.EntityAirChangeEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * Listens for player lifecycle and attribute-related events to keep persisted data in sync and enforce
@@ -19,10 +26,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
  */
 public class AttributeListener implements Listener {
 
+    private static final long CAP_CACHE_TTL_NANOS = 250_000_000L;
+
     private final AttributeFacade attributeFacade;
     private final AttributePersistence persistence;
     private final ItemAttributeHandler itemAttributeHandler;
     private final EntityAttributeHandler entityAttributeHandler;
+    private final Executor syncExecutor;
+    private final Map<UUID, TimedValue> hungerCapCache = new HashMap<>();
+    private final Map<UUID, TimedValue> oxygenCapCache = new HashMap<>();
 
     /**
      * Creates a new listener bound to the application's attribute components.
@@ -32,7 +44,8 @@ public class AttributeListener implements Listener {
      * @param itemAttributeHandler handler that applies default attribute data to player inventories.
      * @param entityAttributeHandler handler responsible for applying attribute caps to entities.
      */
-    public AttributeListener(AttributeFacade attributeFacade,
+    public AttributeListener(Plugin plugin,
+                             AttributeFacade attributeFacade,
                              AttributePersistence persistence,
                              ItemAttributeHandler itemAttributeHandler,
                              EntityAttributeHandler entityAttributeHandler) {
@@ -40,6 +53,7 @@ public class AttributeListener implements Listener {
         this.persistence = persistence;
         this.itemAttributeHandler = itemAttributeHandler;
         this.entityAttributeHandler = entityAttributeHandler;
+        this.syncExecutor = command -> plugin.getServer().getScheduler().runTask(plugin, command);
     }
 
     /**
@@ -53,9 +67,12 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        persistence.loadPlayer(attributeFacade, event.getPlayer().getUniqueId());
-        itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
-        entityAttributeHandler.applyPlayerCaps(event.getPlayer());
+        persistence.loadPlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
+                .thenRunAsync(() -> {
+                    itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
+                    entityAttributeHandler.applyPlayerCaps(event.getPlayer());
+                    clearCapCache(event.getPlayer().getUniqueId());
+                }, syncExecutor);
     }
 
     /**
@@ -68,8 +85,11 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        persistence.savePlayer(attributeFacade, event.getPlayer().getUniqueId());
-        attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
+        persistence.savePlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
+                .whenComplete((ignored, error) -> syncExecutor.execute(() -> {
+                    attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
+                    clearCapCache(event.getPlayer().getUniqueId());
+                }));
     }
 
     /**
@@ -86,7 +106,8 @@ public class AttributeListener implements Listener {
     @EventHandler
     public void onFoodChange(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof org.bukkit.entity.Player player) {
-            double cap = attributeFacade.compute("max_hunger", player).currentFinal();
+            double cap = resolveCachedCap(player, hungerCapCache,
+                    () -> attributeFacade.compute("max_hunger", player).currentFinal());
             // Cap the food level here so later listeners and the server never observe values above the
             // computed maximum hunger for the player.
             if (event.getFoodLevel() > cap) {
@@ -106,13 +127,40 @@ public class AttributeListener implements Listener {
     @EventHandler
     public void onAirChange(EntityAirChangeEvent event) {
         if (event.getEntity() instanceof org.bukkit.entity.Player player) {
-            double cap = attributeFacade.compute("max_oxygen", player).currentFinal()
-                    + attributeFacade.compute("oxygen_bonus", player).currentFinal();
+            int maxAir = player.getMaximumAir();
+            if (event.getAmount() <= maxAir) {
+                return;
+            }
+
+            double cap = resolveCachedCap(player, oxygenCapCache, () -> attributeFacade.compute("max_oxygen", player).currentFinal()
+                    + attributeFacade.compute("oxygen_bonus", player).currentFinal());
             // Enforce the oxygen cap within the handler to keep the player's air value consistent with
             // calculated attribute limits before the server processes the change.
             if (event.getAmount() > cap) {
                 event.setAmount((int) cap);
             }
         }
+    }
+
+    private void clearCapCache(UUID playerId) {
+        hungerCapCache.remove(playerId);
+        oxygenCapCache.remove(playerId);
+    }
+
+    private double resolveCachedCap(org.bukkit.entity.Player player,
+                                    Map<UUID, TimedValue> cache,
+                                    Supplier<Double> loader) {
+        long now = System.nanoTime();
+        TimedValue cached = cache.get(player.getUniqueId());
+        if (cached != null && cached.expiresAtNanos > now) {
+            return cached.value;
+        }
+
+        double value = loader.get();
+        cache.put(player.getUniqueId(), new TimedValue(value, now + CAP_CACHE_TTL_NANOS));
+        return value;
+    }
+
+    private record TimedValue(double value, long expiresAtNanos) {
     }
 }

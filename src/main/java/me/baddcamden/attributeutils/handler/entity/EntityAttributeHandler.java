@@ -14,6 +14,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -30,6 +31,8 @@ public class EntityAttributeHandler {
     private final AttributeFacade attributeFacade;
     private final Plugin plugin;
     private final Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets;
+    private Method transientModifierMethod;
+    private boolean transientMethodResolved;
 
     public EntityAttributeHandler(AttributeFacade attributeFacade,
                                   Plugin plugin,
@@ -37,6 +40,7 @@ public class EntityAttributeHandler {
         this.attributeFacade = attributeFacade;
         this.plugin = plugin;
         this.vanillaAttributeTargets = vanillaAttributeTargets;
+        resolveTransientModifierMethod();
     }
 
     public void applyPlayerCaps(Player player) {
@@ -125,13 +129,9 @@ public class EntityAttributeHandler {
 
         java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        // Ensure any previous modifier with the same UUID is cleared before re-applying to avoid
-        // triggering duplicate modifier exceptions on newer Bukkit versions that do not support
-        // UUID-based removal.
-        for (org.bukkit.attribute.AttributeModifier modifier : instance.getModifiers()) {
-            if (modifier.getUniqueId().equals(modifierId)) {
-                instance.removeModifier(modifier);
-            }
+        org.bukkit.attribute.AttributeModifier existing = instance.getModifier(modifierId);
+        if (existing != null) {
+            instance.removeModifier(existing);
         }
 
         double baseline = instance.getValue();
@@ -147,17 +147,7 @@ public class EntityAttributeHandler {
                 delta,
                 org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER
         );
-        // Use transient modifiers when available to avoid persisting runtime adjustments, but
-        // gracefully fall back to regular modifiers on servers that do not support them.
-        try {
-            java.lang.reflect.Method transientMethod = instance.getClass()
-                    .getMethod("addTransientModifier", org.bukkit.attribute.AttributeModifier.class);
-            transientMethod.invoke(instance, modifier);
-        } catch (NoSuchMethodException ignored) {
-            instance.addModifier(modifier);
-        } catch (ReflectiveOperationException ex) {
-            instance.addModifier(modifier);
-        }
+        addModifier(instance, modifier);
     }
 
     private Attribute resolveAttribute(String attributeId) {
@@ -181,6 +171,35 @@ public class EntityAttributeHandler {
 
     private boolean isOxygen(String attributeId) {
         return "max_oxygen".equalsIgnoreCase(attributeId) || "oxygen_bonus".equalsIgnoreCase(attributeId);
+    }
+
+    private void resolveTransientModifierMethod() {
+        try {
+            transientModifierMethod = org.bukkit.attribute.AttributeInstance.class
+                    .getMethod("addTransientModifier", org.bukkit.attribute.AttributeModifier.class);
+        } catch (ReflectiveOperationException ignored) {
+            transientModifierMethod = null;
+        } finally {
+            transientMethodResolved = true;
+        }
+    }
+
+    private void addModifier(org.bukkit.attribute.AttributeInstance instance,
+                             org.bukkit.attribute.AttributeModifier modifier) {
+        if (!transientMethodResolved) {
+            resolveTransientModifierMethod();
+        }
+
+        if (transientModifierMethod != null) {
+            try {
+                transientModifierMethod.invoke(instance, modifier);
+                return;
+            } catch (ReflectiveOperationException ignored) {
+                transientModifierMethod = null;
+            }
+        }
+
+        instance.addModifier(modifier);
     }
 
     private void applyHungerCap(Player player, AttributeValueStages hunger) {

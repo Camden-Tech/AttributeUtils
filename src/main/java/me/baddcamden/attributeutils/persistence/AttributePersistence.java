@@ -8,6 +8,7 @@ import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,6 +19,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * Handles serialization of {@link AttributeInstance} state to YAML. Baselines for both default and
@@ -30,9 +34,13 @@ import java.util.UUID;
 public class AttributePersistence {
 
     private final Path dataFolder;
+    private final Executor asyncExecutor;
+    private final Executor syncExecutor;
 
-    public AttributePersistence(Path dataFolder) {
+    public AttributePersistence(Path dataFolder, JavaPlugin plugin) {
         this.dataFolder = dataFolder;
+        this.asyncExecutor = runnable -> plugin.getServer().getScheduler().runTaskAsynchronously(plugin, runnable);
+        this.syncExecutor = runnable -> plugin.getServer().getScheduler().runTask(plugin, runnable);
     }
 
     public void loadGlobals(AttributeFacade facade) {
@@ -50,6 +58,24 @@ public class AttributePersistence {
         ConfigurationSection attributes = config.createSection("attributes");
         writeInstances(attributes, facade.getGlobalInstances());
         save(config, dataFolder.resolve("global.yml"));
+    }
+
+    public CompletableFuture<Void> loadGlobalsAsync(AttributeFacade facade) {
+        Path file = dataFolder.resolve("global.yml");
+        return supplyAsync(() -> Files.notExists(file) ? null : YamlConfiguration.loadConfiguration(file.toFile()))
+                .thenCompose(config -> config == null
+                        ? CompletableFuture.completedFuture(null)
+                        : runSync(() -> loadInstances(facade, config.getConfigurationSection("attributes"), null)));
+    }
+
+    public CompletableFuture<Void> saveGlobalsAsync(AttributeFacade facade) {
+        return supplySync(() -> {
+                    FileConfiguration config = new YamlConfiguration();
+                    ConfigurationSection attributes = config.createSection("attributes");
+                    writeInstances(attributes, facade.getGlobalInstances());
+                    return new PersistedConfig(config, dataFolder.resolve("global.yml"));
+                })
+                .thenCompose(this::writeAsync);
     }
 
     public void loadPlayer(AttributeFacade facade, UUID playerId) {
@@ -73,6 +99,25 @@ public class AttributePersistence {
         save(config, folder.resolve(playerId.toString() + ".yml"));
     }
 
+    public CompletableFuture<Void> loadPlayerAsync(AttributeFacade facade, UUID playerId) {
+        Path file = dataFolder.resolve("players").resolve(playerId.toString() + ".yml");
+        return supplyAsync(() -> Files.notExists(file) ? null : YamlConfiguration.loadConfiguration(file.toFile()))
+                .thenCompose(config -> config == null
+                        ? CompletableFuture.completedFuture(null)
+                        : runSync(() -> loadInstances(facade, config.getConfigurationSection("attributes"), playerId)));
+    }
+
+    public CompletableFuture<Void> savePlayerAsync(AttributeFacade facade, UUID playerId) {
+        return supplySync(() -> {
+                    FileConfiguration config = new YamlConfiguration();
+                    ConfigurationSection attributes = config.createSection("attributes");
+                    writeInstances(attributes, facade.getPlayerInstances(playerId));
+                    Path folder = dataFolder.resolve("players");
+                    return new PersistedConfig(config, folder.resolve(playerId.toString() + ".yml"));
+                })
+                .thenCompose(this::writeAsync);
+    }
+
     /**
      * Loads instances into the facade, clamping baselines to cap values for the associated override
      * key (player ID) and reconstructing modifier buckets with their configured stage flags.
@@ -88,7 +133,8 @@ public class AttributePersistence {
                         section.getDouble(key + ".base", definition.defaultBaseValue()));
                 double currentBase = section.getDouble(key + ".current-base",
                         section.getDouble(key + ".base", definition.defaultCurrentValue()));
-                double defaultFinalBaseline = section.getDouble(key + ".default-final-baseline", definition.defaultCurrentValue());
+                double defaultFinalBaseline = section.getDouble(
+                        key + ".default-final-baseline", definition.defaultCurrentValue());
                 AttributeInstance instance = playerId == null
                         ? facade.getOrCreateGlobalInstance(definition.id())
                         : facade.getOrCreatePlayerInstance(playerId, definition.id());
@@ -157,5 +203,28 @@ public class AttributePersistence {
             config.save(target.toFile());
         } catch (IOException ignored) {
         }
+    }
+
+    private CompletableFuture<Void> writeAsync(PersistedConfig config) {
+        return runAsync(() -> save(config.configuration(), config.target()));
+    }
+
+    private CompletableFuture<Void> runAsync(Runnable runnable) {
+        return CompletableFuture.runAsync(runnable, asyncExecutor);
+    }
+
+    private CompletableFuture<Void> runSync(Runnable runnable) {
+        return CompletableFuture.runAsync(runnable, syncExecutor);
+    }
+
+    private <T> CompletableFuture<T> supplyAsync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, asyncExecutor);
+    }
+
+    private <T> CompletableFuture<T> supplySync(Supplier<T> supplier) {
+        return CompletableFuture.supplyAsync(supplier, syncExecutor);
+    }
+
+    private record PersistedConfig(FileConfiguration configuration, Path target) {
     }
 }
