@@ -70,6 +70,17 @@ public class AttributeFacade {
         return Optional.ofNullable(definitions.get(normalize(id)));
     }
 
+    /**
+     * Provides a normalized view of all registered attribute identifiers so that command
+     * completers can suggest every available key, including custom attributes loaded at
+     * runtime.
+     *
+     * @return collection of normalized attribute ids
+     */
+    public Collection<String> getDefinitionIds() {
+        return Collections.unmodifiableCollection(definitions.keySet());
+    }
+
     public AttributeValueStages compute(String id, Player player) {
         AttributeDefinition definition = definitions.get(normalize(id));
         if (definition == null) {
