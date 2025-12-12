@@ -300,7 +300,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> attributePlugins() {
-        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName()).stream()
+        return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
                 .map(value -> value.split("\\.", 2)[0])
                 .distinct()
                 .sorted()
@@ -309,7 +309,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
 
     private List<String> attributeNames(String pluginName) {
         String normalized = pluginName == null ? "" : pluginName.toLowerCase(Locale.ROOT);
-        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName()).stream()
+        return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
                 .filter(value -> value.startsWith(normalized + "."))
                 .map(value -> value.split("\\.", 2)[1])
                 .sorted(Comparator.naturalOrder())
@@ -317,7 +317,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> namespacedAttributeKeys() {
-        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), plugin.getName());
+        return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName());
     }
 
     private List<String> playerNames() {

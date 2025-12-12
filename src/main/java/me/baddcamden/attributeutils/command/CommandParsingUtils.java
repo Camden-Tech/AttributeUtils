@@ -235,13 +235,30 @@ public final class CommandParsingUtils {
         if (definitions == null) {
             return List.of();
         }
+
+        List<String> normalizedIds = new ArrayList<>();
+        for (me.baddcamden.attributeutils.model.AttributeDefinition definition : definitions) {
+            if (definition == null || definition.id() == null || definition.id().isBlank()) {
+                continue;
+            }
+            normalizedIds.add(definition.id().toLowerCase(Locale.ROOT));
+        }
+
+        return namespacedCompletionsFromIds(normalizedIds, defaultPlugin);
+    }
+
+    public static List<String> namespacedCompletionsFromIds(Collection<String> ids, String defaultPlugin) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+
         String fallbackPlugin = defaultPlugin == null ? "" : defaultPlugin.toLowerCase(Locale.ROOT);
         Set<String> unique = new HashSet<>();
-        for (me.baddcamden.attributeutils.model.AttributeDefinition definition : definitions) {
-            String id = definition.id();
+        for (String id : ids) {
             if (id == null || id.isBlank()) {
                 continue;
             }
+
             String normalizedId = id.toLowerCase(Locale.ROOT);
             if (normalizedId.contains(".")) {
                 unique.add(normalizedId);
@@ -250,6 +267,7 @@ public final class CommandParsingUtils {
                 unique.add(fallbackPlugin + "." + normalizedId);
             }
         }
+
         List<String> result = new ArrayList<>(unique);
         Collections.sort(result);
         return result;

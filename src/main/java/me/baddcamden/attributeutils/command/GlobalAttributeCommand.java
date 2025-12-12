@@ -194,7 +194,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     }
 
     private List<String> attributePlugins() {
-        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), pluginName()).stream()
+        return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), pluginName()).stream()
                 .map(value -> value.split("\\.", 2)[0])
                 .distinct()
                 .sorted()
@@ -203,7 +203,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     private List<String> attributeNames(String plugin) {
         String normalized = plugin == null ? "" : plugin.toLowerCase(Locale.ROOT);
-        return CommandParsingUtils.namespacedCompletions(attributeFacade.getDefinitions(), pluginName()).stream()
+        return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), pluginName()).stream()
                 .filter(value -> value.startsWith(normalized + "."))
                 .map(value -> value.split("\\.", 2)[1])
                 .sorted(Comparator.naturalOrder())
