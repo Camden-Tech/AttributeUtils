@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Integrates entity interactions with the attribute computation pipeline. Responsibilities include applying computed
@@ -31,6 +34,11 @@ public class EntityAttributeHandler {
     private final AttributeFacade attributeFacade;
     private final Plugin plugin;
     private final Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets;
+    private final Map<UUID, ResourceMeter> hungerMeters = new HashMap<>();
+    private final Map<UUID, ResourceMeter> oxygenMeters = new HashMap<>();
+    private static final int HUNGER_BARS = 20;
+    private static final int OXYGEN_BUBBLES = 10;
+    private static final int AIR_PER_BUBBLE = 30;
     private Method transientModifierMethod;
     private boolean transientMethodResolved;
 
@@ -47,10 +55,8 @@ public class EntityAttributeHandler {
         if (player == null) {
             return;
         }
-        AttributeValueStages hunger = attributeFacade.compute("max_hunger", player);
-        applyHungerCap(player, hunger);
-
-        applyOxygenCaps(player);
+        syncHunger(player);
+        syncOxygen(player);
     }
 
     public SpawnedEntityResult spawnAttributedEntity(Location location,
@@ -107,12 +113,11 @@ public class EntityAttributeHandler {
         }
         org.bukkit.attribute.Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
         if (target == null && isHunger(attributeId)) {
-            AttributeValueStages hunger = attributeFacade.compute("max_hunger", player);
-            applyHungerCap(player, hunger);
+            syncHunger(player);
             return;
         }
         if (target == null && isOxygen(attributeId)) {
-            applyOxygenCaps(player);
+            syncOxygen(player);
             return;
         }
         if (target == null) {
@@ -173,6 +178,27 @@ public class EntityAttributeHandler {
         return "max_oxygen".equalsIgnoreCase(attributeId) || "oxygen_bonus".equalsIgnoreCase(attributeId);
     }
 
+    public int handleFoodLevelChange(Player player, int requestedFoodLevel) {
+        ResourceMeter meter = resolveHungerMeter(player, computeHungerCap(player));
+        double delta = requestedFoodLevel - player.getFoodLevel();
+        meter.applyDelta(delta);
+        return meter.asDisplay(HUNGER_BARS);
+    }
+
+    public int handleAirChange(Player player, int requestedAirAmount) {
+        ResourceMeter meter = resolveOxygenMeter(player, computeOxygenCap(player));
+        double vanillaDelta = requestedAirAmount - player.getRemainingAir();
+        double pluginDelta = vanillaDelta / AIR_PER_BUBBLE;
+        meter.applyDelta(pluginDelta);
+        player.setMaximumAir(AIR_PER_BUBBLE * OXYGEN_BUBBLES);
+        return meter.asDisplay(OXYGEN_BUBBLES) * AIR_PER_BUBBLE;
+    }
+
+    public void clearPlayerData(UUID playerId) {
+        hungerMeters.remove(playerId);
+        oxygenMeters.remove(playerId);
+    }
+
     private void resolveTransientModifierMethod() {
         try {
             transientModifierMethod = org.bukkit.attribute.AttributeInstance.class
@@ -202,24 +228,84 @@ public class EntityAttributeHandler {
         instance.addModifier(modifier);
     }
 
-    private void applyHungerCap(Player player, AttributeValueStages hunger) {
-        int cappedHunger = (int) Math.round(hunger.currentFinal());
-        player.setFoodLevel(cappedHunger);
+    private void syncHunger(Player player) {
+        ResourceMeter meter = resolveHungerMeter(player, computeHungerCap(player));
+        player.setFoodLevel(meter.asDisplay(HUNGER_BARS));
     }
 
-    private void applyOxygenCaps(Player player) {
+    private void syncOxygen(Player player) {
+        ResourceMeter meter = resolveOxygenMeter(player, computeOxygenCap(player));
+        player.setMaximumAir(AIR_PER_BUBBLE * OXYGEN_BUBBLES);
+        player.setRemainingAir(meter.asDisplay(OXYGEN_BUBBLES) * AIR_PER_BUBBLE);
+    }
+
+    private double computeHungerCap(Player player) {
+        return Math.max(attributeFacade.compute("max_hunger", player).currentFinal(), 0);
+    }
+
+    private double computeOxygenCap(Player player) {
         AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
         AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
-        int maxAir = (int) Math.round(oxygen.currentFinal() + oxygenBonus.currentFinal());
+        return Math.max(oxygen.currentFinal() + oxygenBonus.currentFinal(), 0);
+    }
 
-        int priorMaxAir = player.getMaximumAir();
-        player.setMaximumAir(maxAir);
+    private ResourceMeter resolveHungerMeter(Player player, double cap) {
+        return resolveMeter(player.getUniqueId(), hungerMeters, cap,
+                () -> ResourceMeter.fromDisplay(player.getFoodLevel(), HUNGER_BARS, cap));
+    }
 
-        int currentAir = player.getRemainingAir();
-        int clampedAir = Math.max(currentAir, 0);
-        double priorMax = Math.max(priorMaxAir, 0);
-        double ratio = priorMax > 0 ? Math.min(clampedAir / priorMax, 1.0) : 0;
-        int scaledAir = (int) Math.round(maxAir * ratio);
-        player.setRemainingAir(scaledAir);
+    private ResourceMeter resolveOxygenMeter(Player player, double cap) {
+        int cappedAir = Math.max(0, Math.min(player.getRemainingAir(), AIR_PER_BUBBLE * OXYGEN_BUBBLES));
+        int bubbleDisplay = (int) Math.ceil(cappedAir / (double) AIR_PER_BUBBLE);
+        return resolveMeter(player.getUniqueId(), oxygenMeters, cap,
+                () -> ResourceMeter.fromDisplay(bubbleDisplay, OXYGEN_BUBBLES, cap));
+    }
+
+    private ResourceMeter resolveMeter(UUID playerId,
+                                       Map<UUID, ResourceMeter> meters,
+                                       double cap,
+                                       Supplier<ResourceMeter> creator) {
+        ResourceMeter meter = meters.computeIfAbsent(playerId, ignored -> creator.get());
+        meter.updateMax(cap);
+        return meter;
+    }
+
+    private static final class ResourceMeter {
+        private double current;
+        private double max;
+
+        private ResourceMeter(double current, double max) {
+            this.max = Math.max(max, 0);
+            this.current = clamp(current, this.max);
+        }
+
+        static ResourceMeter fromDisplay(int displayValue, int displayMax, double max) {
+            double clampedDisplay = clamp(displayValue, displayMax);
+            double fraction = displayMax > 0 ? clampedDisplay / (double) displayMax : 0;
+            return new ResourceMeter(fraction * Math.max(max, 0), Math.max(max, 0));
+        }
+
+        void updateMax(double newMax) {
+            double cappedMax = Math.max(newMax, 0);
+            double fraction = max > 0 ? current / max : 0;
+            max = cappedMax;
+            current = clamp(fraction * max, max);
+        }
+
+        void applyDelta(double delta) {
+            current = clamp(current + delta, max);
+        }
+
+        int asDisplay(int displayMax) {
+            if (max <= 0) {
+                return 0;
+            }
+            double fraction = current / max;
+            return (int) Math.ceil(Math.min(fraction, 1.0) * displayMax);
+        }
+
+        private static double clamp(double value, double max) {
+            return Math.max(0, Math.min(value, max));
+        }
     }
 }
