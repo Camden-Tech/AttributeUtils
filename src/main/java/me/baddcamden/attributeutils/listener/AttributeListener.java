@@ -12,11 +12,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.Executor;
-import java.util.function.Supplier;
 
 /**
  * Listens for player lifecycle and attribute-related events to keep persisted data in sync and enforce
@@ -26,15 +22,11 @@ import java.util.function.Supplier;
  */
 public class AttributeListener implements Listener {
 
-    private static final long CAP_CACHE_TTL_NANOS = 250_000_000L;
-
     private final AttributeFacade attributeFacade;
     private final AttributePersistence persistence;
     private final ItemAttributeHandler itemAttributeHandler;
     private final EntityAttributeHandler entityAttributeHandler;
     private final Executor syncExecutor;
-    private final Map<UUID, TimedValue> hungerCapCache = new HashMap<>();
-    private final Map<UUID, TimedValue> oxygenCapCache = new HashMap<>();
 
     /**
      * Creates a new listener bound to the application's attribute components.
@@ -71,7 +63,6 @@ public class AttributeListener implements Listener {
                 .thenRunAsync(() -> {
                     itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
                     entityAttributeHandler.applyPlayerCaps(event.getPlayer());
-                    clearCapCache(event.getPlayer().getUniqueId());
                 }, syncExecutor);
     }
 
@@ -88,7 +79,7 @@ public class AttributeListener implements Listener {
         persistence.savePlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
                 .whenComplete((ignored, error) -> syncExecutor.execute(() -> {
                     attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
-                    clearCapCache(event.getPlayer().getUniqueId());
+                    entityAttributeHandler.clearPlayerData(event.getPlayer().getUniqueId());
                 }));
     }
 
@@ -106,13 +97,8 @@ public class AttributeListener implements Listener {
     @EventHandler
     public void onFoodChange(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof org.bukkit.entity.Player player) {
-            double cap = resolveCachedCap(player, hungerCapCache,
-                    () -> attributeFacade.compute("max_hunger", player).currentFinal());
-            // Cap the food level here so later listeners and the server never observe values above the
-            // computed maximum hunger for the player.
-            if (event.getFoodLevel() > cap) {
-                event.setFoodLevel((int) cap);
-            }
+            int adjustedFood = entityAttributeHandler.handleFoodLevelChange(player, event.getFoodLevel());
+            event.setFoodLevel(adjustedFood);
         }
     }
 
@@ -127,40 +113,8 @@ public class AttributeListener implements Listener {
     @EventHandler
     public void onAirChange(EntityAirChangeEvent event) {
         if (event.getEntity() instanceof org.bukkit.entity.Player player) {
-            int maxAir = player.getMaximumAir();
-            if (event.getAmount() <= maxAir) {
-                return;
-            }
-
-            double cap = resolveCachedCap(player, oxygenCapCache, () -> attributeFacade.compute("max_oxygen", player).currentFinal()
-                    + attributeFacade.compute("oxygen_bonus", player).currentFinal());
-            // Enforce the oxygen cap within the handler to keep the player's air value consistent with
-            // calculated attribute limits before the server processes the change.
-            if (event.getAmount() > cap) {
-                event.setAmount((int) cap);
-            }
+            int adjustedAir = entityAttributeHandler.handleAirChange(player, event.getAmount());
+            event.setAmount(adjustedAir);
         }
-    }
-
-    private void clearCapCache(UUID playerId) {
-        hungerCapCache.remove(playerId);
-        oxygenCapCache.remove(playerId);
-    }
-
-    private double resolveCachedCap(org.bukkit.entity.Player player,
-                                    Map<UUID, TimedValue> cache,
-                                    Supplier<Double> loader) {
-        long now = System.nanoTime();
-        TimedValue cached = cache.get(player.getUniqueId());
-        if (cached != null && cached.expiresAtNanos > now) {
-            return cached.value;
-        }
-
-        double value = loader.get();
-        cache.put(player.getUniqueId(), new TimedValue(value, now + CAP_CACHE_TTL_NANOS));
-        return value;
-    }
-
-    private record TimedValue(double value, long expiresAtNanos) {
     }
 }
