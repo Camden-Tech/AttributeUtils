@@ -185,7 +185,7 @@ messages:
       no-permission: "&cYou do not have permission to manage player attribute modifiers."
       usage: "&eUsage: /{label} <player> <add|remove> ..."
       usage-add: "&eUsage: /{label} <player> add <plugin> <name> <modifierKey> <add|multiply> <amount> [temporary|permanent] [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"
-      usage-remove: "&eUsage: /{label} <player> remove <plugin> <name> <modifierKey>"
+      usage-remove: "&eUsage: /{label} <player> remove <attributeKey> <modifierKey>"
       unknown-action: "&cUnknown action '{action}'. Use add or remove."
       player-offline: "&cPlayer '{player}' is not online."
       unexpected-argument: "&cUnexpected argument '{argument}'."

@@ -252,16 +252,16 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length < 5) {
+        if (args.length < 4) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.usage-remove",
                     java.util.Map.of("label", label),
-                    "§eUsage: /" + label + " <player> remove <plugin> <name> <modifierKey>"));
+                    "§eUsage: /" + label + " <player> remove <attributeKey> <modifierKey>"));
             return true;
         }
 
-        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], args[3], messages);
-        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[4], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[3], messages);
         if (attributeKey.isEmpty() || modifierKey.isEmpty()) {
             return true;
         }
@@ -294,11 +294,11 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return filter(List.of("add", "remove"), args[1]);
         }
 
-        if (args.length == 3) {
+        if (args.length == 3 && args[1].equalsIgnoreCase("add")) {
             return filter(attributePlugins(), args[2]);
         }
 
-        if (args.length == 4) {
+        if (args.length == 4 && args[1].equalsIgnoreCase("add")) {
             return filter(attributeNames(args[2]), args[3]);
         }
 
@@ -306,8 +306,12 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return filter(namespacedAttributeKeys(), args[4]);
         }
 
-        if (args.length == 5 && args[1].equalsIgnoreCase("remove")) {
-            return filter(namespacedAttributeKeys(), args[4]);
+        if (args.length == 3 && args[1].equalsIgnoreCase("remove")) {
+            return filter(activeAttributeKeys(args[0]), args[2]);
+        }
+
+        if (args.length == 4 && args[1].equalsIgnoreCase("remove")) {
+            return filter(activeModifierKeys(args[0], args[2]), args[3]);
         }
 
         if (args.length == 6 && args[1].equalsIgnoreCase("add")) {
@@ -396,6 +400,40 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
 
     private List<String> namespacedAttributeKeys() {
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName());
+    }
+
+    private List<String> activeAttributeKeys(String playerName) {
+        Player player = plugin.getServer().getPlayerExact(playerName);
+        if (player == null) {
+            return List.of();
+        }
+
+        Set<String> attributeIds = new HashSet<>();
+        attributeFacade.getPlayerInstances(player.getUniqueId()).forEach((id, instance) -> {
+            if (!instance.getModifiers().isEmpty()) {
+                attributeIds.add(instance.getDefinition().id());
+            }
+        });
+
+        return CommandParsingUtils.namespacedCompletionsFromIds(attributeIds, plugin.getName());
+    }
+
+    private List<String> activeModifierKeys(String playerName, String attributeId) {
+        Player player = plugin.getServer().getPlayerExact(playerName);
+        if (player == null || attributeId == null || attributeId.isBlank()) {
+            return List.of();
+        }
+
+        String normalizedId = attributeId.toLowerCase(Locale.ROOT);
+        if (normalizedId.contains(".")) {
+            normalizedId = normalizedId.split("\\.", 2)[1];
+        }
+        return attributeFacade.getPlayerInstances(player.getUniqueId()).entrySet().stream()
+                .filter(entry -> entry.getKey().equals(normalizedId))
+                .map(entry -> entry.getValue().getModifiers().keySet())
+                .findFirst()
+                .map(keys -> keys.stream().sorted().toList())
+                .orElse(List.of());
     }
 
     private List<String> playerNames() {
