@@ -2,19 +2,24 @@ package me.baddcamden.attributeutils.command;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
+import me.baddcamden.attributeutils.model.ModifierEntry;
+import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Manages {@code /globalattribute} style commands that mutate global attribute state.
@@ -24,17 +29,24 @@ import java.util.Optional;
  *     <li>{@code default/current/base} update the corresponding baseline fields on the global instance before any
  *     modifiers are considered.</li>
  *     <li>{@code cap} updates the cap used by the computation engine when combining global and player modifiers.</li>
+ *     <li>{@code modifier} lets operators push additives/multipliers into the global buckets, mirroring the player
+ *     modifier command so permanent and temporary global effects can be represented.</li>
  * </ul>
  * Caps are enforced immediately using {@link me.baddcamden.attributeutils.model.CapConfig#clamp(double, java.util.UUID)}
  * so that subsequent computations never exceed allowed values.
  */
 public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
+    private final Plugin plugin;
     private final AttributeFacade attributeFacade;
     private final CommandMessages messages;
     private final String defaultNamespace;
 
-    public GlobalAttributeCommand(AttributeFacade attributeFacade, CommandMessages messages, String defaultNamespace) {
+    public GlobalAttributeCommand(Plugin plugin,
+                                  AttributeFacade attributeFacade,
+                                  CommandMessages messages,
+                                  String defaultNamespace) {
+        this.plugin = plugin;
         this.attributeFacade = attributeFacade;
         this.messages = messages;
         this.defaultNamespace = defaultNamespace == null ? "" : defaultNamespace.toLowerCase(Locale.ROOT);
@@ -53,7 +65,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messages.format(
                     "messages.global-command.usage",
                     Map.of("label", label),
-                    "§eUsage: /" + label + " <default|current|base|cap> ..."));
+                    "§eUsage: /" + label + " <default|current|base|cap|modifier> ..."));
             return true;
         }
 
@@ -65,11 +77,13 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
                 return handleValueUpdate(sender, label, action, args);
             case "cap":
                 return handleCapUpdate(sender, label, args);
+            case "modifier":
+                return handleModifierUpdate(sender, label, args);
             default:
                 sender.sendMessage(messages.format(
                         "messages.global-command.unknown-action",
                         Map.of("action", args[0], "label", label),
-                        ChatColor.YELLOW + "Usage: /" + label + " <default|current|base|cap> ..."));
+                        ChatColor.YELLOW + "Usage: /" + label + " <default|current|base|cap|modifier> ..."));
                 return true;
         }
     }
@@ -166,21 +180,236 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleModifierUpdate(CommandSender sender, String label, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.usage",
+                    Map.of("label", label),
+                    "§eUsage: /" + label + " modifier <add|remove> ..."));
+            return true;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "add":
+                return handleModifierAdd(sender, label, args);
+            case "remove":
+                return handleModifierRemove(sender, label, args);
+            default:
+                sender.sendMessage(messages.format(
+                        "messages.global-command.modifier.unknown-action",
+                        Map.of("action", action),
+                        ChatColor.YELLOW + "Usage: /" + label + " modifier <add|remove> ..."));
+                return true;
+        }
+    }
+
+    private boolean handleModifierAdd(CommandSender sender, String label, String[] args) {
+        if (args.length < 8) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.usage-add",
+                    Map.of("label", label),
+                    "§eUsage: /" + label + " modifier add <plugin> <name> <modifierKey> <add|multiply> <amount> " +
+                            "[temporary|permanent] [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"));
+            return true;
+        }
+
+        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], args[3], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[4], messages);
+        Optional<ModifierOperation> operation = CommandParsingUtils.parseOperation(sender, args[5], messages);
+        Optional<Double> amount = CommandParsingUtils.parseNumeric(sender, args[6], "modifier amount", messages);
+        Optional<Double> durationSeconds = Optional.empty();
+        Boolean temporaryExplicit = null;
+        CommandParsingUtils.Scope scope = CommandParsingUtils.Scope.BOTH;
+        boolean useMultiplierKeys = false;
+        Set<String> multiplierKeys = Collections.emptySet();
+
+        for (int index = 7; index < args.length; index++) {
+            String arg = args[index];
+            if (arg.equalsIgnoreCase("temporary")) {
+                temporaryExplicit = true;
+                continue;
+            }
+
+            if (arg.equalsIgnoreCase("permanent")) {
+                temporaryExplicit = false;
+                continue;
+            }
+
+            if (arg.startsWith("multipliers=")) {
+                Set<String> parsedKeys = new HashSet<>();
+                String[] parts = arg.substring("multipliers=".length()).split(",");
+                for (String part : parts) {
+                    if (!part.isBlank()) {
+                        parsedKeys.add(part.toLowerCase(Locale.ROOT));
+                    }
+                }
+                useMultiplierKeys = true;
+                multiplierKeys = parsedKeys.isEmpty() ? Collections.emptySet() : parsedKeys;
+                continue;
+            }
+
+            if (arg.startsWith("scope=")) {
+                Optional<CommandParsingUtils.Scope> parsedScope = CommandParsingUtils.parseScope(sender, arg.substring("scope=".length()), messages);
+                if (parsedScope.isEmpty()) {
+                    return true;
+                }
+                scope = parsedScope.get();
+                continue;
+            }
+
+            if (arg.startsWith("duration=")) {
+                if (durationSeconds.isPresent()) {
+                    sender.sendMessage(messages.format(
+                            "messages.global-command.modifier.unexpected-argument",
+                            Map.of("argument", arg),
+                            "§cUnexpected argument '" + arg + "'."));
+                    return true;
+                }
+
+                durationSeconds = CommandParsingUtils.parseNumeric(sender, arg.substring("duration=".length()), "duration (seconds)", messages);
+                if (durationSeconds.isEmpty()) {
+                    return true;
+                }
+                if (durationSeconds.get() <= 0) {
+                    sender.sendMessage(messages.format(
+                            "messages.global-command.modifier.positive-duration",
+                            "§cDuration must be greater than zero when provided."));
+                    return true;
+                }
+                continue;
+            }
+
+            if (durationSeconds.isPresent()) {
+                sender.sendMessage(messages.format(
+                        "messages.global-command.modifier.unexpected-argument",
+                        Map.of("argument", arg),
+                        "§cUnexpected argument '" + arg + "'."));
+                return true;
+            }
+
+            durationSeconds = CommandParsingUtils.parseNumeric(sender, arg, "duration (seconds)", messages);
+            if (durationSeconds.isEmpty()) {
+                return true;
+            }
+            if (durationSeconds.get() <= 0) {
+                sender.sendMessage(messages.format(
+                        "messages.global-command.modifier.positive-duration",
+                        "§cDuration must be greater than zero when provided."));
+                return true;
+            }
+        }
+
+        if (attributeKey.isEmpty() || modifierKey.isEmpty() || amount.isEmpty() || operation.isEmpty()) {
+            return true;
+        }
+
+        if (amount.get() < 0) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.negative-amount",
+                    Map.of("amount", args[6]),
+                    "§cModifier amounts must be zero or positive."));
+            return true;
+        }
+
+        if (attributeFacade.getDefinition(attributeKey.get().key()).isEmpty()) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.unknown-attribute",
+                    Map.of("attribute", attributeKey.get().asString()),
+                    "§cUnknown attribute '" + attributeKey.get().asString() + "'."));
+            return true;
+        }
+
+        if (durationSeconds.isPresent() && Boolean.FALSE.equals(temporaryExplicit)) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.permanent-duration",
+                    "§cPermanent modifiers cannot include a duration."));
+            return true;
+        }
+
+        boolean temporary = durationSeconds.isPresent() || Boolean.TRUE.equals(temporaryExplicit);
+
+        ModifierEntry entry = new ModifierEntry(modifierKey.get().asString(), operation.get(), amount.get(), temporary,
+                scope.appliesToDefault(), scope.appliesToCurrent(), useMultiplierKeys, multiplierKeys, durationSeconds.orElse(null));
+        attributeFacade.setGlobalModifier(attributeKey.get().key(), entry);
+
+        durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,
+                () -> attributeFacade.removeGlobalModifier(attributeKey.get().key(), entry.key()),
+                (long) (seconds * 20)));
+
+        String durationLabel = temporary
+                ? durationSeconds.map(value -> value + "s temporary").orElse("temporary")
+                : "permanent";
+        sender.sendMessage(messages.format(
+                "messages.global-command.modifier.added",
+                Map.of(
+                        "amount", String.valueOf(amount.get()),
+                        "attribute", attributeKey.get().asString(),
+                        "duration", durationLabel,
+                        "modifier", modifierKey.get().asString(),
+                        "operation", operation.get().name()),
+                ChatColor.GREEN + "Applied a " + amount.get() + " " + operation.get().name().toLowerCase(Locale.ROOT)
+                        + " modifier (" + modifierKey.get().asString() + ") to " + attributeKey.get().asString()
+                        + " (" + durationLabel + ")."));
+        return true;
+    }
+
+    private boolean handleModifierRemove(CommandSender sender, String label, String[] args) {
+        if (args.length < 5) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.usage-remove",
+                    Map.of("label", label),
+                    "§eUsage: /" + label + " modifier remove <plugin> <name> <modifierKey>"));
+            return true;
+        }
+
+        Optional<CommandParsingUtils.NamespacedAttributeKey> attributeKey = CommandParsingUtils.parseAttributeKey(sender, args[2], args[3], messages);
+        Optional<CommandParsingUtils.NamespacedAttributeKey> modifierKey = CommandParsingUtils.parseAttributeKey(sender, args[4], messages);
+
+        if (attributeKey.isEmpty() || modifierKey.isEmpty()) {
+            return true;
+        }
+
+        if (attributeFacade.getDefinition(attributeKey.get().key()).isEmpty()) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.unknown-attribute",
+                    Map.of("attribute", attributeKey.get().asString()),
+                    "§cUnknown attribute '" + attributeKey.get().asString() + "'."));
+            return true;
+        }
+
+        attributeFacade.removeGlobalModifier(attributeKey.get().key(), modifierKey.get().asString());
+        sender.sendMessage(messages.format(
+                "messages.global-command.modifier.removed",
+                Map.of("attribute", attributeKey.get().asString(), "modifier", modifierKey.get().asString()),
+                ChatColor.GREEN + "Removed modifier " + modifierKey.get().asString() + " for " + attributeKey.get().asString() + "."));
+        return true;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        List<String> actions = List.of("default", "current", "base", "cap");
+        List<String> actions = List.of("default", "current", "base", "cap", "modifier");
         if (args.length == 1) {
             return filter(actions, args[0]);
         }
 
         if (args.length == 2) {
             if (actions.contains(args[0].toLowerCase(Locale.ROOT))) {
+                if (args[0].equalsIgnoreCase("modifier")) {
+                    return filter(List.of("add", "remove"), args[1]);
+                }
                 return filter(attributePlugins(), args[1]);
             }
             return filter(actions, args[1]);
         }
 
         if (args.length == 3) {
+            if (args[0].equalsIgnoreCase("modifier")) {
+                if (args[1].equalsIgnoreCase("remove") || args[1].equalsIgnoreCase("add")) {
+                    return filter(attributePlugins(), args[2]);
+                }
+                return Collections.emptyList();
+            }
             return filter(attributeNames(args[1]), args[2]);
         }
 
@@ -188,7 +417,35 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             if (args[0].equalsIgnoreCase("cap")) {
                 return Collections.singletonList("1");
             }
+            if (args[0].equalsIgnoreCase("modifier")) {
+                return filter(attributeNames(args[2]), args[3]);
+            }
             return Collections.singletonList("0");
+        }
+
+        if (args.length == 5 && args[0].equalsIgnoreCase("modifier")) {
+            if (args[1].equalsIgnoreCase("remove")) {
+                return Collections.singletonList("plugin.key");
+            }
+            return filter(List.of("plugin.key"), args[4]);
+        }
+
+        if (args.length == 6 && args[0].equalsIgnoreCase("modifier") && args[1].equalsIgnoreCase("add")) {
+            return filter(List.of("add", "multiply"), args[5]);
+        }
+
+        if (args.length == 7 && args[0].equalsIgnoreCase("modifier") && args[1].equalsIgnoreCase("add")) {
+            return Collections.singletonList("0");
+        }
+
+        if (args.length >= 8 && args[0].equalsIgnoreCase("modifier") && args[1].equalsIgnoreCase("add")) {
+            List<String> options = new ArrayList<>();
+            options.add("temporary");
+            options.add("permanent");
+            options.add("duration=");
+            options.add("scope=");
+            options.add("multipliers=");
+            return filter(options, args[args.length - 1]);
         }
 
         return Collections.emptyList();

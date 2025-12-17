@@ -262,8 +262,7 @@ public final class CommandParsingUtils {
             String normalizedId = id.toLowerCase(Locale.ROOT);
             if (normalizedId.contains(".")) {
                 unique.add(normalizedId);
-            }
-            if (!fallbackPlugin.isBlank()) {
+            } else if (!fallbackPlugin.isBlank()) {
                 unique.add(fallbackPlugin + "." + normalizedId);
             }
         }
