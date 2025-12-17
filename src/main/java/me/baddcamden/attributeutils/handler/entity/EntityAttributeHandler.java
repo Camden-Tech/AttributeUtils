@@ -4,6 +4,8 @@ import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.command.CommandParsingUtils;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
+import me.baddcamden.attributeutils.persistence.ResourceMeterState;
+import me.baddcamden.attributeutils.persistence.ResourceMeterStore;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -30,7 +32,7 @@ import java.util.function.Supplier;
  * caps (current stage) to live player entities and translating command-provided baseline/cap values into persistent
  * data for spawned entities so that subsequent computations start from the correct stage values.
  */
-public class EntityAttributeHandler {
+public class EntityAttributeHandler implements ResourceMeterStore {
 
     private final AttributeFacade attributeFacade;
     private final Plugin plugin;
@@ -274,6 +276,31 @@ public class EntityAttributeHandler {
         oxygenMeters.remove(playerId);
     }
 
+    @Override
+    public void hydrateMeters(UUID playerId, ResourceMeterState hunger, ResourceMeterState oxygen) {
+        if (playerId == null) {
+            return;
+        }
+        if (hunger != null) {
+            hungerMeters.put(playerId, ResourceMeter.fromState(hunger));
+        }
+        if (oxygen != null) {
+            oxygenMeters.put(playerId, ResourceMeter.fromState(oxygen));
+        }
+    }
+
+    @Override
+    public ResourceMeterState getHungerMeter(UUID playerId) {
+        ResourceMeter meter = hungerMeters.get(playerId);
+        return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
+    }
+
+    @Override
+    public ResourceMeterState getOxygenMeter(UUID playerId) {
+        ResourceMeter meter = oxygenMeters.get(playerId);
+        return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
+    }
+
     private void resolveTransientModifierMethod() {
         try {
             transientModifierMethod = org.bukkit.attribute.AttributeInstance.class
@@ -360,6 +387,12 @@ public class EntityAttributeHandler {
             return new ResourceMeter(fraction * Math.max(max, 0), Math.max(max, 0));
         }
 
+        static ResourceMeter fromState(ResourceMeterState state) {
+            double max = state == null ? 0 : state.max();
+            double current = state == null ? 0 : state.current();
+            return new ResourceMeter(current, max);
+        }
+
         void updateMax(double newMax) {
             double cappedMax = Math.max(newMax, 0);
             double fraction = max > 0 ? current / max : 0;
@@ -377,6 +410,14 @@ public class EntityAttributeHandler {
             }
             double fraction = current / max;
             return (int) Math.ceil(Math.min(fraction, 1.0) * displayMax);
+        }
+
+        double getCurrent() {
+            return current;
+        }
+
+        double getMax() {
+            return max;
         }
 
         private static double clamp(double value, double max) {

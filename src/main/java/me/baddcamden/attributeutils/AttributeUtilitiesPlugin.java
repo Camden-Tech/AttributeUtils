@@ -59,7 +59,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         List<CompletableFuture<Void>> saves = new ArrayList<>();
-        getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId())));
+        getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId(), entityAttributeHandler)));
         saves.add(persistence.saveGlobalsAsync(attributeFacade));
         CompletableFuture.allOf(saves.toArray(new CompletableFuture[0])).join();
     }
@@ -67,7 +67,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     public void reloadAttributes() {
         if (persistence != null && attributeFacade != null) {
             List<CompletableFuture<Void>> saves = new ArrayList<>();
-            getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId())));
+            getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId(), entityAttributeHandler)));
             saves.add(persistence.saveGlobalsAsync(attributeFacade));
             CompletableFuture.allOf(saves.toArray(new CompletableFuture[0])).join();
         }
@@ -95,7 +95,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         registerVanillaBaselines();
         newPersistence.loadGlobalsAsync(newAttributeFacade);
         Executor syncExecutor = command -> getServer().getScheduler().runTask(this, command);
-        getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayerAsync(newAttributeFacade, player.getUniqueId())
+        getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayerAsync(newAttributeFacade, player.getUniqueId(), newEntityAttributeHandler)
                 .thenRunAsync(() -> {
                     newItemAttributeHandler.applyDefaults(player.getInventory());
                     newItemAttributeHandler.applyPersistentAttributes(player);

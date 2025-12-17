@@ -64,7 +64,7 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        persistence.loadPlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
+        persistence.loadPlayerAsync(attributeFacade, event.getPlayer().getUniqueId(), entityAttributeHandler)
                 .thenRunAsync(() -> {
                     itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
                     itemAttributeHandler.applyPersistentAttributes(event.getPlayer());
@@ -82,7 +82,7 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        persistence.savePlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
+        persistence.savePlayerAsync(attributeFacade, event.getPlayer().getUniqueId(), entityAttributeHandler)
                 .whenComplete((ignored, error) -> syncExecutor.execute(() -> {
                     attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
                     entityAttributeHandler.clearPlayerData(event.getPlayer().getUniqueId());
