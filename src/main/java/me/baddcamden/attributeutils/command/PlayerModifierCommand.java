@@ -428,8 +428,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         if (normalizedId.contains(".")) {
             normalizedId = normalizedId.split("\\.", 2)[1];
         }
+        final String lookupId = normalizedId;
         return attributeFacade.getPlayerInstances(player.getUniqueId()).entrySet().stream()
-                .filter(entry -> entry.getKey().equals(normalizedId))
+                .filter(entry -> entry.getKey().equals(lookupId))
                 .map(entry -> entry.getValue().getModifiers().keySet())
                 .findFirst()
                 .map(keys -> keys.stream().sorted().toList())
