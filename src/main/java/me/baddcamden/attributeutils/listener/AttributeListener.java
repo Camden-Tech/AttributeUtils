@@ -7,9 +7,14 @@ import me.baddcamden.attributeutils.persistence.AttributePersistence;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityAirChangeEvent;
+import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.plugin.Plugin;
 
 import java.util.concurrent.Executor;
@@ -62,6 +67,7 @@ public class AttributeListener implements Listener {
         persistence.loadPlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
                 .thenRunAsync(() -> {
                     itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
+                    itemAttributeHandler.applyPersistentAttributes(event.getPlayer());
                     entityAttributeHandler.applyPlayerCaps(event.getPlayer());
                 }, syncExecutor);
     }
@@ -81,6 +87,23 @@ public class AttributeListener implements Listener {
                     attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
                     entityAttributeHandler.clearPlayerData(event.getPlayer().getUniqueId());
                 }));
+    }
+
+    @EventHandler
+    public void onItemHeld(PlayerItemHeldEvent event) {
+        syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getWhoClicked() instanceof org.bukkit.entity.Player player) {
+            syncExecutor.execute(() -> refreshPlayer(player));
+        }
+    }
+
+    @EventHandler
+    public void onSwapHands(PlayerSwapHandItemsEvent event) {
+        syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
     }
 
     /**
@@ -116,5 +139,22 @@ public class AttributeListener implements Listener {
             int adjustedAir = entityAttributeHandler.handleAirChange(player, event.getAmount());
             event.setAmount(adjustedAir);
         }
+    }
+
+    @EventHandler
+    public void onEntitySpawn(EntitySpawnEvent event) {
+        entityAttributeHandler.applyPersistentAttributes(event.getEntity());
+    }
+
+    @EventHandler
+    public void onChunkLoad(ChunkLoadEvent event) {
+        for (org.bukkit.entity.Entity entity : event.getChunk().getEntities()) {
+            entityAttributeHandler.applyPersistentAttributes(entity);
+        }
+    }
+
+    private void refreshPlayer(org.bukkit.entity.Player player) {
+        itemAttributeHandler.applyPersistentAttributes(player);
+        entityAttributeHandler.applyPlayerCaps(player);
     }
 }

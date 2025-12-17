@@ -95,6 +95,49 @@ public class EntityAttributeHandler {
         return new SpawnedEntityResult(entity, String.join(", ", summary));
     }
 
+    public void applyPersistentAttributes(Entity entity) {
+        if (entity == null) {
+            return;
+        }
+
+        PersistentDataContainer container = entity.getPersistentDataContainer();
+        container.getKeys().forEach(key -> {
+            String keyName = key.getKey();
+            if (!key.getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))) {
+                return;
+            }
+            if (!keyName.startsWith("attr_")) {
+                return;
+            }
+
+            boolean cap = keyName.endsWith("_cap");
+            String attributeId = keyName.substring("attr_".length(), cap ? keyName.length() - 4 : keyName.length());
+            Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId)
+                    .or(() -> attributeFacade.getDefinition(attributeId.replace('_', '.')));
+            if (definition.isEmpty()) {
+                return;
+            }
+
+            Double value = container.get(key, PersistentDataType.DOUBLE);
+            if (value == null) {
+                return;
+            }
+
+            AttributeDefinition attr = definition.get();
+            double clampedValue = attr.capConfig().clamp(value);
+            if (cap) {
+                applyVanillaAttribute(entity, attr.id(), clampedValue);
+                return;
+            }
+
+            applyVanillaAttribute(entity, attr.id(), clampedValue);
+            if (entity instanceof Player player) {
+                attributeFacade.getOrCreatePlayerInstance(player.getUniqueId(), attr.id())
+                        .setCurrentBaseValue(clampedValue);
+            }
+        });
+    }
+
     private void applyVanillaAttribute(Entity entity, String attributeId, double value) {
         if (entity == null || attributeId == null || attributeId.isBlank()) {
             return;
