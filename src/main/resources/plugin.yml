@@ -10,7 +10,7 @@ commands:
     permission: attributeutils.command.attributes
   attributeglobals:
     description: Edit global attribute defaults and caps.
-    usage: /<command> <default|current|base|cap> ...
+    usage: /<command> <default|current|base|cap|modifier> ...
     permission: attributeutils.command.globals
   attributemodifiers:
     description: Add or remove player attribute modifiers.
