@@ -5,6 +5,8 @@ import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeInstance;
 import me.baddcamden.attributeutils.model.ModifierEntry;
 import me.baddcamden.attributeutils.model.ModifierOperation;
+import me.baddcamden.attributeutils.persistence.ResourceMeterState;
+import me.baddcamden.attributeutils.persistence.ResourceMeterStore;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -78,19 +80,21 @@ public class AttributePersistence {
                 .thenCompose(this::writeAsync);
     }
 
-    public void loadPlayer(AttributeFacade facade, UUID playerId) {
+    public void loadPlayer(AttributeFacade facade, UUID playerId, ResourceMeterStore meterStore) {
         Path file = dataFolder.resolve("players").resolve(playerId.toString() + ".yml");
         if (Files.notExists(file)) {
             return;
         }
         FileConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
         loadInstances(facade, config.getConfigurationSection("attributes"), playerId);
+        loadMeters(config.getConfigurationSection("meters"), playerId, meterStore);
     }
 
-    public void savePlayer(AttributeFacade facade, UUID playerId) {
+    public void savePlayer(AttributeFacade facade, UUID playerId, ResourceMeterStore meterStore) {
         FileConfiguration config = new YamlConfiguration();
         ConfigurationSection attributes = config.createSection("attributes");
         writeInstances(attributes, facade.getPlayerInstances(playerId));
+        writeMeters(config, playerId, meterStore);
         Path folder = dataFolder.resolve("players");
         try {
             Files.createDirectories(folder);
@@ -99,19 +103,23 @@ public class AttributePersistence {
         save(config, folder.resolve(playerId.toString() + ".yml"));
     }
 
-    public CompletableFuture<Void> loadPlayerAsync(AttributeFacade facade, UUID playerId) {
+    public CompletableFuture<Void> loadPlayerAsync(AttributeFacade facade, UUID playerId, ResourceMeterStore meterStore) {
         Path file = dataFolder.resolve("players").resolve(playerId.toString() + ".yml");
         return supplyAsync(() -> Files.notExists(file) ? null : YamlConfiguration.loadConfiguration(file.toFile()))
                 .thenCompose(config -> config == null
                         ? CompletableFuture.completedFuture(null)
-                        : runSync(() -> loadInstances(facade, config.getConfigurationSection("attributes"), playerId)));
+                        : runSync(() -> {
+                            loadInstances(facade, config.getConfigurationSection("attributes"), playerId);
+                            loadMeters(config.getConfigurationSection("meters"), playerId, meterStore);
+                        }));
     }
 
-    public CompletableFuture<Void> savePlayerAsync(AttributeFacade facade, UUID playerId) {
+    public CompletableFuture<Void> savePlayerAsync(AttributeFacade facade, UUID playerId, ResourceMeterStore meterStore) {
         return supplySync(() -> {
                     FileConfiguration config = new YamlConfiguration();
                     ConfigurationSection attributes = config.createSection("attributes");
                     writeInstances(attributes, facade.getPlayerInstances(playerId));
+                    writeMeters(config, playerId, meterStore);
                     Path folder = dataFolder.resolve("players");
                     return new PersistedConfig(config, folder.resolve(playerId.toString() + ".yml"));
                 })
@@ -168,6 +176,30 @@ public class AttributePersistence {
         }
     }
 
+    private void loadMeters(ConfigurationSection section, UUID playerId, ResourceMeterStore meterStore) {
+        if (section == null || meterStore == null) {
+            return;
+        }
+
+        ResourceMeterState hunger = readMeter(section.getConfigurationSection("hunger"));
+        ResourceMeterState oxygen = readMeter(section.getConfigurationSection("oxygen"));
+        if (hunger != null || oxygen != null) {
+            meterStore.hydrateMeters(playerId, hunger, oxygen);
+        }
+    }
+
+    private ResourceMeterState readMeter(ConfigurationSection section) {
+        if (section == null) {
+            return null;
+        }
+        if (!section.contains("current") && !section.contains("max")) {
+            return null;
+        }
+        double current = section.getDouble("current", 0);
+        double max = section.getDouble("max", 0);
+        return new ResourceMeterState(current, max);
+    }
+
     /**
      * Writes the full state of each instance: default/current baselines, the last default final
      * baseline (used for resynchronizing static attributes), and all modifiers with their bucket
@@ -195,6 +227,30 @@ public class AttributePersistence {
                 }
             });
         }
+    }
+
+    private void writeMeters(FileConfiguration config, UUID playerId, ResourceMeterStore meterStore) {
+        if (meterStore == null) {
+            return;
+        }
+        ResourceMeterState hunger = meterStore.getHungerMeter(playerId);
+        ResourceMeterState oxygen = meterStore.getOxygenMeter(playerId);
+
+        if (hunger == null && oxygen == null) {
+            return;
+        }
+
+        ConfigurationSection metersSection = config.createSection("meters");
+        writeMeter(metersSection.createSection("hunger"), hunger);
+        writeMeter(metersSection.createSection("oxygen"), oxygen);
+    }
+
+    private void writeMeter(ConfigurationSection section, ResourceMeterState meter) {
+        if (meter == null) {
+            return;
+        }
+        section.set("current", meter.current());
+        section.set("max", meter.max());
     }
 
     private void save(FileConfiguration config, Path target) {
