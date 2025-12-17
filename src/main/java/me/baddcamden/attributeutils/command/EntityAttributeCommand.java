@@ -154,28 +154,39 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length >= 2) {
-            int relativeIndex = args.length - 2;
-            int cyclePosition = relativeIndex % 4;
-            if (cyclePosition == 0) {
-                return filter(attributePlugins(), args[args.length - 1]);
+            int index = 1;
+            while (index < args.length) {
+                int remaining = args.length - index;
+
+                if (remaining == 1) {
+                    return filter(attributePlugins(), args[index]);
+                }
+
+                if (remaining == 2) {
+                    return filter(attributeNames(args[index]), args[index + 1]);
+                }
+
+                if (remaining == 3) {
+                    List<String> options = new ArrayList<>();
+                    options.add("0");
+                    options.add("cap=0");
+                    options.add("cap=");
+                    return filter(options, args[index + 2]);
+                }
+
+                boolean hasCapToken = args[index + 3].startsWith("cap=");
+                if (hasCapToken) {
+                    if (remaining == 4) {
+                        return filter(List.of("cap=", "cap=0"), args[index + 3]);
+                    }
+                    index += 4;
+                } else {
+                    index += 3;
+                }
             }
-            if (cyclePosition == 1) {
-                return filter(attributeNames(args[args.length - 2]), args[args.length - 1]);
-            }
-            if (cyclePosition == 2) {
-                List<String> options = new ArrayList<>();
-                options.add("0");
-                options.add("cap=0");
-                options.add("cap=");
-                return filter(options, args[args.length - 1]);
-            }
-            List<String> options = new ArrayList<>(attributePlugins());
-            options.add("cap=0");
-            options.add("cap=");
-            return filter(options, args[args.length - 1]);
         }
 
-        return List.of();
+        return attributePlugins();
     }
 
     private List<String> attributePlugins() {
