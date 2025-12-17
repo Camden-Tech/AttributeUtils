@@ -108,7 +108,11 @@ public class EntityAttributeHandler {
             return;
         }
 
-        org.bukkit.attribute.AttributeInstance instance = entity.getAttribute(target);
+        if (!(entity instanceof org.bukkit.attribute.Attributable attributable)) {
+            return;
+        }
+
+        org.bukkit.attribute.AttributeInstance instance = attributable.getAttribute(target);
         if (instance == null) {
             return;
         }
