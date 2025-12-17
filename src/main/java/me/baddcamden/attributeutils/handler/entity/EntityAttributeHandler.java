@@ -118,7 +118,7 @@ public class EntityAttributeHandler {
         }
 
         instance.setBaseValue(value);
-        if (entity instanceof LivingEntity living && (target == Attribute.GENERIC_MAX_HEALTH || target == Attribute.MAX_HEALTH)) {
+        if (entity instanceof LivingEntity living && (target == Attribute.MAX_HEALTH)) {
             double safeHealth = Math.max(0.0001d, value);
             living.setHealth(safeHealth);
         }
