@@ -11,13 +11,17 @@ import me.baddcamden.attributeutils.api.VanillaAttributeSupplier;
 import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
+import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeDefinitionFactory;
+import me.baddcamden.attributeutils.model.CapConfig;
+import me.baddcamden.attributeutils.model.MultiplierApplicability;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
 import me.baddcamden.attributeutils.command.CommandMessages;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.EquipmentSlot;
@@ -25,13 +29,18 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.Locale;
 
 public class AttributeUtilitiesPlugin extends JavaPlugin {
 
@@ -113,7 +122,97 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             } catch (Exception e) {
                 getLogger().warning("Failed to prepare custom attribute folder: " + e.getMessage());
             }
+
+            try (java.util.stream.Stream<Path> files = Files.list(customFolder)) {
+                files.filter(path -> {
+                            String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
+                            return name.endsWith(".yml") || name.endsWith(".yaml");
+                        })
+                        .forEach(path -> {
+                            try {
+                                AttributeDefinition definition = parseCustomAttribute(path);
+                                if (definition != null) {
+                                    attributeFacade.registerDefinition(definition);
+                                    getLogger().info("Loaded custom attribute: " + definition.id());
+                                }
+                            } catch (Exception ex) {
+                                getLogger().severe("Failed to load custom attribute from '" + path.getFileName() + "': " + ex.getMessage());
+                            }
+                        });
+            } catch (IOException e) {
+                getLogger().severe("Failed to scan custom attribute folder: " + e.getMessage());
+            }
         }
+    }
+
+    private AttributeDefinition parseCustomAttribute(Path file) {
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+
+        String id = config.getString("id");
+        if (id == null || id.isBlank()) {
+            getLogger().warning("Skipping custom attribute '" + file.getFileName() + "': missing 'id'.");
+            return null;
+        }
+
+        String displayName = config.getString("display-name");
+        if (displayName == null || displayName.isBlank()) {
+            getLogger().warning("Skipping custom attribute '" + file.getFileName() + "': missing 'display-name'.");
+            return null;
+        }
+
+        boolean dynamic = config.getBoolean("dynamic", false);
+        double defaultBase = config.getDouble("default-base", 0);
+        double defaultCurrent = config.isSet("default-current") ? config.getDouble("default-current") : defaultBase;
+
+        CapConfig capConfig = parseCapConfig(config.getConfigurationSection("cap"));
+        MultiplierApplicability multipliers = parseMultipliers(config.getConfigurationSection("multipliers"));
+
+        return new AttributeDefinition(
+                id.toLowerCase(Locale.ROOT),
+                displayName,
+                dynamic,
+                defaultBase,
+                defaultCurrent,
+                capConfig,
+                multipliers
+        );
+    }
+
+    private CapConfig parseCapConfig(ConfigurationSection section) {
+        if (section == null) {
+            return new CapConfig(0, Double.MAX_VALUE, Map.of());
+        }
+
+        double min = section.getDouble("min", 0);
+        double max = section.getDouble("max", Double.MAX_VALUE);
+        Map<String, Double> overrides = new LinkedHashMap<>();
+        ConfigurationSection overrideSection = section.getConfigurationSection("overrides");
+        if (overrideSection != null) {
+            for (String key : overrideSection.getKeys(false)) {
+                overrides.put(key.toLowerCase(Locale.ROOT), overrideSection.getDouble(key));
+            }
+        }
+
+        return new CapConfig(min, max, overrides);
+    }
+
+    private MultiplierApplicability parseMultipliers(ConfigurationSection section) {
+        if (section == null) {
+            return MultiplierApplicability.allowAllMultipliers();
+        }
+
+        boolean applyAll = section.getBoolean("apply-all", true);
+        Set<String> allowed = Set.copyOf(section.getStringList("allowed"));
+        Set<String> ignored = Set.copyOf(section.getStringList("ignored"));
+
+        if (applyAll) {
+            if (!ignored.isEmpty()) {
+                return MultiplierApplicability.optOut(ignored);
+            }
+            return MultiplierApplicability.allowAllMultipliers();
+        }
+
+        return MultiplierApplicability.optIn(allowed);
     }
 
     private void registerVanillaBaselines() {
