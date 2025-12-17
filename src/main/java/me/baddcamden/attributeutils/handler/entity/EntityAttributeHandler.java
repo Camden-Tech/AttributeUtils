@@ -9,6 +9,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -81,6 +82,8 @@ public class EntityAttributeHandler {
             container.set(valueKey(attributeDefinition.id()), PersistentDataType.DOUBLE, clampedValue);
             capOverride.ifPresent(cap -> container.set(capKey(attributeDefinition.id()), PersistentDataType.DOUBLE, cap));
 
+            applyVanillaAttribute(entity, attributeDefinition.id(), clampedValue);
+
             String summaryLine = attributeDefinition.id() + "=" + clampedValue;
             if (capOverride.isPresent()) {
                 double cap = capOverride.get();
@@ -90,6 +93,31 @@ public class EntityAttributeHandler {
         }
 
         return new SpawnedEntityResult(entity, String.join(", ", summary));
+    }
+
+    private void applyVanillaAttribute(Entity entity, String attributeId, double value) {
+        if (entity == null || attributeId == null || attributeId.isBlank()) {
+            return;
+        }
+
+        Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
+        if (target == null) {
+            target = resolveAttribute(attributeId);
+        }
+        if (target == null) {
+            return;
+        }
+
+        org.bukkit.attribute.AttributeInstance instance = entity.getAttribute(target);
+        if (instance == null) {
+            return;
+        }
+
+        instance.setBaseValue(value);
+        if (entity instanceof LivingEntity living && (target == Attribute.GENERIC_MAX_HEALTH || target == Attribute.MAX_HEALTH)) {
+            double safeHealth = Math.max(0.0001d, value);
+            living.setHealth(safeHealth);
+        }
     }
 
     private NamespacedKey valueKey(String attributeId) {
