@@ -2,6 +2,7 @@ package me.baddcamden.attributeutils.command;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
+import me.baddcamden.attributeutils.model.AttributeInstance;
 import me.baddcamden.attributeutils.model.ModifierEntry;
 import me.baddcamden.attributeutils.model.ModifierOperation;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
@@ -391,7 +392,17 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        attributeFacade.removeGlobalModifier(attributeKey.get().key(), modifierKey.get().asString());
+        AttributeInstance instance = findGlobalInstance(attributeKey.get().plugin(), attributeKey.get().key());
+        String normalizedModifierKey = modifierKey.get().asString().toLowerCase(Locale.ROOT);
+        if (instance == null || !instance.getModifiers().containsKey(normalizedModifierKey)) {
+            sender.sendMessage(messages.format(
+                    "messages.global-command.modifier.not-found",
+                    Map.of("attribute", attributeKey.get().asString(), "modifier", modifierKey.get().asString()),
+                    ChatColor.RED + "No modifier " + modifierKey.get().asString() + " found for " + attributeKey.get().asString() + "."));
+            return true;
+        }
+
+        attributeFacade.removeGlobalModifier(attributeKey.get().key(), normalizedModifierKey);
         sender.sendMessage(messages.format(
                 "messages.global-command.modifier.removed",
                 Map.of("attribute", attributeKey.get().asString(), "modifier", modifierKey.get().asString()),
@@ -438,7 +449,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 5 && args[0].equalsIgnoreCase("modifier")) {
             if (args[1].equalsIgnoreCase("remove")) {
-                return Collections.singletonList("plugin.key");
+                return filter(globalModifierKeys(args[2], args[3]), args[4]);
             }
             return filter(List.of("plugin.key"), args[4]);
         }
@@ -483,6 +494,34 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     private String pluginName() {
         return defaultNamespace;
+    }
+
+    private AttributeInstance findGlobalInstance(String pluginSegment, String attributeName) {
+        if ((pluginSegment == null || pluginSegment.isBlank()) && (attributeName == null || attributeName.isBlank())) {
+            return null;
+        }
+
+        String normalizedPlugin = pluginSegment == null ? "" : pluginSegment.toLowerCase(Locale.ROOT);
+        String normalizedName = attributeName == null ? "" : attributeName.toLowerCase(Locale.ROOT).replace('-', '_');
+        String namespacedId = normalizedPlugin.isBlank() ? normalizedName : normalizedPlugin + "." + normalizedName;
+
+        AttributeInstance instance = attributeFacade.getGlobalInstances().get(namespacedId);
+        if (instance != null) {
+            return instance;
+        }
+
+        return attributeFacade.getGlobalInstances().get(normalizedName);
+    }
+
+    private List<String> globalModifierKeys(String pluginSegment, String attributeName) {
+        AttributeInstance instance = findGlobalInstance(pluginSegment, attributeName);
+        if (instance == null) {
+            return List.of();
+        }
+
+        return instance.getModifiers().keySet().stream()
+                .sorted()
+                .toList();
     }
 
     private List<String> filter(List<String> options, String prefix) {
