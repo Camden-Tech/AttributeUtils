@@ -162,9 +162,7 @@ public class ItemAttributeHandler {
 
         appliedItemModifierKeys.put(playerId, currentKeyAttributes);
 
-        for (String attributeId : touchedAttributes) {
-            entityAttributeHandler.applyVanillaAttribute(player, attributeId);
-        }
+        applyVanillaAttributes(player, touchedAttributes);
     }
 
     private void scanItems(ItemStack[] items,
@@ -214,7 +212,6 @@ public class ItemAttributeHandler {
                 double effective = capOverride == null ? value : Math.min(value, capOverride);
                 TriggerCriterion criterion = resolveCriterion(container, resolvedId);
 
-                touchedAttributes.add(resolvedId);
                 TriggerCriterion.ItemSlotContext context = new TriggerCriterion.ItemSlotContext(bucket, slot, heldSlot);
                 if (!criterion.isSatisfied(context, player)) {
                     continue;
@@ -303,5 +300,15 @@ public class ItemAttributeHandler {
     }
 
     public record ItemDeliveryResult(boolean dropped) {
+    }
+
+    private void applyVanillaAttributes(Player player, Set<String> touchedAttributes) {
+        if (player == null || touchedAttributes.isEmpty()) {
+            return;
+        }
+
+        for (String attributeId : touchedAttributes) {
+            entityAttributeHandler.applyVanillaAttribute(player, attributeId);
+        }
     }
 }
