@@ -3,6 +3,7 @@ package me.baddcamden.attributeutils.model;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.function.Consumer;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -232,11 +233,11 @@ public final class AttributeDefinitionFactory {
      * converted into a {@link CapConfig} that respects per-key overrides so callers can map
      * override keys (such as player identifiers) to distinct maxima.
      */
-    public static void registerConfigCaps(AttributeServiceConsumer consumer, ConfigurationSection caps) {
+    public static void registerConfigCaps(Consumer<AttributeDefinition> consumer, ConfigurationSection caps) {
         registerConfigCaps(consumer, caps, Set.of());
     }
 
-    public static void registerConfigCaps(AttributeServiceConsumer consumer, ConfigurationSection caps, Set<String> skipKeys) {
+    public static void registerConfigCaps(Consumer<AttributeDefinition> consumer, ConfigurationSection caps, Set<String> skipKeys) {
         if (caps == null) {
             return;
         }
@@ -279,10 +280,6 @@ public final class AttributeDefinitionFactory {
                 capConfig,
                 MultiplierApplicability.allowAllMultipliers()
         );
-    }
-
-    public interface AttributeServiceConsumer {
-        void accept(AttributeDefinition definition);
     }
 
     private static String humanize(String id) {
