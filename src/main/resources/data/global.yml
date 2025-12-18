@@ -35,9 +35,9 @@ attributes:
     default-final-baseline: 0.4
     modifiers: {}
   armor:
-    default-base: 0
-    current-base: 0
-    default-final-baseline: 0
+    default-base: 5
+    current-base: 5
+    default-final-baseline: 5
     modifiers: {}
   armor_toughness:
     default-base: 0
