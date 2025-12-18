@@ -1,6 +1,6 @@
 package me.baddcamden.attributeutils.service;
 
-import me.baddcamden.attributeutils.api.AttributeDefinition;
+import me.baddcamden.attributeutils.model.AttributeDefinition;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,7 +25,7 @@ public class AttributeService {
      * delimiter insensitive.
      */
     public void registerAttribute(AttributeDefinition attribute) {
-        attributes.put(attribute.normalizedKey(), attribute);
+        attributes.put(attribute.id().toLowerCase(Locale.ROOT), attribute);
     }
 
     /**
