@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -191,20 +192,23 @@ public class ItemAttributeHandler {
                                String bucketLabel,
                                int slot,
                                Map<String, Integer> attributeCounts) {
-        attributeFacade.getDefinition(attributeId).ifPresent(definition -> {
-            int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
-            String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
-            double clamped = definition.capConfig().clamp(value, player.getUniqueId().toString());
-            ModifierEntry entry = new ModifierEntry(source,
-                    ModifierOperation.ADD,
-                    clamped,
-                    true,
-                    false,
-                    true,
-                    false,
-                    Map.of());
-            attributeFacade.setPlayerModifier(player.getUniqueId(), definition.id(), entry);
-        });
+        Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId);
+        if (definition.isEmpty()) {
+            return;
+        }
+
+        int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
+        String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
+        double clamped = definition.get().capConfig().clamp(value, player.getUniqueId().toString());
+        ModifierEntry entry = new ModifierEntry(source,
+                ModifierOperation.ADD,
+                clamped,
+                true,
+                false,
+                true,
+                false,
+                Set.of());
+        attributeFacade.setPlayerModifier(player.getUniqueId(), definition.get().id(), entry);
     }
 
     private String resolveAttributeId(String sanitizedId) {
