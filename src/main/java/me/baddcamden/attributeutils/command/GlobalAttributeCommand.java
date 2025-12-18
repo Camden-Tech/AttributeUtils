@@ -4,6 +4,8 @@ import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.ModifierEntry;
 import me.baddcamden.attributeutils.model.ModifierOperation;
+import me.baddcamden.attributeutils.persistence.AttributePersistence;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -39,15 +41,18 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     private final Plugin plugin;
     private final AttributeFacade attributeFacade;
+    private final AttributePersistence persistence;
     private final CommandMessages messages;
     private final String defaultNamespace;
 
     public GlobalAttributeCommand(Plugin plugin,
                                   AttributeFacade attributeFacade,
+                                  AttributePersistence persistence,
                                   CommandMessages messages,
                                   String defaultNamespace) {
         this.plugin = plugin;
         this.attributeFacade = attributeFacade;
+        this.persistence = persistence;
         this.messages = messages;
         this.defaultNamespace = defaultNamespace == null ? "" : defaultNamespace.toLowerCase(Locale.ROOT);
     }
@@ -133,6 +138,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
                 break;
         }
 
+        persistence.saveGlobalsAsync(attributeFacade);
         sender.sendMessage(messages.format(
                 "messages.global-command.updated",
                 Map.of("attribute", key.get().asString(), "value", String.valueOf(clamped)),
@@ -172,7 +178,10 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        definition.capConfig().overrideMaxValues().put(key.get().key(), capValue.get());
+        String overrideKey = key.get().key().toLowerCase(Locale.ROOT);
+        definition.capConfig().overrideMaxValues().put(overrideKey, capValue.get());
+        persistCapOverride(definition, overrideKey, capValue.get());
+        persistence.saveGlobalsAsync(attributeFacade);
         sender.sendMessage(messages.format(
                 "messages.global-command.cap-updated",
                 Map.of("attribute", key.get().asString(), "value", String.valueOf(capValue.get())),
@@ -481,5 +490,33 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             }
         }
         return matches;
+    }
+
+    private void persistCapOverride(AttributeDefinition definition, String overrideKey, double capValue) {
+        if (definition == null) {
+            return;
+        }
+        ConfigurationSection caps = plugin.getConfig().getConfigurationSection("global-attribute-caps");
+        if (caps == null) {
+            caps = plugin.getConfig().createSection("global-attribute-caps");
+        }
+
+        String configKey = definition.id().toLowerCase(Locale.ROOT).replace('_', '-');
+        ConfigurationSection capSection = caps.getConfigurationSection(configKey);
+        if (capSection == null) {
+            double min = definition.capConfig().globalMin();
+            double max = definition.capConfig().globalMax();
+            caps.set(configKey, null);
+            capSection = caps.createSection(configKey);
+            capSection.set("min", min);
+            capSection.set("max", max);
+        }
+
+        ConfigurationSection overrides = capSection.getConfigurationSection("overrides");
+        if (overrides == null) {
+            overrides = capSection.createSection("overrides");
+        }
+        overrides.set(overrideKey, capValue);
+        plugin.saveConfig();
     }
 }

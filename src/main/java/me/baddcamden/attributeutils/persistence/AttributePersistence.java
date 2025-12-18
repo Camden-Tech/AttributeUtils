@@ -52,6 +52,7 @@ public class AttributePersistence {
         }
 
         FileConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
+        loadCapOverrides(facade, config.getConfigurationSection("caps"));
         loadInstances(facade, config.getConfigurationSection("attributes"), null);
     }
 
@@ -59,6 +60,8 @@ public class AttributePersistence {
         FileConfiguration config = new YamlConfiguration();
         ConfigurationSection attributes = config.createSection("attributes");
         writeInstances(attributes, facade.getGlobalInstances());
+        ConfigurationSection caps = config.createSection("caps");
+        writeCapOverrides(caps, facade);
         save(config, dataFolder.resolve("global.yml"));
     }
 
@@ -67,7 +70,10 @@ public class AttributePersistence {
         return supplyAsync(() -> Files.notExists(file) ? null : YamlConfiguration.loadConfiguration(file.toFile()))
                 .thenCompose(config -> config == null
                         ? CompletableFuture.completedFuture(null)
-                        : runSync(() -> loadInstances(facade, config.getConfigurationSection("attributes"), null)));
+                        : runSync(() -> {
+                            loadCapOverrides(facade, config.getConfigurationSection("caps"));
+                            loadInstances(facade, config.getConfigurationSection("attributes"), null);
+                        }));
     }
 
     public CompletableFuture<Void> saveGlobalsAsync(AttributeFacade facade) {
@@ -75,6 +81,8 @@ public class AttributePersistence {
                     FileConfiguration config = new YamlConfiguration();
                     ConfigurationSection attributes = config.createSection("attributes");
                     writeInstances(attributes, facade.getGlobalInstances());
+                    ConfigurationSection caps = config.createSection("caps");
+                    writeCapOverrides(caps, facade);
                     return new PersistedConfig(config, dataFolder.resolve("global.yml"));
                 })
                 .thenCompose(this::writeAsync);
@@ -226,6 +234,52 @@ public class AttributePersistence {
                     modifier.durationSecondsOptional().ifPresent(duration -> modifiers.set(key + ".duration-seconds", duration));
                 }
             });
+        }
+    }
+
+    private void loadCapOverrides(AttributeFacade facade, ConfigurationSection caps) {
+        if (caps == null) {
+            return;
+        }
+
+        loadCapOverrides(facade, caps, "");
+    }
+
+    private void loadCapOverrides(AttributeFacade facade, ConfigurationSection section, String prefix) {
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection child = section.getConfigurationSection(key);
+            if (child == null) {
+                continue;
+            }
+
+            String attributeId = prefix.isEmpty() ? key : prefix + "." + key;
+            boolean hasNestedSections = child.getKeys(false).stream().anyMatch(child::isConfigurationSection);
+            if (hasNestedSections) {
+                loadCapOverrides(facade, child, attributeId);
+                continue;
+            }
+
+            facade.getDefinition(attributeId).ifPresent(definition -> {
+                Map<String, Double> overrideTargets = definition.capConfig().overrideMaxValues();
+                child.getKeys(false).forEach(overrideKey -> overrideTargets.put(
+                        overrideKey.toLowerCase(Locale.ROOT),
+                        child.getDouble(overrideKey)));
+            });
+        }
+    }
+
+    private void writeCapOverrides(ConfigurationSection section, AttributeFacade facade) {
+        if (section == null) {
+            return;
+        }
+
+        for (AttributeDefinition definition : facade.getDefinitions()) {
+            Map<String, Double> overrides = definition.capConfig().overrideMaxValues();
+            if (overrides.isEmpty()) {
+                continue;
+            }
+            ConfigurationSection attributeSection = section.createSection(definition.id());
+            overrides.forEach(attributeSection::set);
         }
     }
 
