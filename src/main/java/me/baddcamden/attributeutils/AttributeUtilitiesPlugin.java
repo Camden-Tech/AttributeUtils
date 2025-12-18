@@ -83,8 +83,8 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         AttributeFacade newAttributeFacade = new AttributeFacade(this, computationEngine);
         AttributePersistence newPersistence = new AttributePersistence(getDataFolder().toPath(), this);
         vanillaAttributeTargets = new HashMap<>();
-        ItemAttributeHandler newItemAttributeHandler = new ItemAttributeHandler(newAttributeFacade, this);
         EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this, vanillaAttributeTargets);
+        ItemAttributeHandler newItemAttributeHandler = new ItemAttributeHandler(newAttributeFacade, this, newEntityAttributeHandler);
 
         this.attributeFacade = newAttributeFacade;
         this.persistence = newPersistence;

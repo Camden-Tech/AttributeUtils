@@ -2,6 +2,7 @@ package me.baddcamden.attributeutils.handler.item;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.command.CommandParsingUtils;
+import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.ModifierEntry;
 import me.baddcamden.attributeutils.model.ModifierOperation;
@@ -18,6 +19,7 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,11 +35,15 @@ import java.util.UUID;
 public class ItemAttributeHandler {
 
     private final AttributeFacade attributeFacade;
+    private final EntityAttributeHandler entityAttributeHandler;
     private final Plugin plugin;
 
-    public ItemAttributeHandler(AttributeFacade attributeFacade, Plugin plugin) {
+    public ItemAttributeHandler(AttributeFacade attributeFacade,
+                               Plugin plugin,
+                               EntityAttributeHandler entityAttributeHandler) {
         this.attributeFacade = attributeFacade;
         this.plugin = plugin;
+        this.entityAttributeHandler = entityAttributeHandler;
     }
 
     /**
@@ -132,16 +138,22 @@ public class ItemAttributeHandler {
         UUID playerId = player.getUniqueId();
         attributeFacade.purgeTemporary(playerId);
 
+        Set<String> touchedAttributes = new HashSet<>();
         Map<String, Integer> attributeCounts = new HashMap<>();
-        scanItems(player.getInventory().getContents(), "inventory", player, attributeCounts);
-        scanItems(player.getInventory().getArmorContents(), "armor", player, attributeCounts);
-        scanItems(new ItemStack[]{player.getInventory().getItemInOffHand()}, "offhand", player, attributeCounts);
+        scanItems(player.getInventory().getContents(), "inventory", player, attributeCounts, touchedAttributes);
+        scanItems(player.getInventory().getArmorContents(), "armor", player, attributeCounts, touchedAttributes);
+        scanItems(new ItemStack[]{player.getInventory().getItemInOffHand()}, "offhand", player, attributeCounts, touchedAttributes);
+
+        for (String attributeId : touchedAttributes) {
+            entityAttributeHandler.applyVanillaAttribute(player, attributeId);
+        }
     }
 
     private void scanItems(ItemStack[] items,
                            String bucketLabel,
                            Player player,
-                           Map<String, Integer> attributeCounts) {
+                           Map<String, Integer> attributeCounts,
+                           Set<String> touchedAttributes) {
         if (items == null) {
             return;
         }
@@ -181,7 +193,7 @@ public class ItemAttributeHandler {
                 Double capOverride = container.get(capKey, PersistentDataType.DOUBLE);
                 double effective = capOverride == null ? value : Math.min(value, capOverride);
 
-                applyModifier(player, resolvedId, effective, bucketLabel, slot, attributeCounts);
+                applyModifier(player, resolvedId, effective, bucketLabel, slot, attributeCounts, touchedAttributes);
             }
         }
     }
@@ -191,12 +203,14 @@ public class ItemAttributeHandler {
                                double value,
                                String bucketLabel,
                                int slot,
-                               Map<String, Integer> attributeCounts) {
+                               Map<String, Integer> attributeCounts,
+                               Set<String> touchedAttributes) {
         Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId);
         if (definition.isEmpty()) {
             return;
         }
 
+        touchedAttributes.add(definition.get().id());
         int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
         String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
         double clamped = definition.get().capConfig().clamp(value, player.getUniqueId().toString());
