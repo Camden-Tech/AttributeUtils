@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -202,7 +203,7 @@ public class ItemAttributeHandler {
                     false,
                     true,
                     false,
-                    Map.of());
+                    Set.of());
             attributeFacade.setPlayerModifier(player.getUniqueId(), definition.id(), entry);
         });
     }
