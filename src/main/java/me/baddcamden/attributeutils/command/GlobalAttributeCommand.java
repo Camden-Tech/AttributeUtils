@@ -396,9 +396,9 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
         String normalizedModifierKey = modifierKey.get().asString().toLowerCase(Locale.ROOT);
         if (instance == null || !instance.getModifiers().containsKey(normalizedModifierKey)) {
             sender.sendMessage(messages.format(
-                    "messages.global-command.modifier.not-found",
+                    "messages.global-command.modifier.missing-modifier",
                     Map.of("attribute", attributeKey.get().asString(), "modifier", modifierKey.get().asString()),
-                    ChatColor.RED + "No modifier " + modifierKey.get().asString() + " found for " + attributeKey.get().asString() + "."));
+                    ChatColor.RED + "No modifier " + modifierKey.get().asString() + " set for " + attributeKey.get().asString() + "."));
             return true;
         }
 
