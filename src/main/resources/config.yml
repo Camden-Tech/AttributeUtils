@@ -193,6 +193,7 @@ messages:
       permanent-duration: "&cPermanent modifiers cannot include a duration."
       negative-amount: "&cModifier amounts must be zero or positive."
       unknown-attribute: "&cUnknown attribute '{attribute}'."
+      missing-modifier: "&cNo modifier {modifier} set for {attribute}."
       added: "&aApplied a {amount} {operation} modifier ({modifier}) to {attribute} ({duration})."
       removed: "&aRemoved modifier {modifier} for {attribute}."
   item-command:
