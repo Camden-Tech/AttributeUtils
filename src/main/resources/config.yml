@@ -173,12 +173,12 @@ messages:
   global-command:
     no-permission: "&cYou do not have permission to edit global attribute defaults or caps."
     usage: "&eUsage: /{label} <default|current|base|cap|modifier> ..."
-    usage-value: "&eUsage: /{label} {action} <plugin> <name> <value>"
+    usage-value: "&eUsage: /{label} {action} <plugin> <name> <value> (sets global {layer})"
     usage-cap: "&eUsage: /{label} cap <plugin> <name> <capValue>"
     unknown-attribute: "&cUnknown attribute: {attribute}"
     negative-base: "&cBase values must be at least {minimum}."
     cap-below-min: "&cCaps cannot be below the global minimum of {minimum}."
-    updated: "&aGlobal base for {attribute} set to {value}."
+    updated: "&aGlobal {layer} for {attribute} set to {value}."
     cap-updated: "&aCap override for {attribute} set to {value}."
     unknown-action: "&eUsage: /{label} <default|current|base|cap|modifier> ..."
     modifier:

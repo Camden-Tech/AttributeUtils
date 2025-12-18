@@ -95,10 +95,11 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleValueUpdate(CommandSender sender, String label, String action, String[] args) {
         if (args.length < 4) {
+            String layerLabel = baselineLabel(action);
             sender.sendMessage(messages.format(
                     "messages.global-command.usage-value",
-                    Map.of("label", label, "action", action),
-                    "§eUsage: /" + label + " " + action + " <plugin> <name> <value>"));
+                    Map.of("label", label, "action", action, "layer", layerLabel),
+                    "§eUsage: /" + label + " " + action + " <plugin> <name> <value> (sets global " + layerLabel + ")"));
             return true;
         }
 
@@ -133,16 +134,19 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             case "current":
                 attributeFacade.getOrCreateGlobalInstance(definition.id()).setCurrentBaseValue(clamped);
                 break;
-            default:
+            case "base":
                 attributeFacade.getOrCreateGlobalInstance(definition.id()).setBaseValue(clamped);
                 break;
+            default:
+                throw new IllegalStateException("Unexpected baseline action: " + action);
         }
 
         persistence.saveGlobalsAsync(attributeFacade);
+        String layerLabel = baselineLabel(action);
         sender.sendMessage(messages.format(
                 "messages.global-command.updated",
-                Map.of("attribute", key.get().asString(), "value", String.valueOf(clamped)),
-                ChatColor.GREEN + "Global base for " + key.get().asString() + " set to " + clamped + "."));
+                Map.of("attribute", key.get().asString(), "value", String.valueOf(clamped), "layer", layerLabel),
+                ChatColor.GREEN + "Global " + layerLabel + " for " + key.get().asString() + " set to " + clamped + "."));
         return true;
     }
 
@@ -490,6 +494,19 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             }
         }
         return matches;
+    }
+
+    private String baselineLabel(String action) {
+        switch (action.toLowerCase(Locale.ROOT)) {
+            case "default":
+                return "default baseline";
+            case "current":
+                return "current baseline";
+            case "base":
+                return "base baseline";
+            default:
+                return "baseline";
+        }
     }
 
     private void persistCapOverride(AttributeDefinition definition, String overrideKey, double capValue) {
