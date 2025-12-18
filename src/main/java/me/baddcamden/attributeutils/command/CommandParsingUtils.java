@@ -147,10 +147,21 @@ public final class CommandParsingUtils {
             int startIndex,
             CommandMessages messages,
             Predicate<String> attributeExists) {
+        return parseAttributeDefinitions(sender, args, startIndex, messages, attributeExists, null, null);
+    }
+
+    public static List<AttributeDefinition> parseAttributeDefinitions(
+            CommandSender sender,
+            String[] args,
+            int startIndex,
+            CommandMessages messages,
+            Predicate<String> attributeExists,
+            Predicate<String> criterionValidator,
+            Collection<String> allowedCriteria) {
         if (startIndex >= args.length) {
             sender.sendMessage(messages.format(
                     "messages.shared.definition-missing",
-                    "§cProvide attribute definitions as <plugin>.<key> <value> [cap=<cap>]."));
+                    "§cProvide attribute definitions as <plugin>.<key> <value> [cap=<cap> criteria=<criteria>]."));
             return Collections.emptyList();
         }
 
@@ -188,18 +199,41 @@ public final class CommandParsingUtils {
             }
 
             Double capOverride = null;
-            if (index + 3 < args.length && args[index + 3].startsWith("cap=")) {
-                Optional<Double> cap = parseCapOverride(sender, args[index + 3], messages);
-                if (cap.isEmpty()) {
-                    return Collections.emptyList();
+            String criterion = null;
+            index += 3;
+
+            while (index < args.length && (args[index].startsWith("cap=") || args[index].startsWith("criteria="))) {
+                String token = args[index];
+                if (token.startsWith("cap=")) {
+                    Optional<Double> cap = parseCapOverride(sender, token, messages);
+                    if (cap.isEmpty()) {
+                        return Collections.emptyList();
+                    }
+                    capOverride = cap.get();
+                } else if (token.startsWith("criteria=")) {
+                    String rawCriterion = token.substring("criteria=".length());
+                    if (rawCriterion.isBlank()) {
+                        sender.sendMessage(messages.format(
+                                "messages.shared.criteria-missing",
+                                Map.of(),
+                                "§cCriteria must specify a trigger such as held, inventory, or equipped."));
+                        return Collections.emptyList();
+                    }
+                    if (criterionValidator != null && !criterionValidator.test(rawCriterion)) {
+                        String allowed = allowedCriteria == null ? "" : String.join(", ", allowedCriteria);
+                        sender.sendMessage(messages.format(
+                                "messages.shared.criteria-invalid",
+                                Map.of("criteria", rawCriterion, "allowed", allowed),
+                                "§cInvalid criteria '" + rawCriterion + "'." + (allowed.isEmpty() ? "" : " Allowed: " + allowed)));
+                        return Collections.emptyList();
+                    }
+                    criterion = rawCriterion;
                 }
-                capOverride = cap.get();
-                index += 4;
-            } else {
-                index += 3;
+
+                index++;
             }
 
-            definitions.add(new AttributeDefinition(key.get(), value.get(), capOverride));
+            definitions.add(new AttributeDefinition(key.get(), value.get(), capOverride, criterion));
         }
 
         return definitions;
@@ -276,11 +310,13 @@ public final class CommandParsingUtils {
         private final NamespacedAttributeKey key;
         private final double value;
         private final Double capOverride;
+        private final String criterion;
 
-        public AttributeDefinition(NamespacedAttributeKey key, double value, Double capOverride) {
+        public AttributeDefinition(NamespacedAttributeKey key, double value, Double capOverride, String criterion) {
             this.key = key;
             this.value = value;
             this.capOverride = capOverride;
+            this.criterion = criterion;
         }
 
         public NamespacedAttributeKey getKey() {
@@ -293,6 +329,10 @@ public final class CommandParsingUtils {
 
         public Optional<Double> getCapOverride() {
             return Optional.ofNullable(capOverride);
+        }
+
+        public Optional<String> getCriterion() {
+            return Optional.ofNullable(criterion);
         }
     }
 }

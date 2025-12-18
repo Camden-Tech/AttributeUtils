@@ -1,6 +1,7 @@
 package me.baddcamden.attributeutils.command;
 
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
+import me.baddcamden.attributeutils.handler.item.TriggerCriterion;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -30,6 +31,7 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
     private final ItemAttributeHandler itemAttributeHandler;
     private final me.baddcamden.attributeutils.api.AttributeFacade attributeFacade;
     private final CommandMessages messages;
+    private static final List<String> CRITERIA = TriggerCriterion.keys();
 
     public ItemAttributeCommand(Plugin plugin, ItemAttributeHandler itemAttributeHandler, me.baddcamden.attributeutils.api.AttributeFacade attributeFacade) {
         this.plugin = plugin;
@@ -48,7 +50,7 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
 
         if (args.length < 5) {
             sender.sendMessage(messages.format("messages.item-command.usage", Map.of("label", label),
-                    ChatColor.YELLOW + "Usage: /" + label + " <player> <material> <plugin> <name> <value> [cap=<cap> ...]"));
+                    ChatColor.YELLOW + "Usage: /" + label + " <player> <material> <plugin> <name> <value> [cap=<cap> criteria=<criteria> ...]"));
             return true;
         }
 
@@ -71,7 +73,9 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
                 args,
                 2,
                 messages,
-                key -> attributeFacade.getDefinition(key).isPresent());
+                key -> attributeFacade.getDefinition(key).isPresent(),
+                raw -> TriggerCriterion.fromRaw(raw).isPresent(),
+                CRITERIA);
         if (definitions.isEmpty()) {
             return true;
         }
@@ -142,12 +146,16 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
                 options.add("0");
                 options.add("cap=0");
                 options.add("cap=");
+                options.add("criteria=");
+                options.addAll(criteriaOptions());
                 return filter(options, args[args.length - 1]);
             }
 
             List<String> options = new ArrayList<>(attributePlugins());
             options.add("cap=0");
             options.add("cap=");
+            options.add("criteria=");
+            options.addAll(criteriaOptions());
             return filter(options, args[args.length - 1]);
         }
 
@@ -194,5 +202,11 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
             }
         }
         return matches;
+    }
+
+    private List<String> criteriaOptions() {
+        return CRITERIA.stream()
+                .map(option -> "criteria=" + option)
+                .toList();
     }
 }
