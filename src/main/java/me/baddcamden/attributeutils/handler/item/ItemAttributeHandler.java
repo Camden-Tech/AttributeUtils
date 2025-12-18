@@ -192,23 +192,20 @@ public class ItemAttributeHandler {
                                String bucketLabel,
                                int slot,
                                Map<String, Integer> attributeCounts) {
-        Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId);
-        if (definition.isEmpty()) {
-            return;
-        }
-
-        int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
-        String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
-        double clamped = definition.get().capConfig().clamp(value, player.getUniqueId().toString());
-        ModifierEntry entry = new ModifierEntry(source,
-                ModifierOperation.ADD,
-                clamped,
-                true,
-                false,
-                true,
-                false,
-                Set.of());
-        attributeFacade.setPlayerModifier(player.getUniqueId(), definition.get().id(), entry);
+        attributeFacade.getDefinition(attributeId).ifPresent(definition -> {
+            int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
+            String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
+            double clamped = definition.capConfig().clamp(value, player.getUniqueId().toString());
+            ModifierEntry entry = new ModifierEntry(source,
+                    ModifierOperation.ADD,
+                    clamped,
+                    true,
+                    false,
+                    true,
+                    false,
+                    Set.of());
+            attributeFacade.setPlayerModifier(player.getUniqueId(), definition.id(), entry);
+        });
     }
 
     private String resolveAttributeId(String sanitizedId) {
