@@ -157,24 +157,24 @@ public class ItemAttributeHandler {
             }
 
             PersistentDataContainer container = meta.getPersistentDataContainer();
-            container.getKeys().forEach(key -> {
+            for (NamespacedKey key : container.getKeys()) {
                 String keyName = key.getKey();
                 if (!key.getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))) {
-                    return;
+                    continue;
                 }
                 if (!keyName.startsWith("attr_") || keyName.endsWith("_cap")) {
-                    return;
+                    continue;
                 }
 
                 String attributeId = keyName.substring("attr_".length());
                 String resolvedId = resolveAttributeId(attributeId);
                 if (resolvedId == null) {
-                    return;
+                    continue;
                 }
 
                 Double value = container.get(key, PersistentDataType.DOUBLE);
                 if (value == null) {
-                    return;
+                    continue;
                 }
 
                 NamespacedKey capKey = new NamespacedKey(plugin, keyName + "_cap");
@@ -182,7 +182,7 @@ public class ItemAttributeHandler {
                 double effective = capOverride == null ? value : Math.min(value, capOverride);
 
                 applyModifier(player, resolvedId, effective, bucketLabel, slot, attributeCounts);
-            });
+            }
         }
     }
 
@@ -192,20 +192,23 @@ public class ItemAttributeHandler {
                                String bucketLabel,
                                int slot,
                                Map<String, Integer> attributeCounts) {
-        attributeFacade.getDefinition(attributeId).ifPresent(definition -> {
-            int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
-            String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
-            double clamped = definition.capConfig().clamp(value, player.getUniqueId().toString());
-            ModifierEntry entry = new ModifierEntry(source,
-                    ModifierOperation.ADD,
-                    clamped,
-                    true,
-                    false,
-                    true,
-                    false,
-                    Set.of());
-            attributeFacade.setPlayerModifier(player.getUniqueId(), definition.id(), entry);
-        });
+        Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId);
+        if (definition.isEmpty()) {
+            return;
+        }
+
+        int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
+        String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
+        double clamped = definition.get().capConfig().clamp(value, player.getUniqueId().toString());
+        ModifierEntry entry = new ModifierEntry(source,
+                ModifierOperation.ADD,
+                clamped,
+                true,
+                false,
+                true,
+                false,
+                Set.of());
+        attributeFacade.setPlayerModifier(player.getUniqueId(), definition.get().id(), entry);
     }
 
     private String resolveAttributeId(String sanitizedId) {
