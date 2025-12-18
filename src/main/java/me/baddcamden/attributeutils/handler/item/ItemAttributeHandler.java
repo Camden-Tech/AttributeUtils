@@ -37,6 +37,7 @@ public class ItemAttributeHandler {
     private final AttributeFacade attributeFacade;
     private final EntityAttributeHandler entityAttributeHandler;
     private final Plugin plugin;
+    private final Map<UUID, Map<String, String>> appliedItemModifierKeys = new HashMap<>();
 
     public ItemAttributeHandler(AttributeFacade attributeFacade,
                                Plugin plugin,
@@ -80,15 +81,20 @@ public class ItemAttributeHandler {
             double clampedValue = attributeDefinition.capConfig().clamp(definition.getValue());
             Optional<Double> capOverride = definition.getCapOverride()
                     .map(value -> attributeDefinition.capConfig().clamp(value));
+            TriggerCriterion criterion = definition.getCriterion()
+                    .flatMap(TriggerCriterion::fromRaw)
+                    .orElse(TriggerCriterion.defaultCriterion());
 
             container.set(valueKey(attributeDefinition.id()), PersistentDataType.DOUBLE, clampedValue);
             capOverride.ifPresent(cap -> container.set(capKey(attributeDefinition.id()), PersistentDataType.DOUBLE, cap));
+            container.set(criterionKey(attributeDefinition.id()), PersistentDataType.STRING, criterion.key());
 
             String loreLine = ChatColor.GRAY + attributeDefinition.displayName() + ChatColor.WHITE + ": " + clampedValue;
             if (capOverride.isPresent()) {
                 double cap = capOverride.get();
                 loreLine += ChatColor.GRAY + " (cap " + cap + ")";
             }
+            loreLine += ChatColor.DARK_GRAY + " [" + criterion.description() + "]";
             lore.add(loreLine);
 
             String summaryLine = attributeDefinition.id() + "=" + clampedValue;
@@ -96,6 +102,7 @@ public class ItemAttributeHandler {
                 double cap = capOverride.get();
                 summaryLine += " (cap " + cap + ")";
             }
+            summaryLine += " [" + criterion.key() + "]";
             summary.add(summaryLine);
         }
 
@@ -136,13 +143,24 @@ public class ItemAttributeHandler {
         }
 
         UUID playerId = player.getUniqueId();
-        attributeFacade.purgeTemporary(playerId);
-
+        Map<String, String> previousKeys = appliedItemModifierKeys.getOrDefault(playerId, Map.of());
+        Set<String> activeKeys = new HashSet<>();
+        Map<String, String> currentKeyAttributes = new HashMap<>();
         Set<String> touchedAttributes = new HashSet<>();
-        Map<String, Integer> attributeCounts = new HashMap<>();
-        scanItems(player.getInventory().getContents(), "inventory", player, attributeCounts, touchedAttributes);
-        scanItems(player.getInventory().getArmorContents(), "armor", player, attributeCounts, touchedAttributes);
-        scanItems(new ItemStack[]{player.getInventory().getItemInOffHand()}, "offhand", player, attributeCounts, touchedAttributes);
+        int heldSlot = player.getInventory().getHeldItemSlot();
+
+        scanItems(player.getInventory().getContents(), TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
+        scanItems(player.getInventory().getArmorContents(), TriggerCriterion.ItemSlotContext.Bucket.ARMOR, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
+        scanItems(new ItemStack[]{player.getInventory().getItemInOffHand()}, TriggerCriterion.ItemSlotContext.Bucket.OFFHAND, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
+
+        for (Map.Entry<String, String> entry : previousKeys.entrySet()) {
+            if (!activeKeys.contains(entry.getKey())) {
+                attributeFacade.removePlayerModifier(playerId, entry.getValue(), entry.getKey());
+                touchedAttributes.add(entry.getValue());
+            }
+        }
+
+        appliedItemModifierKeys.put(playerId, currentKeyAttributes);
 
         for (String attributeId : touchedAttributes) {
             entityAttributeHandler.applyVanillaAttribute(player, attributeId);
@@ -150,9 +168,11 @@ public class ItemAttributeHandler {
     }
 
     private void scanItems(ItemStack[] items,
-                           String bucketLabel,
+                           TriggerCriterion.ItemSlotContext.Bucket bucket,
                            Player player,
-                           Map<String, Integer> attributeCounts,
+                           int heldSlot,
+                           Set<String> activeKeys,
+                           Map<String, String> currentKeyAttributes,
                            Set<String> touchedAttributes) {
         if (items == null) {
             return;
@@ -174,7 +194,7 @@ public class ItemAttributeHandler {
                 if (!key.getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))) {
                     continue;
                 }
-                if (!keyName.startsWith("attr_") || keyName.endsWith("_cap")) {
+                if (!keyName.startsWith("attr_") || keyName.endsWith("_cap") || keyName.endsWith("_criteria")) {
                     continue;
                 }
 
@@ -192,8 +212,15 @@ public class ItemAttributeHandler {
                 NamespacedKey capKey = new NamespacedKey(plugin, keyName + "_cap");
                 Double capOverride = container.get(capKey, PersistentDataType.DOUBLE);
                 double effective = capOverride == null ? value : Math.min(value, capOverride);
+                TriggerCriterion criterion = resolveCriterion(container, resolvedId);
 
-                applyModifier(player, resolvedId, effective, bucketLabel, slot, attributeCounts, touchedAttributes);
+                touchedAttributes.add(resolvedId);
+                TriggerCriterion.ItemSlotContext context = new TriggerCriterion.ItemSlotContext(bucket, slot, heldSlot);
+                if (!criterion.isSatisfied(context, player)) {
+                    continue;
+                }
+
+                applyModifier(player, resolvedId, effective, criterion, context, activeKeys, currentKeyAttributes, touchedAttributes);
             }
         }
     }
@@ -201,9 +228,10 @@ public class ItemAttributeHandler {
     private void applyModifier(Player player,
                                String attributeId,
                                double value,
-                               String bucketLabel,
-                               int slot,
-                               Map<String, Integer> attributeCounts,
+                               TriggerCriterion criterion,
+                               TriggerCriterion.ItemSlotContext context,
+                               Set<String> activeKeys,
+                               Map<String, String> currentKeyAttributes,
                                Set<String> touchedAttributes) {
         Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId);
         if (definition.isEmpty()) {
@@ -211,8 +239,7 @@ public class ItemAttributeHandler {
         }
 
         touchedAttributes.add(definition.get().id());
-        int ordinal = attributeCounts.merge(attributeId, 1, Integer::sum);
-        String source = "attributeutils." + bucketLabel + "." + slot + "." + ordinal + "." + attributeId;
+        String source = buildModifierKey(context, criterion, attributeId);
         double clamped = definition.get().capConfig().clamp(value, player.getUniqueId().toString());
         ModifierEntry entry = new ModifierEntry(source,
                 ModifierOperation.ADD,
@@ -223,6 +250,19 @@ public class ItemAttributeHandler {
                 false,
                 Set.of());
         attributeFacade.setPlayerModifier(player.getUniqueId(), definition.get().id(), entry);
+        activeKeys.add(source);
+        currentKeyAttributes.put(source, definition.get().id());
+    }
+
+    private String buildModifierKey(TriggerCriterion.ItemSlotContext context, TriggerCriterion criterion, String attributeId) {
+        String bucketLabel = context.bucket().name().toLowerCase(Locale.ROOT);
+        return "attributeutils." + bucketLabel + "." + context.slot() + "." + criterion.key() + "." + attributeId;
+    }
+
+    private TriggerCriterion resolveCriterion(PersistentDataContainer container, String attributeId) {
+        NamespacedKey criteriaKey = criterionKey(attributeId);
+        String stored = container.get(criteriaKey, PersistentDataType.STRING);
+        return TriggerCriterion.fromRaw(stored).orElse(TriggerCriterion.defaultCriterion());
     }
 
     private String resolveAttributeId(String sanitizedId) {
@@ -247,8 +287,16 @@ public class ItemAttributeHandler {
         return new NamespacedKey(plugin, "attr_" + sanitize(attributeId) + "_cap");
     }
 
+    private NamespacedKey criterionKey(String attributeId) {
+        return new NamespacedKey(plugin, "attr_" + sanitize(attributeId) + "_criteria");
+    }
+
     private String sanitize(String attributeId) {
         return attributeId.toLowerCase(Locale.ROOT).replace('.', '_');
+    }
+
+    public void clearAppliedModifiers(UUID playerId) {
+        appliedItemModifierKeys.remove(playerId);
     }
 
     public record ItemBuildResult(ItemStack itemStack, String summary) {

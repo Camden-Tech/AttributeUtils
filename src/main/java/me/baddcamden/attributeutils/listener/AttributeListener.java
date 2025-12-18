@@ -86,6 +86,7 @@ public class AttributeListener implements Listener {
                 .whenComplete((ignored, error) -> syncExecutor.execute(() -> {
                     attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
                     entityAttributeHandler.clearPlayerData(event.getPlayer().getUniqueId());
+                    itemAttributeHandler.clearAppliedModifiers(event.getPlayer().getUniqueId());
                 }));
     }
 
