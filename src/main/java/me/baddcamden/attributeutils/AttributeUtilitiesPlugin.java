@@ -451,7 +451,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
         PluginCommand globalsCommand = getCommand("attributeglobals");
         if (globalsCommand != null) {
-            GlobalAttributeCommand globalAttributeCommand = new GlobalAttributeCommand(this, attributeFacade, messages, getName());
+            GlobalAttributeCommand globalAttributeCommand = new GlobalAttributeCommand(this, attributeFacade, persistence, messages, getName());
             globalsCommand.setExecutor(globalAttributeCommand);
             globalsCommand.setTabCompleter(globalAttributeCommand);
         }
