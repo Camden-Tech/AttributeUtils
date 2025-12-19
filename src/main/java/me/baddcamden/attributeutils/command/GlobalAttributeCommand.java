@@ -1,6 +1,7 @@
 package me.baddcamden.attributeutils.command;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeInstance;
 import me.baddcamden.attributeutils.model.ModifierEntry;
@@ -12,6 +13,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
@@ -23,6 +25,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Manages {@code /globalattribute} style commands that mutate global attribute state.
@@ -44,17 +47,20 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     private final AttributePersistence persistence;
     private final CommandMessages messages;
     private final String defaultNamespace;
+    private final EntityAttributeHandler entityAttributeHandler;
 
     public GlobalAttributeCommand(Plugin plugin,
                                   AttributeFacade attributeFacade,
                                   AttributePersistence persistence,
                                   CommandMessages messages,
-                                  String defaultNamespace) {
+                                  String defaultNamespace,
+                                  EntityAttributeHandler entityAttributeHandler) {
         this.plugin = plugin;
         this.attributeFacade = attributeFacade;
         this.persistence = persistence;
         this.messages = messages;
         this.defaultNamespace = defaultNamespace == null ? "" : defaultNamespace.toLowerCase(Locale.ROOT);
+        this.entityAttributeHandler = entityAttributeHandler;
     }
 
     @Override
@@ -133,6 +139,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
         double clamped = definition.capConfig().clamp(value.get(), null);
         attributeFacade.getOrCreateGlobalInstance(definition.id()).setDefaultBaseValue(clamped);
+        propagateToPlayers(definition, clamped);
 
         persistence.saveGlobalsAsync(attributeFacade);
         sender.sendMessage(messages.format(
@@ -461,6 +468,21 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
         }
 
         return Collections.emptyList();
+    }
+
+    private void propagateToPlayers(AttributeDefinition definition, double clamped) {
+        Set<UUID> onlinePlayerIds = new HashSet<>();
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            onlinePlayerIds.add(player.getUniqueId());
+            AttributeInstance instance = attributeFacade.getOrCreatePlayerInstance(player.getUniqueId(), definition.id());
+            instance.setDefaultBaseValue(clamped);
+            instance.setCurrentBaseValue(clamped);
+            instance.setDefaultFinalBaseline(clamped);
+            persistence.savePlayerAsync(attributeFacade, player.getUniqueId(), entityAttributeHandler);
+            entityAttributeHandler.applyVanillaAttribute(player, definition.id());
+            entityAttributeHandler.applyPlayerCaps(player);
+        }
+        persistence.updateOfflinePlayerAttribute(definition.id(), clamped, onlinePlayerIds);
     }
 
     private List<String> attributePlugins() {
