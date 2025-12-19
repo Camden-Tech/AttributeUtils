@@ -23,12 +23,14 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -44,6 +46,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private final Map<UUID, ResourceMeter> hungerMeters = new HashMap<>();
     private final Map<UUID, ResourceMeter> oxygenMeters = new HashMap<>();
     private final Map<UUID, Double> regenerationRemainders = new HashMap<>();
+    private final Set<UUID> regenerationTargets = new HashSet<>();
     private static final int HUNGER_BARS = 20;
     private static final int OXYGEN_BUBBLES = 10;
     private static final int AIR_PER_BUBBLE = 30;
@@ -72,6 +75,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         syncOxygen(player);
         applyFlySpeed(player);
         applySwimSpeed(player);
+        registerRegenerationTarget(player);
     }
 
     public SpawnedEntityResult spawnAttributedEntity(Location location,
@@ -112,6 +116,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     public void applyPersistentAttributes(Entity entity) {
         if (entity == null) {
             return;
+        }
+
+        if (entity instanceof LivingEntity living) {
+            registerRegenerationTarget(living);
         }
 
         PersistentDataContainer container = entity.getPersistentDataContainer();
@@ -333,6 +341,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         hungerMeters.remove(playerId);
         oxygenMeters.remove(playerId);
         regenerationRemainders.remove(playerId);
+        regenerationTargets.remove(playerId);
     }
 
     @Override
@@ -358,6 +367,27 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     public ResourceMeterState getOxygenMeter(UUID playerId) {
         ResourceMeter meter = oxygenMeters.get(playerId);
         return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
+    }
+
+    public boolean shouldCancelVanillaRegeneration(EntityRegainHealthEvent event) {
+        if (!(event.getEntity() instanceof LivingEntity living)) {
+            return false;
+        }
+
+        EntityRegainHealthEvent.RegainReason reason = event.getRegainReason();
+        if (reason != EntityRegainHealthEvent.RegainReason.SATIATED
+                && reason != EntityRegainHealthEvent.RegainReason.REGEN) {
+            return false;
+        }
+
+        if (attributeFacade.getDefinition("regeneration_rate").isEmpty()) {
+            return false;
+        }
+
+        double regenRate = living instanceof Player player
+                ? attributeFacade.compute("regeneration_rate", player).currentFinal()
+                : attributeFacade.compute("regeneration_rate", living.getUniqueId(), null).currentFinal();
+        return regenRate >= 0 && (living instanceof Player || regenerationTargets.contains(living.getUniqueId()));
     }
 
     private void resolveTransientModifierMethod() {
@@ -431,6 +461,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return meter;
     }
 
+    private void registerRegenerationTarget(LivingEntity entity) {
+        regenerationTargets.add(entity.getUniqueId());
+    }
+
     private void startTicker() {
         if (ticker != null) {
             ticker.cancel();
@@ -442,7 +476,19 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             applyFlySpeed(player);
             applySwimSpeed(player);
-            tickRegeneration(player);
+            tickRegeneration(player, true);
+        }
+
+        for (UUID targetId : List.copyOf(regenerationTargets)) {
+            Entity entity = plugin.getServer().getEntity(targetId);
+            if (!(entity instanceof LivingEntity living) || !entity.isValid()) {
+                regenerationTargets.remove(targetId);
+                continue;
+            }
+            if (entity instanceof Player) {
+                continue;
+            }
+            tickRegeneration(living, false);
         }
     }
 
@@ -489,51 +535,54 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         addModifier(instance, modifier);
     }
 
-    private void tickRegeneration(Player player) {
-        double regenRate = attributeFacade.compute("regeneration_rate", player).currentFinal();
+    private void tickRegeneration(LivingEntity entity, boolean respectHunger) {
+        double regenRate = entity instanceof Player player
+                ? attributeFacade.compute("regeneration_rate", player).currentFinal()
+                : attributeFacade.compute("regeneration_rate", entity.getUniqueId(), null).currentFinal();
         if (regenRate <= 0) {
-            regenerationRemainders.remove(player.getUniqueId());
+            regenerationRemainders.remove(entity.getUniqueId());
             return;
         }
 
-        double maxHealth = player.getAttribute(Attribute.MAX_HEALTH) != null
-                ? player.getAttribute(Attribute.MAX_HEALTH).getValue()
-                : player.getMaxHealth();
-        if (player.isDead() || player.getHealth() >= maxHealth) {
-            regenerationRemainders.remove(player.getUniqueId());
+        org.bukkit.attribute.AttributeInstance maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
+        double maxHealth = maxHealthAttr != null ? maxHealthAttr.getValue() : entity.getMaxHealth();
+        if (entity.isDead() || entity.getHealth() >= maxHealth) {
+            regenerationRemainders.remove(entity.getUniqueId());
             return;
         }
 
-        if (player.getFoodLevel() < 18) {
+        if (respectHunger && entity instanceof Player player && player.getFoodLevel() < 18) {
             return;
         }
 
         double perTick = regenRate / 20.0d;
-        double accumulated = regenerationRemainders.getOrDefault(player.getUniqueId(), 0.0d) + perTick;
-        double missing = maxHealth - player.getHealth();
+        double accumulated = regenerationRemainders.getOrDefault(entity.getUniqueId(), 0.0d) + perTick;
+        double missing = maxHealth - entity.getHealth();
         double requestedHeal = Math.min(accumulated, missing);
         if (requestedHeal <= 0.00001d) {
-            regenerationRemainders.put(player.getUniqueId(), accumulated);
+            regenerationRemainders.put(entity.getUniqueId(), accumulated);
             return;
         }
 
-        EntityRegainHealthEvent event = new EntityRegainHealthEvent(player, requestedHeal, EntityRegainHealthEvent.RegainReason.CUSTOM);
+        EntityRegainHealthEvent event = new EntityRegainHealthEvent(entity, requestedHeal, EntityRegainHealthEvent.RegainReason.CUSTOM);
         plugin.getServer().getPluginManager().callEvent(event);
         if (event.isCancelled()) {
-            regenerationRemainders.put(player.getUniqueId(), accumulated);
+            regenerationRemainders.put(entity.getUniqueId(), accumulated);
             return;
         }
 
         double actualHeal = Math.min(Math.min(event.getAmount(), accumulated), missing);
         if (actualHeal <= 0.00001d) {
-            regenerationRemainders.put(player.getUniqueId(), accumulated);
+            regenerationRemainders.put(entity.getUniqueId(), accumulated);
             return;
         }
 
-        player.setHealth(Math.min(maxHealth, player.getHealth() + actualHeal));
-        float exhaustion = player.getExhaustion() + (float) (6.0d * actualHeal);
-        player.setExhaustion(exhaustion);
-        regenerationRemainders.put(player.getUniqueId(), accumulated - actualHeal);
+        entity.setHealth(Math.min(maxHealth, entity.getHealth() + actualHeal));
+        if (entity instanceof Player player) {
+            float exhaustion = player.getExhaustion() + (float) (6.0d * actualHeal);
+            player.setExhaustion(exhaustion);
+        }
+        regenerationRemainders.put(entity.getUniqueId(), accumulated - actualHeal);
     }
 
     private static final class ResourceMeter {
