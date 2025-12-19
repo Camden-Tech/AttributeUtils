@@ -334,12 +334,18 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     public int handleAirChange(Player player, int requestedAirAmount) {
-        ResourceMeter meter = resolveOxygenMeter(player, computeOxygenCap(player));
+        double oxygenCap = computeOxygenCap(player);
+        ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
+        double displayScale = oxygenDisplayScale(oxygenCap);
         double vanillaDelta = requestedAirAmount - player.getRemainingAir();
-        double pluginDelta = vanillaDelta / AIR_PER_BUBBLE;
-        meter.applyDelta(pluginDelta);
-        player.setMaximumAir(AIR_PER_BUBBLE * OXYGEN_BUBBLES);
-        return meter.asDisplay(OXYGEN_BUBBLES) * AIR_PER_BUBBLE;
+        double bubbleDelta = vanillaDelta / AIR_PER_BUBBLE;
+        double displayDelta = displayScale > 0 ? bubbleDelta / displayScale : 0;
+        meter.applyDisplayDelta(displayDelta, displayScale);
+        int maximumAir = toAirTicks(oxygenCap);
+        player.setMaximumAir(maximumAir);
+        int adjustedAir = toAirTicks(meter.getCurrent());
+        player.setRemainingAir(adjustedAir);
+        return adjustedAir;
     }
 
     public void clearPlayerData(UUID playerId) {
@@ -430,9 +436,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     private void syncOxygen(Player player) {
-        ResourceMeter meter = resolveOxygenMeter(player, computeOxygenCap(player));
-        player.setMaximumAir(AIR_PER_BUBBLE * OXYGEN_BUBBLES);
-        player.setRemainingAir(meter.asDisplay(OXYGEN_BUBBLES) * AIR_PER_BUBBLE);
+        double oxygenCap = computeOxygenCap(player);
+        ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
+        player.setMaximumAir(toAirTicks(oxygenCap));
+        player.setRemainingAir(toAirTicks(meter.getCurrent()));
     }
 
     private double computeHungerCap(Player player) {
@@ -442,7 +449,16 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private double computeOxygenCap(Player player) {
         AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
         AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
-        return Math.max(oxygen.currentFinal() + oxygenBonus.currentFinal(), 0);
+        double airCap = Math.max(oxygen.currentFinal() + oxygenBonus.currentFinal(), 0);
+        return airCap / AIR_PER_BUBBLE;
+    }
+
+    private double oxygenDisplayScale(double bubbleCap) {
+        return bubbleCap > 0 ? bubbleCap / (double) OXYGEN_BUBBLES : 0;
+    }
+
+    private int toAirTicks(double bubbleAmount) {
+        return (int) Math.round(bubbleAmount * AIR_PER_BUBBLE);
     }
 
     private ResourceMeter resolveHungerMeter(Player player, double cap) {
@@ -451,10 +467,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     private ResourceMeter resolveOxygenMeter(Player player, double cap) {
-        int cappedAir = Math.max(0, Math.min(player.getRemainingAir(), AIR_PER_BUBBLE * OXYGEN_BUBBLES));
-        int bubbleDisplay = (int) Math.ceil(cappedAir / (double) AIR_PER_BUBBLE);
+        double availableBubbles = Math.max(0, player.getRemainingAir()) / (double) AIR_PER_BUBBLE;
         return resolveMeter(player.getUniqueId(), oxygenMeters, cap,
-                () -> ResourceMeter.fromDisplay(bubbleDisplay, OXYGEN_BUBBLES, cap));
+                () -> new ResourceMeter(availableBubbles, cap));
     }
 
     private ResourceMeter resolveMeter(UUID playerId,
