@@ -316,14 +316,6 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (amount.get() < 0) {
-            sender.sendMessage(messages.format(
-                    "messages.global-command.modifier.negative-amount",
-                    Map.of("amount", args[6]),
-                    "§cModifier amounts must be zero or positive."));
-            return true;
-        }
-
         if (attributeFacade.getDefinition(attributeKey.get().key()).isEmpty()) {
             sender.sendMessage(messages.format(
                     "messages.global-command.modifier.unknown-attribute",

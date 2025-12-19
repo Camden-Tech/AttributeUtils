@@ -25,7 +25,7 @@ public final class AttributeDefinitionFactory {
         definitions.put("max_health", cappedAttribute(
                 "max_health",
                 "Max Health",
-                capConfig(config, "max_health", 100),
+                capConfigWithMin(config, "max_health", 100, 0.0001d),
                 false,
                 defaultBase(config, "max_health", 20)
         ));
@@ -158,7 +158,7 @@ public final class AttributeDefinitionFactory {
         definitions.put("scale", cappedAttribute(
                 "scale",
                 "Scale",
-                capConfig(config, "scale", 10),
+                capConfigWithMin(config, "scale", 10, 0.0001d),
                 false,
                 defaultBase(config, "scale", 1)
         ));
@@ -336,6 +336,12 @@ public final class AttributeDefinitionFactory {
         }
 
         return new CapConfig(min, max, overrides);
+    }
+
+    private static CapConfig capConfigWithMin(FileConfiguration config, String attributeId, double defaultMax, double minimum) {
+        CapConfig base = capConfig(config, attributeId, defaultMax);
+        double enforcedMin = Math.max(base.globalMin(), minimum);
+        return new CapConfig(enforcedMin, base.globalMax(), base.overrideMaxValues());
     }
 
     private static String configKey(String attributeId) {

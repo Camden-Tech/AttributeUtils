@@ -186,14 +186,6 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (amount.get() < 0) {
-            sender.sendMessage(messages.format(
-                    "messages.modifier-command.negative-amount",
-                    java.util.Map.of("amount", args[6]),
-                    "§cModifier amounts must be zero or positive."));
-            return true;
-        }
-
         if (attributeFacade.getDefinition(attributeKey.get().key()).isEmpty()) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.unknown-attribute",
