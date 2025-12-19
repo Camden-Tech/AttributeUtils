@@ -7,6 +7,7 @@ import me.baddcamden.attributeutils.persistence.AttributePersistence;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityAirChangeEvent;
+import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -139,6 +140,13 @@ public class AttributeListener implements Listener {
         if (event.getEntity() instanceof org.bukkit.entity.Player player) {
             int adjustedAir = entityAttributeHandler.handleAirChange(player, event.getAmount());
             event.setAmount(adjustedAir);
+        }
+    }
+
+    @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.HIGH, ignoreCancelled = true)
+    public void onRegainHealth(EntityRegainHealthEvent event) {
+        if (entityAttributeHandler.shouldCancelVanillaRegeneration(event)) {
+            event.setCancelled(true);
         }
     }
 
