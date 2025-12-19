@@ -9,7 +9,11 @@ commands:
     usage: /<command> [reload]
     permission: attributeutils.command.attributes
   attributeglobals:
-    description: Edit global attribute defaults and caps.
+    description: |-
+      Edit global attribute defaults and caps.
+      default: Move the reference default baseline that seeds new instances without overwriting live current values (e.g., /attributeglobals default myplugin speed 0.2 to raise the baseline players drift toward).
+      current: Adjust only the live current baseline for globals, useful for hotfixes that should not reshape the reference default (e.g., /attributeglobals current myplugin speed 0.15 for a temporary nerf).
+      base: Set both default and current baselines together when you want every layer to start from the same value (e.g., /attributeglobals base myplugin speed 0.1 to hard reset the global baseline).
     usage: /<command> <default|current|base|cap|modifier> ...
     permission: attributeutils.command.globals
   attributemodifiers:
