@@ -326,21 +326,18 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     public int handleFoodLevelChange(Player player, int requestedFoodLevel) {
-        double cap = computeHungerCap(player);
-        ResourceMeter meter = resolveHungerMeter(player, cap);
-        double deltaBars = requestedFoodLevel - player.getFoodLevel();
-        double scaledDelta = deltaBars * (cap / (double) HUNGER_BARS);
-        meter.applyDelta(scaledDelta);
+        ResourceMeter meter = resolveHungerMeter(player, computeHungerCap(player));
+        double delta = requestedFoodLevel - player.getFoodLevel();
+        double scale = meter.getMax() / (double) HUNGER_BARS;
+        meter.applyDisplayDelta(delta, scale);
         return meter.asDisplay(HUNGER_BARS);
     }
 
     public int handleAirChange(Player player, int requestedAirAmount) {
-        double cap = computeOxygenCap(player);
-        ResourceMeter meter = resolveOxygenMeter(player, cap);
+        ResourceMeter meter = resolveOxygenMeter(player, computeOxygenCap(player));
         double vanillaDelta = requestedAirAmount - player.getRemainingAir();
-        double bubbleDelta = vanillaDelta / (double) AIR_PER_BUBBLE;
-        double scaledDelta = bubbleDelta * (cap / (double) OXYGEN_BUBBLES);
-        meter.applyDelta(scaledDelta);
+        double pluginDelta = vanillaDelta / AIR_PER_BUBBLE;
+        meter.applyDelta(pluginDelta);
         player.setMaximumAir(AIR_PER_BUBBLE * OXYGEN_BUBBLES);
         return meter.asDisplay(OXYGEN_BUBBLES) * AIR_PER_BUBBLE;
     }
