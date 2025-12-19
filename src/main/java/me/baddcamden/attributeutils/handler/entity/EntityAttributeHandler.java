@@ -51,6 +51,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private static final int OXYGEN_BUBBLES = 10;
     private static final int AIR_PER_BUBBLE = 30;
     private static final double FLY_SPEED_SCALE = 4.0d;
+    private static final int MINIMUM_FOOD_LEVEL_FOR_REGENERATION = 18;
+    private static final int VANILLA_REGEN_INTERVAL_TICKS = 80;
+    private static final double VANILLA_EXHAUSTION_PER_HEALTH = 6.0d;
+    private static final double MINIMUM_HEALING_AMOUNT = 0.00001d;
     private static final java.util.UUID SWIM_SPEED_MODIFIER_ID = java.util.UUID.nameUUIDFromBytes(
             "attributeutils:swim_speed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     private Method transientModifierMethod;
@@ -536,30 +540,21 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     private void tickRegeneration(LivingEntity entity, boolean respectHunger) {
-        double regenRate = entity instanceof Player player
-                ? attributeFacade.compute("regeneration_rate", player).currentFinal()
-                : attributeFacade.compute("regeneration_rate", entity.getUniqueId(), null).currentFinal();
-        if (regenRate <= 0) {
+        double regenRate = computeRegenerationRate(entity);
+        double maxHealth = resolveMaxHealth(entity);
+        if (!canRegenerate(entity, regenRate, maxHealth)) {
             regenerationRemainders.remove(entity.getUniqueId());
             return;
         }
 
-        org.bukkit.attribute.AttributeInstance maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
-        double maxHealth = maxHealthAttr != null ? maxHealthAttr.getValue() : entity.getMaxHealth();
-        if (entity.isDead() || entity.getHealth() >= maxHealth) {
-            regenerationRemainders.remove(entity.getUniqueId());
+        if (respectHunger && entity instanceof Player player && player.getFoodLevel() < MINIMUM_FOOD_LEVEL_FOR_REGENERATION) {
             return;
         }
 
-        if (respectHunger && entity instanceof Player player && player.getFoodLevel() < 18) {
-            return;
-        }
-
-        double perTick = regenRate / 20.0d;
-        double accumulated = regenerationRemainders.getOrDefault(entity.getUniqueId(), 0.0d) + perTick;
+        double accumulated = accumulateHealing(entity, regenRate);
         double missing = maxHealth - entity.getHealth();
         double requestedHeal = Math.min(accumulated, missing);
-        if (requestedHeal <= 0.00001d) {
+        if (!isMeaningfulHealing(requestedHeal)) {
             regenerationRemainders.put(entity.getUniqueId(), accumulated);
             return;
         }
@@ -572,17 +567,12 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
 
         double actualHeal = Math.min(Math.min(event.getAmount(), accumulated), missing);
-        if (actualHeal <= 0.00001d) {
+        if (!isMeaningfulHealing(actualHeal)) {
             regenerationRemainders.put(entity.getUniqueId(), accumulated);
             return;
         }
 
-        entity.setHealth(Math.min(maxHealth, entity.getHealth() + actualHeal));
-        if (entity instanceof Player player) {
-            float exhaustion = player.getExhaustion() + (float) (6.0d * actualHeal);
-            player.setExhaustion(exhaustion);
-        }
-        regenerationRemainders.put(entity.getUniqueId(), accumulated - actualHeal);
+        applyRegeneration(entity, maxHealth, accumulated, actualHeal);
     }
 
     private static final class ResourceMeter {
@@ -636,5 +626,38 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         private static double clamp(double value, double max) {
             return Math.max(0, Math.min(value, max));
         }
+    }
+
+    private double computeRegenerationRate(LivingEntity entity) {
+        return entity instanceof Player player
+                ? attributeFacade.compute("regeneration_rate", player).currentFinal()
+                : attributeFacade.compute("regeneration_rate", entity.getUniqueId(), null).currentFinal();
+    }
+
+    private double resolveMaxHealth(LivingEntity entity) {
+        org.bukkit.attribute.AttributeInstance maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
+        return maxHealthAttr != null ? maxHealthAttr.getValue() : entity.getMaxHealth();
+    }
+
+    private boolean canRegenerate(LivingEntity entity, double regenRate, double maxHealth) {
+        return regenRate > 0 && !entity.isDead() && entity.getHealth() < maxHealth;
+    }
+
+    private double accumulateHealing(LivingEntity entity, double regenRate) {
+        double perTick = regenRate / (double) VANILLA_REGEN_INTERVAL_TICKS;
+        return regenerationRemainders.getOrDefault(entity.getUniqueId(), 0.0d) + perTick;
+    }
+
+    private boolean isMeaningfulHealing(double amount) {
+        return amount > MINIMUM_HEALING_AMOUNT;
+    }
+
+    private void applyRegeneration(LivingEntity entity, double maxHealth, double accumulated, double actualHeal) {
+        entity.setHealth(Math.min(maxHealth, entity.getHealth() + actualHeal));
+        if (entity instanceof Player player) {
+            float exhaustionIncrease = (float) (VANILLA_EXHAUSTION_PER_HEALTH * actualHeal);
+            player.setExhaustion(player.getExhaustion() + exhaustionIncrease);
+        }
+        regenerationRemainders.put(entity.getUniqueId(), accumulated - actualHeal);
     }
 }
