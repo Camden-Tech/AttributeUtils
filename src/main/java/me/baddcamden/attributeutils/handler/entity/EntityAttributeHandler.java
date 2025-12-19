@@ -184,6 +184,52 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     public record SpawnedEntityResult(Entity entity, String summary) {
     }
 
+    public void applyVanillaAttribute(org.bukkit.entity.LivingEntity entity, String attributeId) {
+        if (entity == null || attributeId == null || attributeId.isBlank()) {
+            return;
+        }
+
+        if (entity instanceof Player player) {
+            applyVanillaAttribute(player, attributeId);
+            return;
+        }
+
+        org.bukkit.attribute.Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
+        if (target == null) {
+            target = resolveAttribute(attributeId);
+        }
+        if (target == null) {
+            return;
+        }
+
+        org.bukkit.attribute.AttributeInstance instance = entity.getAttribute(target);
+        if (instance == null) {
+            return;
+        }
+
+        java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        instance.getModifiers().stream()
+                .filter(modifier -> modifier.getUniqueId().equals(modifierId))
+                .findFirst()
+                .ifPresent(instance::removeModifier);
+
+        double baseline = instance.getValue();
+        double computed = attributeFacade.compute(attributeId, entity.getUniqueId(), null).currentFinal();
+        double delta = computed - baseline;
+        if (Math.abs(delta) < 0.0000001) {
+            return;
+        }
+
+        org.bukkit.attribute.AttributeModifier modifier = new org.bukkit.attribute.AttributeModifier(
+                modifierId,
+                "attributeutils:" + attributeId,
+                delta,
+                org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER
+        );
+        addModifier(instance, modifier);
+    }
+
     public void applyVanillaAttribute(Player player, String attributeId) {
         if (player == null || attributeId == null || attributeId.isBlank()) {
             return;

@@ -1,6 +1,6 @@
 package me.baddcamden.attributeutils.handler.item;
 
-import org.bukkit.entity.Player;
+import org.bukkit.entity.LivingEntity;
 
 import java.util.Arrays;
 import java.util.List;
@@ -61,7 +61,7 @@ public enum TriggerCriterion {
                 .toList();
     }
 
-    public boolean isSatisfied(ItemSlotContext context, Player player) {
+    public boolean isSatisfied(ItemSlotContext context, LivingEntity entity) {
         if (context == null) {
             return false;
         }
