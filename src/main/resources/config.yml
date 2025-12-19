@@ -174,7 +174,7 @@ messages:
     header: "&bRegistered attributes:"
   global-command:
     no-permission: "&cYou do not have permission to edit global attribute defaults or caps."
-    usage: "&eUsage: /{label} <default|current|base|cap|modifier> ..."
+    usage: "&eUsage: /{label} <default|cap|modifier> ..."
     usage-value: "&eUsage: /{label} {action} <plugin> <name> <value> (sets global {layer})"
     usage-cap: "&eUsage: /{label} cap <plugin> <name> <capValue>"
     unknown-attribute: "&cUnknown attribute: {attribute}"
@@ -182,7 +182,7 @@ messages:
     cap-below-min: "&cCaps cannot be below the global minimum of {minimum}."
     updated: "&aGlobal {layer} for {attribute} set to {value}."
     cap-updated: "&aCap override for {attribute} set to {value}."
-    unknown-action: "&eUsage: /{label} <default|current|base|cap|modifier> ..."
+    unknown-action: "&eUsage: /{label} <default|cap|modifier> ..."
     modifier:
       usage: "&eUsage: /{label} modifier <add|remove> ..."
       usage-add: "&eUsage: /{label} modifier add <plugin> <name> <modifierKey> <add|multiply> <amount> [temporary|permanent] [durationSeconds] [scope=default|current|both] [multipliers=key1,key2]"
