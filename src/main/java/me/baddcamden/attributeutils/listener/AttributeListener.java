@@ -145,12 +145,18 @@ public class AttributeListener implements Listener {
     @EventHandler
     public void onEntitySpawn(EntitySpawnEvent event) {
         entityAttributeHandler.applyPersistentAttributes(event.getEntity());
+        if (event.getEntity() instanceof org.bukkit.entity.LivingEntity living) {
+            itemAttributeHandler.applyPersistentAttributes(living);
+        }
     }
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
         for (org.bukkit.entity.Entity entity : event.getChunk().getEntities()) {
             entityAttributeHandler.applyPersistentAttributes(entity);
+            if (entity instanceof org.bukkit.entity.LivingEntity living) {
+                itemAttributeHandler.applyPersistentAttributes(living);
+            }
         }
     }
 

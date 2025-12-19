@@ -82,6 +82,11 @@ public class AttributeFacade {
     }
 
     public AttributeValueStages compute(String id, Player player) {
+        UUID playerId = player == null ? null : player.getUniqueId();
+        return compute(id, playerId, player);
+    }
+
+    public AttributeValueStages compute(String id, UUID ownerId, Player player) {
         AttributeDefinition definition = definitions.get(normalize(id));
         if (definition == null) {
             plugin.getLogger().warning("Attempted to compute unknown attribute: " + id);
@@ -90,7 +95,7 @@ public class AttributeFacade {
 
         String normalizedId = normalize(definition.id());
         AttributeInstance global = globalInstances.get(normalizedId);
-        AttributeInstance playerInstance = player == null ? null : getOrCreatePlayerInstance(player.getUniqueId(), definition);
+        AttributeInstance playerInstance = ownerId == null ? null : getOrCreatePlayerInstance(ownerId, definition);
         VanillaAttributeSupplier vanillaSupplier = vanillaSuppliers.get(normalizedId);
         return computationEngine.compute(definition, global, playerInstance, vanillaSupplier, player);
     }
