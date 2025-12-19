@@ -186,14 +186,6 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (amount.get() < 0) {
-            sender.sendMessage(messages.format(
-                    "messages.modifier-command.negative-amount",
-                    java.util.Map.of("amount", args[6]),
-                    "§cModifier amounts must be zero or positive."));
-            return true;
-        }
-
         if (attributeFacade.getDefinition(attributeKey.get().key()).isEmpty()) {
             sender.sendMessage(messages.format(
                     "messages.modifier-command.unknown-attribute",
@@ -303,7 +295,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length == 5 && args[1].equalsIgnoreCase("add")) {
-            return filter(namespacedAttributeKeys(), args[4]);
+            return filter(List.of(defaultModifierKey(args[3])), args[4]);
         }
 
         if (args.length == 3 && args[1].equalsIgnoreCase("remove")) {
@@ -398,10 +390,6 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
-    private List<String> namespacedAttributeKeys() {
-        return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName());
-    }
-
     private List<String> activeAttributeKeys(String playerName) {
         Player player = plugin.getServer().getPlayerExact(playerName);
         if (player == null) {
@@ -442,6 +430,23 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 .map(Player::getName)
                 .sorted()
                 .toList();
+    }
+
+    private String defaultModifierKey(String attributeName) {
+        String normalizedAttribute = normalizeAttributeName(attributeName);
+        String pluginName = plugin.getName() == null ? "" : plugin.getName().toLowerCase(Locale.ROOT);
+        return pluginName.isBlank() ? normalizedAttribute : pluginName + "." + normalizedAttribute;
+    }
+
+    private String normalizeAttributeName(String attributeName) {
+        if (attributeName == null) {
+            return "";
+        }
+        String normalized = attributeName.toLowerCase(Locale.ROOT).replace('-', '_');
+        if (normalized.contains(".")) {
+            return normalized.split("\\.", 2)[1];
+        }
+        return normalized;
     }
 
     private List<String> filter(List<String> options, String prefix) {
