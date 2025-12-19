@@ -35,11 +35,13 @@ import java.util.function.Supplier;
  */
 public class AttributePersistence {
 
+    private final JavaPlugin plugin;
     private final Path dataFolder;
     private final Executor asyncExecutor;
     private final Executor syncExecutor;
 
     public AttributePersistence(Path dataFolder, JavaPlugin plugin) {
+        this.plugin = plugin;
         this.dataFolder = dataFolder;
         this.asyncExecutor = runnable -> plugin.getServer().getScheduler().runTaskAsynchronously(plugin, runnable);
         this.syncExecutor = runnable -> plugin.getServer().getScheduler().runTask(plugin, runnable);
@@ -132,6 +134,53 @@ public class AttributePersistence {
                     return new PersistedConfig(config, folder.resolve(playerId.toString() + ".yml"));
                 })
                 .thenCompose(this::writeAsync);
+    }
+
+    /**
+     * Updates every persisted player file with the provided attribute default so that global edits
+     * immediately affect offline players. Online players can be excluded to avoid redundant writes
+     * while their in-memory instances are updated separately.
+     */
+    public void updateOfflinePlayerAttribute(String attributeId, double value, Set<UUID> excludePlayers) {
+        Path playersDir = dataFolder.resolve("players");
+        if (Files.notExists(playersDir)) {
+            return;
+        }
+
+        try (java.util.stream.Stream<Path> files = Files.list(playersDir)) {
+            files.filter(Files::isRegularFile).forEach(path -> {
+                String name = path.getFileName().toString();
+                if (name.toLowerCase(Locale.ROOT).endsWith(".yml")) {
+                    String idPart = name.substring(0, name.length() - 4);
+                    try {
+                        UUID playerId = UUID.fromString(idPart);
+                        if (excludePlayers != null && excludePlayers.contains(playerId)) {
+                            return;
+                        }
+                    } catch (IllegalArgumentException ignored) {
+                        // not a player file; continue processing to be safe
+                    }
+                }
+
+                FileConfiguration config = YamlConfiguration.loadConfiguration(path.toFile());
+                ConfigurationSection attributes = config.getConfigurationSection("attributes");
+                if (attributes == null) {
+                    attributes = config.createSection("attributes");
+                }
+                String normalizedId = attributeId.toLowerCase(Locale.ROOT);
+                ConfigurationSection attributeSection = attributes.getConfigurationSection(normalizedId);
+                if (attributeSection == null) {
+                    attributeSection = attributes.createSection(normalizedId);
+                }
+                attributeSection.set("default-base", value);
+                attributeSection.set("current-base", value);
+                attributeSection.set("base", value);
+                attributeSection.set("default-final-baseline", value);
+                save(config, path);
+            });
+        } catch (IOException ex) {
+            plugin.getLogger().warning("Failed to update offline player attributes: " + ex.getMessage());
+        }
     }
 
     /**
