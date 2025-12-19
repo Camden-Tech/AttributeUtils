@@ -32,13 +32,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.Locale;
 
@@ -50,6 +47,16 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     private EntityAttributeHandler entityAttributeHandler;
     private Map<String, Attribute> vanillaAttributeTargets;
 
+    private void saveAllPlayersSync() {
+        if (persistence == null || attributeFacade == null || entityAttributeHandler == null) {
+            return;
+        }
+
+        getServer().getOnlinePlayers()
+                .forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId(), entityAttributeHandler));
+        persistence.saveGlobals(attributeFacade);
+    }
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -58,19 +65,11 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        List<CompletableFuture<Void>> saves = new ArrayList<>();
-        getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId(), entityAttributeHandler)));
-        saves.add(persistence.saveGlobalsAsync(attributeFacade));
-        CompletableFuture.allOf(saves.toArray(new CompletableFuture[0])).join();
+        saveAllPlayersSync();
     }
 
     public void reloadAttributes() {
-        if (persistence != null && attributeFacade != null) {
-            List<CompletableFuture<Void>> saves = new ArrayList<>();
-            getServer().getOnlinePlayers().forEach(player -> saves.add(persistence.savePlayerAsync(attributeFacade, player.getUniqueId(), entityAttributeHandler)));
-            saves.add(persistence.saveGlobalsAsync(attributeFacade));
-            CompletableFuture.allOf(saves.toArray(new CompletableFuture[0])).join();
-        }
+        saveAllPlayersSync();
 
         reloadConfig();
         initializePlugin();
