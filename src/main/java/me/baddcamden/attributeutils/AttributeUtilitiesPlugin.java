@@ -76,6 +76,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private void initializePlugin() {
+        getServer().getScheduler().cancelTasks(this);
         HandlerList.unregisterAll(this);
 
         AttributeComputationEngine computationEngine = new AttributeComputationEngine();

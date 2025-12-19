@@ -9,13 +9,17 @@ import me.baddcamden.attributeutils.persistence.ResourceMeterStore;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityRegainHealthEvent;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -39,11 +43,16 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private final Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets;
     private final Map<UUID, ResourceMeter> hungerMeters = new HashMap<>();
     private final Map<UUID, ResourceMeter> oxygenMeters = new HashMap<>();
+    private final Map<UUID, Double> regenerationRemainders = new HashMap<>();
     private static final int HUNGER_BARS = 20;
     private static final int OXYGEN_BUBBLES = 10;
     private static final int AIR_PER_BUBBLE = 30;
+    private static final double FLY_SPEED_SCALE = 4.0d;
+    private static final java.util.UUID SWIM_SPEED_MODIFIER_ID = java.util.UUID.nameUUIDFromBytes(
+            "attributeutils:swim_speed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     private Method transientModifierMethod;
     private boolean transientMethodResolved;
+    private BukkitTask ticker;
 
     public EntityAttributeHandler(AttributeFacade attributeFacade,
                                   Plugin plugin,
@@ -52,6 +61,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         this.plugin = plugin;
         this.vanillaAttributeTargets = vanillaAttributeTargets;
         resolveTransientModifierMethod();
+        startTicker();
     }
 
     public void applyPlayerCaps(Player player) {
@@ -60,6 +70,8 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
         syncHunger(player);
         syncOxygen(player);
+        applyFlySpeed(player);
+        applySwimSpeed(player);
     }
 
     public SpawnedEntityResult spawnAttributedEntity(Location location,
@@ -320,6 +332,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     public void clearPlayerData(UUID playerId) {
         hungerMeters.remove(playerId);
         oxygenMeters.remove(playerId);
+        regenerationRemainders.remove(playerId);
     }
 
     @Override
@@ -416,6 +429,111 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         ResourceMeter meter = meters.computeIfAbsent(playerId, ignored -> creator.get());
         meter.updateMax(cap);
         return meter;
+    }
+
+    private void startTicker() {
+        if (ticker != null) {
+            ticker.cancel();
+        }
+        ticker = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickPlayers, 1L, 1L);
+    }
+
+    private void tickPlayers() {
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            applyFlySpeed(player);
+            applySwimSpeed(player);
+            tickRegeneration(player);
+        }
+    }
+
+    private void applyFlySpeed(Player player) {
+        AttributeValueStages stages = attributeFacade.compute("flying_speed", player);
+        float clamped = (float) Math.max(-1.0d, Math.min(1.0d, stages.currentFinal() / FLY_SPEED_SCALE));
+        if (Math.abs(player.getFlySpeed() - clamped) > 0.00001f) {
+            player.setFlySpeed(clamped);
+        }
+    }
+
+    private void applySwimSpeed(Player player) {
+        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED);
+        if (instance == null) {
+            return;
+        }
+
+        instance.getModifiers().stream()
+                .filter(modifier -> modifier.getUniqueId().equals(SWIM_SPEED_MODIFIER_ID))
+                .findFirst()
+                .ifPresent(instance::removeModifier);
+
+        boolean swimming = player.isSwimming() || player.getEyeLocation().getBlock().isLiquid();
+        if (!swimming) {
+            return;
+        }
+
+        double swimSpeed = attributeFacade.compute("swim_speed", player).currentFinal();
+        if (swimSpeed <= 0) {
+            return;
+        }
+
+        double multiplier = swimSpeed - 1.0d;
+        if (Math.abs(multiplier) < 0.0000001d) {
+            return;
+        }
+
+        AttributeModifier modifier = new AttributeModifier(
+                SWIM_SPEED_MODIFIER_ID,
+                "attributeutils:swim_speed",
+                multiplier,
+                AttributeModifier.Operation.MULTIPLY_SCALAR_1
+        );
+        addModifier(instance, modifier);
+    }
+
+    private void tickRegeneration(Player player) {
+        double regenRate = attributeFacade.compute("regeneration_rate", player).currentFinal();
+        if (regenRate <= 0) {
+            regenerationRemainders.remove(player.getUniqueId());
+            return;
+        }
+
+        double maxHealth = player.getAttribute(Attribute.MAX_HEALTH) != null
+                ? player.getAttribute(Attribute.MAX_HEALTH).getValue()
+                : player.getMaxHealth();
+        if (player.isDead() || player.getHealth() >= maxHealth) {
+            regenerationRemainders.remove(player.getUniqueId());
+            return;
+        }
+
+        if (player.getFoodLevel() < 18) {
+            return;
+        }
+
+        double perTick = regenRate / 20.0d;
+        double accumulated = regenerationRemainders.getOrDefault(player.getUniqueId(), 0.0d) + perTick;
+        double missing = maxHealth - player.getHealth();
+        double requestedHeal = Math.min(accumulated, missing);
+        if (requestedHeal <= 0.00001d) {
+            regenerationRemainders.put(player.getUniqueId(), accumulated);
+            return;
+        }
+
+        EntityRegainHealthEvent event = new EntityRegainHealthEvent(player, requestedHeal, EntityRegainHealthEvent.RegainReason.CUSTOM);
+        plugin.getServer().getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            regenerationRemainders.put(player.getUniqueId(), accumulated);
+            return;
+        }
+
+        double actualHeal = Math.min(Math.min(event.getAmount(), accumulated), missing);
+        if (actualHeal <= 0.00001d) {
+            regenerationRemainders.put(player.getUniqueId(), accumulated);
+            return;
+        }
+
+        player.setHealth(Math.min(maxHealth, player.getHealth() + actualHeal));
+        float exhaustion = player.getExhaustion() + (float) (6.0d * actualHeal);
+        player.setExhaustion(exhaustion);
+        regenerationRemainders.put(player.getUniqueId(), accumulated - actualHeal);
     }
 
     private static final class ResourceMeter {
