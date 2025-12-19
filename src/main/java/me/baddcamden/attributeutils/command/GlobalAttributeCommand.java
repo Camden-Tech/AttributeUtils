@@ -446,7 +446,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             if (args[1].equalsIgnoreCase("remove")) {
                 return filter(globalModifierKeys(args[2], args[3]), args[4]);
             }
-            return filter(List.of("plugin.key"), args[4]);
+            return filter(List.of(defaultModifierKey(args[3])), args[4]);
         }
 
         if (args.length == 6 && args[0].equalsIgnoreCase("modifier") && args[1].equalsIgnoreCase("add")) {
@@ -507,20 +507,22 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     }
 
     private AttributeInstance findGlobalInstance(String pluginSegment, String attributeName) {
-        if ((pluginSegment == null || pluginSegment.isBlank()) && (attributeName == null || attributeName.isBlank())) {
+        Optional<String> attributeId = resolveAttributeId(pluginSegment, attributeName);
+        if (attributeId.isEmpty()) {
             return null;
         }
 
-        String normalizedPlugin = pluginSegment == null ? "" : pluginSegment.toLowerCase(Locale.ROOT);
-        String normalizedName = attributeName == null ? "" : attributeName.toLowerCase(Locale.ROOT).replace('-', '_');
-        String namespacedId = normalizedPlugin.isBlank() ? normalizedName : normalizedPlugin + "." + normalizedName;
-
-        AttributeInstance instance = attributeFacade.getGlobalInstances().get(namespacedId);
+        Map<String, AttributeInstance> globals = attributeFacade.getGlobalInstances();
+        AttributeInstance instance = globals.get(attributeId.get());
         if (instance != null) {
             return instance;
         }
 
-        return attributeFacade.getGlobalInstances().get(normalizedName);
+        String attributeOnly = normalizeAttributeName(attributeId.get());
+        if (!attributeOnly.equals(attributeId.get())) {
+            return globals.get(attributeOnly);
+        }
+        return null;
     }
 
     private List<String> globalModifierKeys(String pluginSegment, String attributeName) {
@@ -571,5 +573,44 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
         }
         overrides.set(overrideKey, capValue);
         plugin.saveConfig();
+    }
+
+    private Optional<String> resolveAttributeId(String pluginSegment, String attributeName) {
+        if (attributeName == null || attributeName.isBlank()) {
+            return Optional.empty();
+        }
+
+        String normalizedPlugin = pluginSegment == null || pluginSegment.isBlank()
+                ? pluginName()
+                : pluginSegment.toLowerCase(Locale.ROOT);
+        String normalizedName = normalizeAttributeName(attributeName);
+        String namespacedId = normalizedPlugin.isBlank() ? normalizedName : normalizedPlugin + "." + normalizedName;
+
+        if (attributeFacade.getDefinition(namespacedId).isPresent()) {
+            return Optional.of(namespacedId);
+        }
+
+        if (attributeFacade.getDefinition(normalizedName).isPresent()) {
+            return Optional.of(normalizedName);
+        }
+
+        return Optional.of(namespacedId);
+    }
+
+    private String defaultModifierKey(String attributeName) {
+        String normalizedAttribute = normalizeAttributeName(attributeName);
+        return pluginName() + "." + normalizedAttribute;
+    }
+
+    private String normalizeAttributeName(String attributeName) {
+        if (attributeName == null) {
+            return "";
+        }
+
+        String normalizedName = attributeName.toLowerCase(Locale.ROOT).replace('-', '_');
+        if (normalizedName.contains(".")) {
+            return normalizedName.split("\\.", 2)[1];
+        }
+        return normalizedName;
     }
 }
