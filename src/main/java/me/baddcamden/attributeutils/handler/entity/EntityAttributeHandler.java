@@ -579,7 +579,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         applyRegeneration(entity, maxHealth, accumulated, actualHeal);
     }
 
-    private static final class ResourceMeter {
+    static final class ResourceMeter {
         private double current;
         private double max;
 
@@ -609,6 +609,13 @@ public class EntityAttributeHandler implements ResourceMeterStore {
 
         void applyDelta(double delta) {
             current = clamp(current + delta, max);
+        }
+
+        void applyDisplayDelta(double displayDelta, double unitScale) {
+            if (unitScale <= 0) {
+                return;
+            }
+            applyDelta(displayDelta * unitScale);
         }
 
         int asDisplay(int displayMax) {
