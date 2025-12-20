@@ -455,7 +455,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             meter.applyDelta(bubbleDelta);
         }
         int adjustedAirTicks = toVanillaAirTicks(meter);
-        player.setRemainingAir(adjustedAirTicks);
         return adjustedAirTicks;
     }
 
