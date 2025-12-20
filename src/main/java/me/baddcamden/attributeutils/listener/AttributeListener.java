@@ -6,9 +6,7 @@ import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -21,9 +19,8 @@ import java.util.concurrent.Executor;
 
 /**
  * Listens for player lifecycle and attribute-related events to keep persisted data in sync and enforce
- * calculated attribute limits. The listener ensures player data is loaded and saved during join/quit,
- * applies default item attributes to new inventories, and clamps hunger changes to the computed cap
- * so downstream handlers do not observe impossible values.
+ * calculated attribute limits. The listener ensures player data is loaded and saved during join/quit and
+ * applies default item attributes to new inventories.
  */
 public class AttributeListener implements Listener {
 
@@ -64,7 +61,7 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        persistence.loadPlayerAsync(attributeFacade, event.getPlayer().getUniqueId(), entityAttributeHandler)
+        persistence.loadPlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
                 .thenRunAsync(() -> {
                     itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
                     itemAttributeHandler.applyPersistentAttributes(event.getPlayer());
@@ -82,7 +79,7 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        persistence.savePlayerAsync(attributeFacade, event.getPlayer().getUniqueId(), entityAttributeHandler)
+        persistence.savePlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
                 .whenComplete((ignored, error) -> syncExecutor.execute(() -> {
                     attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
                     entityAttributeHandler.clearPlayerData(event.getPlayer().getUniqueId());
@@ -105,32 +102,6 @@ public class AttributeListener implements Listener {
     @EventHandler
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
         syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
-    }
-
-    /**
-     * Clamps hunger changes to the computed maximum hunger cap for the player. The hunger cap is
-     * derived through {@link AttributeFacade#compute(String, org.bukkit.entity.Player)} using the
-     * {@code "max_hunger"} attribute and represents the upper bound on the player's food level.
-     *
-     * <p>When the incoming {@link FoodLevelChangeEvent#getFoodLevel()} exceeds the cap, the new
-     * value is truncated to the integer portion of the cap to prevent the Bukkit API from
-     * applying a value above the allowed maximum.</p>
-     *
-     * @param event food level change event containing the updated hunger value for the player.
-     */
-    @EventHandler
-    public void onFoodChange(FoodLevelChangeEvent event) {
-        if (event.getEntity() instanceof org.bukkit.entity.Player player) {
-            int adjustedFood = entityAttributeHandler.handleFoodLevelChange(player, event.getFoodLevel());
-            event.setFoodLevel(adjustedFood);
-        }
-    }
-
-    @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.HIGH, ignoreCancelled = true)
-    public void onRegainHealth(EntityRegainHealthEvent event) {
-        if (entityAttributeHandler.shouldCancelVanillaRegeneration(event)) {
-            event.setCancelled(true);
-        }
     }
 
     @EventHandler
