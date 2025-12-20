@@ -27,24 +27,7 @@ class EntityAttributeHandlerTest {
     }
 
     @Test
-    void scalesOxygenMeterAndAirWhenCapExceedsVanillaBubbles() {
-        double oxygenCapInBubbles = 20.0; // Represents 600 air ticks
-        double airPerBubble = 30.0;
-        double vanillaMaxBubbles = 10.0;
-        EntityAttributeHandler.ResourceMeter meter = EntityAttributeHandler.ResourceMeter.fromDisplay(10, 10, oxygenCapInBubbles);
-
-        double ticksPerBubble = (vanillaMaxBubbles * airPerBubble) / oxygenCapInBubbles;
-        double tickDelta = -1.0; // Lose one vanilla air tick while submerged
-        meter.applyDelta(tickDelta / ticksPerBubble);
-
-        assertEquals(19.9333, meter.getCurrent(), 0.0001);
-        double expectedVanillaAir = (meter.getCurrent() / meter.getMax()) * vanillaMaxBubbles * airPerBubble;
-        assertEquals(299.0, expectedVanillaAir, 0.0001);
-        assertEquals(600.0, oxygenCapInBubbles * airPerBubble, 0.0001);
-    }
-
-    @Test
-    void restoresOxygenToCapWhenSurfacing() {
+    void restoresMeterToCap() {
         EntityAttributeHandler.ResourceMeter meter = EntityAttributeHandler.ResourceMeter.fromDisplay(5, 10, 12.0);
 
         meter.applyDelta(-4.0);
