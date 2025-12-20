@@ -60,6 +60,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
      */
     private static final double FLY_SPEED_SCALE = 4.0d;
     /**
+     * Default maximum number of bubbles shown in the vanilla UI.
+     */
+    private static final double DEFAULT_MAX_BUBBLES = VANILLA_MAX_BUBBLES;
+    /**
      * Minimum vanilla hunger level required before regeneration begins.
      */
     private static final int MINIMUM_FOOD_LEVEL_FOR_REGENERATION = 18;
@@ -442,10 +446,14 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
         double oxygenCap = computeOxygenCap(player);
         ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
-        double vanillaDelta = requestedAirAmount - toVanillaAirTicks(meter);
-        double bubbleDelta = vanillaDelta / (double) AIR_PER_BUBBLE;
-        double displayScale = oxygenDisplayScale(meter);
-        meter.applyDisplayDelta(bubbleDelta, displayScale);
+        boolean submerged = player.getEyeLocation().getBlock().isLiquid();
+        if (!submerged) {
+            meter.restoreToMax();
+        } else {
+            double tickDelta = requestedAirAmount - player.getRemainingAir();
+            double bubbleDelta = bubbleDeltaFromVanillaTicks(meter, tickDelta);
+            meter.applyDelta(bubbleDelta);
+        }
         int adjustedAirTicks = toVanillaAirTicks(meter);
         player.setRemainingAir(adjustedAirTicks);
         return adjustedAirTicks;
@@ -574,7 +582,8 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
         AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
         double airCap = Math.max(oxygen.currentFinal() + oxygenBonus.currentFinal(), 0);
-        return airCap / AIR_PER_BUBBLE;
+        double bubbleCap = airCap > 0 ? airCap / AIR_PER_BUBBLE : DEFAULT_MAX_BUBBLES;
+        return bubbleCap;
     }
 
     private int toVanillaAirTicks(ResourceMeter meter) {
@@ -586,14 +595,15 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return (int) Math.round(vanillaAir);
     }
 
-    /**
-     * Determines how many raw units correspond to a single displayed bubble.
-     */
-    private double oxygenDisplayScale(ResourceMeter meter) {
+    private double bubbleDeltaFromVanillaTicks(ResourceMeter meter, double tickDelta) {
         if (meter == null || meter.getMax() <= 0) {
             return 0;
         }
-        return meter.getMax() / VANILLA_MAX_BUBBLES;
+        double ticksPerBubble = (VANILLA_MAX_BUBBLES * AIR_PER_BUBBLE) / meter.getMax();
+        if (ticksPerBubble == 0) {
+            return 0;
+        }
+        return tickDelta / ticksPerBubble;
     }
 
     /**
@@ -792,6 +802,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
          */
         void applyDelta(double delta) {
             current = clamp(current + delta, max);
+        }
+
+        void restoreToMax() {
+            current = max;
         }
 
         /**
