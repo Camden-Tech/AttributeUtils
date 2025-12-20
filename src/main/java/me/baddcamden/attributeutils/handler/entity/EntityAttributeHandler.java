@@ -54,12 +54,16 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private static final double FLY_SPEED_SCALE = 4.0d;
     private static final int MINIMUM_FOOD_LEVEL_FOR_REGENERATION = 18;
     private static final int VANILLA_REGEN_INTERVAL_TICKS = 80;
+    private static final double VANILLA_SATURATED_REGEN_MULTIPLIER = 8.0d;
     private static final double VANILLA_EXHAUSTION_PER_HEALTH = 6.0d;
     private static final double MINIMUM_HEALING_AMOUNT = 0.00001d;
     private static final java.util.UUID SWIM_SPEED_MODIFIER_ID = java.util.UUID.nameUUIDFromBytes(
             "attributeutils:swim_speed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     private Method transientModifierMethod;
+    private Method healWithReasonMethod;
+    private Method healMethod;
     private boolean transientMethodResolved;
+    private boolean healMethodsResolved;
     private BukkitTask ticker;
 
     public EntityAttributeHandler(AttributeFacade attributeFacade,
@@ -564,20 +568,13 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             return;
         }
 
-        EntityRegainHealthEvent event = new EntityRegainHealthEvent(entity, requestedHeal, EntityRegainHealthEvent.RegainReason.CUSTOM);
-        plugin.getServer().getPluginManager().callEvent(event);
-        if (event.isCancelled()) {
-            regenerationRemainders.put(entity.getUniqueId(), accumulated);
-            return;
-        }
-
-        double actualHeal = Math.min(Math.min(event.getAmount(), accumulated), missing);
+        double actualHeal = applyRegeneration(entity, requestedHeal);
         if (!isMeaningfulHealing(actualHeal)) {
             regenerationRemainders.put(entity.getUniqueId(), accumulated);
             return;
         }
 
-        applyRegeneration(entity, maxHealth, accumulated, actualHeal);
+        regenerationRemainders.put(entity.getUniqueId(), accumulated - actualHeal);
     }
 
     static final class ResourceMeter {
@@ -649,7 +646,8 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     private double accumulateHealing(LivingEntity entity, double regenRate) {
-        double perTick = regenRate / (double) VANILLA_REGEN_INTERVAL_TICKS;
+        double saturationMultiplier = computeSaturationMultiplier(entity);
+        double perTick = (regenRate * saturationMultiplier) / (double) VANILLA_REGEN_INTERVAL_TICKS;
         return regenerationRemainders.getOrDefault(entity.getUniqueId(), 0.0d) + perTick;
     }
 
@@ -657,12 +655,57 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return amount > MINIMUM_HEALING_AMOUNT;
     }
 
-    private void applyRegeneration(LivingEntity entity, double maxHealth, double accumulated, double actualHeal) {
-        entity.setHealth(Math.min(maxHealth, entity.getHealth() + actualHeal));
+    private double applyRegeneration(LivingEntity entity, double requestedHeal) {
+        double beforeHealth = entity.getHealth();
+        heal(entity, requestedHeal);
+        double actualHeal = Math.max(0.0d, entity.getHealth() - beforeHealth);
         if (entity instanceof Player player) {
             float exhaustionIncrease = (float) (VANILLA_EXHAUSTION_PER_HEALTH * actualHeal);
             player.setExhaustion(player.getExhaustion() + exhaustionIncrease);
         }
-        regenerationRemainders.put(entity.getUniqueId(), accumulated - actualHeal);
+        return actualHeal;
+    }
+
+    private double computeSaturationMultiplier(LivingEntity entity) {
+        if (!(entity instanceof Player player)) {
+            return 1.0d;
+        }
+        return player.getSaturation() > 0 ? VANILLA_SATURATED_REGEN_MULTIPLIER : 1.0d;
+    }
+
+    private void heal(LivingEntity entity, double amount) {
+        if (!healMethodsResolved) {
+            resolveHealMethods();
+        }
+        try {
+            if (healWithReasonMethod != null) {
+                healWithReasonMethod.invoke(entity, amount, EntityRegainHealthEvent.RegainReason.CUSTOM);
+                return;
+            }
+            if (healMethod != null) {
+                healMethod.invoke(entity, amount);
+                return;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Fallback below.
+        }
+        double maxHealth = resolveMaxHealth(entity);
+        entity.setHealth(Math.min(maxHealth, entity.getHealth() + amount));
+    }
+
+    private void resolveHealMethods() {
+        try {
+            healWithReasonMethod = LivingEntity.class.getMethod("heal", double.class, EntityRegainHealthEvent.RegainReason.class);
+        } catch (ReflectiveOperationException ignored) {
+            healWithReasonMethod = null;
+        }
+
+        try {
+            healMethod = LivingEntity.class.getMethod("heal", double.class);
+        } catch (ReflectiveOperationException ignored) {
+            healMethod = null;
+        }
+
+        healMethodsResolved = true;
     }
 }
