@@ -48,21 +48,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
      */
     private static final int HUNGER_BARS = 20;
     /**
-     * Number of air ticks that make up a single vanilla air bubble.
-     */
-    private static final int AIR_PER_BUBBLE = 30;
-    /**
-     * Vanilla Minecraft renders ten air bubbles by default.
-     */
-    private static final double VANILLA_MAX_BUBBLES = 10.0d;
-    /**
      * Divisor to translate attribute speed stages into Bukkit fly speed (clamped to [-1, 1]).
      */
     private static final double FLY_SPEED_SCALE = 4.0d;
-    /**
-     * Default maximum number of bubbles shown in the vanilla UI.
-     */
-    private static final double DEFAULT_MAX_BUBBLES = VANILLA_MAX_BUBBLES;
     /**
      * Minimum vanilla hunger level required before regeneration begins.
      */
@@ -122,9 +110,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
      */
     private final Map<UUID, ResourceMeter> hungerMeters = new HashMap<>();
     /**
-     * Tracked oxygen meters keyed by player id.
+     * Tracks the last applied oxygen bonus so it can be re-based against vanilla values.
      */
-    private final Map<UUID, ResourceMeter> oxygenMeters = new HashMap<>();
+    private final Map<UUID, Integer> appliedOxygenBonuses = new HashMap<>();
     /**
      * Accumulated fractional regeneration amounts keyed by entity id.
      */
@@ -148,14 +136,14 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Syncs player-facing values (hunger/oxygen), applies speed modifiers, and registers regeneration tracking.
+     * Syncs player-facing values (hunger and oxygen bonus), applies speed modifiers, and registers regeneration tracking.
      */
     public void applyPlayerCaps(Player player) {
         if (player == null) {
             return;
         }
         syncHunger(player);
-        syncOxygen(player);
+        applyOxygenBonus(player);
         applyFlySpeed(player);
         applySwimSpeed(player);
         registerRegenerationTarget(player);
@@ -357,8 +345,8 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             syncHunger(player);
             return;
         }
-        if (target == null && isOxygen(attributeId)) {
-            syncOxygen(player);
+        if (target == null && isOxygenBonus(attributeId)) {
+            applyOxygenBonus(player);
             return;
         }
         if (target == null) {
@@ -420,8 +408,8 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return "max_hunger".equalsIgnoreCase(attributeId);
     }
 
-    private boolean isOxygen(String attributeId) {
-        return "max_oxygen".equalsIgnoreCase(attributeId);
+    private boolean isOxygenBonus(String attributeId) {
+        return "oxygen_bonus".equalsIgnoreCase(attributeId);
     }
 
     /**
@@ -438,29 +426,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Adjusts oxygen meter when the vanilla engine attempts to change remaining air.
-     */
-    public int handleAirChange(Player player, int requestedAirAmount) {
-        if (player == null) {
-            return requestedAirAmount;
-        }
-        double oxygenCap = computeOxygenCap(player);
-        ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
-        boolean submerged = player.getEyeLocation().getBlock().isLiquid();
-        if (!submerged) {
-            meter.restoreToMax();
-        } else {
-            double tickDelta = requestedAirAmount - player.getRemainingAir();
-            double bubbleDelta = bubbleDeltaFromVanillaTicks(meter, tickDelta);
-            meter.applyDelta(bubbleDelta);
-        }
-        int adjustedAirTicks = toVanillaAirTicks(meter);
-        return adjustedAirTicks;
-    }
-
     public void clearPlayerData(UUID playerId) {
         hungerMeters.remove(playerId);
-        oxygenMeters.remove(playerId);
+        appliedOxygenBonuses.remove(playerId);
         regenerationRemainders.remove(playerId);
         regenerationTargets.remove(playerId);
     }
@@ -469,15 +437,12 @@ public class EntityAttributeHandler implements ResourceMeterStore {
      * Restores cached meters from persistence for a player.
      */
     @Override
-    public void hydrateMeters(UUID playerId, ResourceMeterState hunger, ResourceMeterState oxygen) {
+    public void hydrateMeters(UUID playerId, ResourceMeterState hunger) {
         if (playerId == null) {
             return;
         }
         if (hunger != null) {
             hungerMeters.put(playerId, ResourceMeter.fromState(hunger));
-        }
-        if (oxygen != null) {
-            oxygenMeters.put(playerId, ResourceMeter.fromState(oxygen));
         }
     }
 
@@ -487,15 +452,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     @Override
     public ResourceMeterState getHungerMeter(UUID playerId) {
         ResourceMeter meter = hungerMeters.get(playerId);
-        return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
-    }
-
-    /**
-     * Provides the current oxygen meter for persistence.
-     */
-    @Override
-    public ResourceMeterState getOxygenMeter(UUID playerId) {
-        ResourceMeter meter = oxygenMeters.get(playerId);
         return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
     }
 
@@ -561,10 +517,24 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         player.setFoodLevel(meter.asDisplay(HUNGER_BARS));
     }
 
-    private void syncOxygen(Player player) {
-        double oxygenCap = computeOxygenCap(player);
-        ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
-        player.setRemainingAir(toVanillaAirTicks(meter));
+    private void applyOxygenBonus(Player player) {
+        if (player == null || attributeFacade.getDefinition("oxygen_bonus").isEmpty()) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        int previousBonus = appliedOxygenBonuses.getOrDefault(playerId, 0);
+        int baseMaxAir = Math.max(0, player.getMaximumAir() - previousBonus);
+        int bonus = (int) Math.round(Math.max(attributeFacade.compute("oxygen_bonus", player).currentFinal(), 0));
+        int newMaxAir = Math.max(0, baseMaxAir + bonus);
+        appliedOxygenBonuses.put(playerId, bonus);
+
+        if (newMaxAir == player.getMaximumAir()) {
+            return;
+        }
+
+        player.setMaximumAir(newMaxAir);
+        player.setRemainingAir(Math.min(player.getRemainingAir(), newMaxAir));
     }
 
     /**
@@ -575,49 +545,11 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Computes the total oxygen cap expressed as bubbles.
-     */
-    private double computeOxygenCap(Player player) {
-        AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
-        double airCap = Math.max(oxygen.currentFinal(), 0);
-        double bubbleCap = airCap > 0 ? airCap / AIR_PER_BUBBLE : DEFAULT_MAX_BUBBLES;
-        return bubbleCap;
-    }
-
-    private int toVanillaAirTicks(ResourceMeter meter) {
-        if (meter == null || meter.getMax() <= 0) {
-            return 0;
-        }
-        double fraction = meter.getCurrent() / meter.getMax();
-        double vanillaAir = fraction * VANILLA_MAX_BUBBLES * AIR_PER_BUBBLE;
-        return (int) Math.round(vanillaAir);
-    }
-
-    private double bubbleDeltaFromVanillaTicks(ResourceMeter meter, double tickDelta) {
-        if (meter == null || meter.getMax() <= 0) {
-            return 0;
-        }
-        double ticksPerBubble = (VANILLA_MAX_BUBBLES * AIR_PER_BUBBLE) / meter.getMax();
-        if (ticksPerBubble == 0) {
-            return 0;
-        }
-        return tickDelta / ticksPerBubble;
-    }
-
-    /**
      * Resolves or creates a hunger meter for the player, adjusting to the provided cap.
      */
     private ResourceMeter resolveHungerMeter(Player player, double cap) {
         return resolveMeter(player.getUniqueId(), hungerMeters, cap,
                 () -> ResourceMeter.fromDisplay(player.getFoodLevel(), HUNGER_BARS, cap));
-    }
-
-    /**
-     * Resolves or creates an oxygen meter for the player, adjusting to the provided cap.
-     */
-    private ResourceMeter resolveOxygenMeter(Player player, double cap) {
-        return resolveMeter(player.getUniqueId(), oxygenMeters, cap,
-                () -> new ResourceMeter(cap, cap));
     }
 
     /**
@@ -647,7 +579,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Repeatedly applies speed, oxygen/hunger updates, and regeneration to tracked entities.
+     * Repeatedly applies speed updates and regeneration to tracked entities.
      */
     private void tickPlayers() {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
@@ -758,7 +690,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Represents a resource with a current and maximum value (e.g., hunger or oxygen) that can be translated to and
+     * Represents a resource with a current and maximum value (e.g., hunger) that can be translated to and
      * from display scales used by vanilla UI elements.
      */
     static final class ResourceMeter {

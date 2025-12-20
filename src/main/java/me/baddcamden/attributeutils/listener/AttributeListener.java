@@ -6,7 +6,6 @@ import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityAirChangeEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
@@ -23,8 +22,8 @@ import java.util.concurrent.Executor;
 /**
  * Listens for player lifecycle and attribute-related events to keep persisted data in sync and enforce
  * calculated attribute limits. The listener ensures player data is loaded and saved during join/quit,
- * applies default item attributes to new inventories, and clamps hunger and oxygen changes to their
- * computed caps so downstream handlers do not observe impossible values.
+ * applies default item attributes to new inventories, and clamps hunger changes to the computed cap
+ * so downstream handlers do not observe impossible values.
  */
 public class AttributeListener implements Listener {
 
@@ -124,22 +123,6 @@ public class AttributeListener implements Listener {
         if (event.getEntity() instanceof org.bukkit.entity.Player player) {
             int adjustedFood = entityAttributeHandler.handleFoodLevelChange(player, event.getFoodLevel());
             event.setFoodLevel(adjustedFood);
-        }
-    }
-
-    /**
-     * Clamps oxygen changes to the computed maximum oxygen cap for the player. The cap uses the
-     * {@code "max_oxygen"} attribute to represent the highest allowable air amount. When the event's
-     * {@link EntityAirChangeEvent#getAmount()} exceeds that cap, the requested amount is truncated to
-     * the cap's integer portion to avoid the server applying invalid air values.
-     *
-     * @param event entity air change event containing the updated oxygen value for the player.
-     */
-    @EventHandler
-    public void onAirChange(EntityAirChangeEvent event) {
-        if (event.getEntity() instanceof org.bukkit.entity.Player player) {
-            int adjustedAir = entityAttributeHandler.handleAirChange(player, event.getAmount());
-            event.setAmount(adjustedAir);
         }
     }
 
