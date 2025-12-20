@@ -27,11 +27,19 @@ class EntityAttributeHandlerTest {
     }
 
     @Test
-    void clampsAirAmountsDirectlyInTicks() {
-        int roundedMaxAir = EntityAttributeHandler.roundToAirTicks(575.6);
+    void scalesOxygenMeterAndAirWhenCapExceedsVanillaBubbles() {
+        double oxygenCapInBubbles = 20.0; // Represents 600 air ticks
+        double airPerBubble = 30.0;
+        double displayScale = oxygenCapInBubbles / 10.0;
+        EntityAttributeHandler.ResourceMeter meter = EntityAttributeHandler.ResourceMeter.fromDisplay(10, 10, oxygenCapInBubbles);
 
-        assertEquals(576, roundedMaxAir);
-        assertEquals(576, EntityAttributeHandler.clampAirAmount(600, roundedMaxAir));
-        assertEquals(0, EntityAttributeHandler.clampAirAmount(-5, roundedMaxAir));
+        double vanillaDelta = -airPerBubble; // Lose one vanilla bubble (30 air ticks)
+        double bubbleDelta = vanillaDelta / airPerBubble;
+        meter.applyDisplayDelta(bubbleDelta / displayScale, displayScale);
+
+        assertEquals(19.0, meter.getCurrent(), 0.0001);
+        assertEquals(10, meter.asDisplay(10));
+        assertEquals(570.0, meter.getCurrent() * airPerBubble, 0.0001);
+        assertEquals(600.0, oxygenCapInBubbles * airPerBubble, 0.0001);
     }
 }

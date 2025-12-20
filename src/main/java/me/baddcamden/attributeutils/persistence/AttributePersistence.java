@@ -239,8 +239,9 @@ public class AttributePersistence {
         }
 
         ResourceMeterState hunger = readMeter(section.getConfigurationSection("hunger"));
-        if (hunger != null) {
-            meterStore.hydrateMeters(playerId, hunger);
+        ResourceMeterState oxygen = readMeter(section.getConfigurationSection("oxygen"));
+        if (hunger != null || oxygen != null) {
+            meterStore.hydrateMeters(playerId, hunger, oxygen);
         }
     }
 
@@ -336,13 +337,15 @@ public class AttributePersistence {
             return;
         }
         ResourceMeterState hunger = meterStore.getHungerMeter(playerId);
+        ResourceMeterState oxygen = meterStore.getOxygenMeter(playerId);
 
-        if (hunger == null) {
+        if (hunger == null && oxygen == null) {
             return;
         }
 
         ConfigurationSection metersSection = config.createSection("meters");
         writeMeter(metersSection.createSection("hunger"), hunger);
+        writeMeter(metersSection.createSection("oxygen"), oxygen);
     }
 
     private void writeMeter(ConfigurationSection section, ResourceMeterState meter) {

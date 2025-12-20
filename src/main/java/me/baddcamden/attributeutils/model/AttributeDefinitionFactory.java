@@ -108,10 +108,17 @@ public final class AttributeDefinitionFactory {
         ));
         definitions.put("max_oxygen", cappedAttribute(
                 "max_oxygen",
-                "Max Oxygen (ticks)",
+                "Max Oxygen",
                 capConfig(config, "max_oxygen", defaultBase(config, "max_oxygen", 300)),
                 false,
                 defaultBase(config, "max_oxygen", 300)
+        ));
+        definitions.put("oxygen_bonus", cappedAttribute(
+                "oxygen_bonus",
+                "Oxygen Bonus",
+                capConfig(config, "oxygen_bonus", 300),
+                false,
+                defaultBase(config, "oxygen_bonus", 0)
         ));
         definitions.put("block_range", cappedAttribute(
                 "block_range",
