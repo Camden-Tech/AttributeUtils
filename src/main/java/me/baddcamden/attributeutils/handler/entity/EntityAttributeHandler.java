@@ -50,6 +50,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private static final int HUNGER_BARS = 20;
     private static final int OXYGEN_BUBBLES = 10;
     private static final int AIR_PER_BUBBLE = 30;
+    private static final int VANILLA_MAX_AIR = OXYGEN_BUBBLES * AIR_PER_BUBBLE;
     private static final double FLY_SPEED_SCALE = 4.0d;
     private static final int MINIMUM_FOOD_LEVEL_FOR_REGENERATION = 18;
     private static final int VANILLA_REGEN_INTERVAL_TICKS = 80;
@@ -307,12 +308,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         try {
             return Attribute.valueOf(normalized);
         } catch (IllegalArgumentException ignored) {
-            // continue
-        }
-
-        try {
-            return Attribute.valueOf("GENERIC_" + normalized);
-        } catch (IllegalArgumentException ignored) {
             return null;
         }
     }
@@ -328,24 +323,21 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     public int handleFoodLevelChange(Player player, int requestedFoodLevel) {
         ResourceMeter meter = resolveHungerMeter(player, computeHungerCap(player));
         double delta = requestedFoodLevel - player.getFoodLevel();
-        double scale = meter.getMax() / (double) HUNGER_BARS;
-        meter.applyDisplayDelta(delta, scale);
+        meter.applyDelta(delta);
         return meter.asDisplay(HUNGER_BARS);
     }
 
     public int handleAirChange(Player player, int requestedAirAmount) {
         double oxygenCap = computeOxygenCap(player);
         ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
-        double displayScale = oxygenDisplayScale(oxygenCap);
         double vanillaDelta = requestedAirAmount - player.getRemainingAir();
-        double bubbleDelta = vanillaDelta / AIR_PER_BUBBLE;
-        double displayDelta = displayScale > 0 ? bubbleDelta / displayScale : 0;
-        meter.applyDisplayDelta(displayDelta, displayScale);
-        int maximumAir = toAirTicks(oxygenCap);
-        player.setMaximumAir(maximumAir);
-        int adjustedAir = toAirTicks(meter.getCurrent());
-        player.setRemainingAir(adjustedAir);
-        return adjustedAir;
+        double bubbleDelta = vanillaDelta / (double) AIR_PER_BUBBLE;
+        meter.applyDelta(bubbleDelta);
+        player.setMaximumAir(VANILLA_MAX_AIR);
+        int adjustedAirBubbles = meter.asDisplay(OXYGEN_BUBBLES);
+        int adjustedAirTicks = toAirTicks(adjustedAirBubbles);
+        player.setRemainingAir(adjustedAirTicks);
+        return adjustedAirTicks;
     }
 
     public void clearPlayerData(UUID playerId) {
@@ -438,8 +430,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private void syncOxygen(Player player) {
         double oxygenCap = computeOxygenCap(player);
         ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
-        player.setMaximumAir(toAirTicks(oxygenCap));
-        player.setRemainingAir(toAirTicks(meter.getCurrent()));
+        player.setMaximumAir(VANILLA_MAX_AIR);
+        int adjustedAirBubbles = meter.asDisplay(OXYGEN_BUBBLES);
+        player.setRemainingAir(toAirTicks(adjustedAirBubbles));
     }
 
     private double computeHungerCap(Player player) {
@@ -451,10 +444,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
         double airCap = Math.max(oxygen.currentFinal() + oxygenBonus.currentFinal(), 0);
         return airCap / AIR_PER_BUBBLE;
-    }
-
-    private double oxygenDisplayScale(double bubbleCap) {
-        return bubbleCap > 0 ? bubbleCap / (double) OXYGEN_BUBBLES : 0;
     }
 
     private int toAirTicks(double bubbleAmount) {
@@ -521,7 +510,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     private void applySwimSpeed(Player player) {
-        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED);
+        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(Attribute.MOVEMENT_SPEED);
         if (instance == null) {
             return;
         }
@@ -621,13 +610,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
 
         void applyDelta(double delta) {
             current = clamp(current + delta, max);
-        }
-
-        void applyDisplayDelta(double displayDelta, double unitScale) {
-            if (unitScale <= 0) {
-                return;
-            }
-            applyDelta(displayDelta * unitScale);
         }
 
         int asDisplay(int displayMax) {
