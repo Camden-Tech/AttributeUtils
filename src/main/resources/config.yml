@@ -41,12 +41,6 @@ vanilla-attribute-defaults:
   knockback-resistance:
     bukkit-attributes: [KNOCKBACK_RESISTANCE, GENERIC_KNOCKBACK_RESISTANCE]
     default-base: 0
-  max-hunger:
-    provider: food-level
-    default-base: 20
-  oxygen-bonus:
-    provider: static
-    default-base: 0
   block-range:
     bukkit-attributes: [BLOCK_INTERACTION_RANGE, PLAYER_BLOCK_INTERACTION_RANGE]
     default-base: 5
@@ -90,9 +84,6 @@ vanilla-attribute-defaults:
     # warning spam while retaining configurable defaults.
     provider: static
     default-base: 1
-  regeneration-rate:
-    provider: static
-    default-base: 1
   damage-reduction:
     provider: static
     default-base: 0
@@ -112,8 +103,6 @@ global-attribute-caps:
   armor-toughness: 20
   luck: 1024
   knockback-resistance: 1
-  max-hunger: 40
-  oxygen-bonus: 600
   block-range: 128
   interaction-range: 64
   block-break-speed: 1024
@@ -127,7 +116,6 @@ global-attribute-caps:
   sneaking-speed: 4
   sprint-speed: 4
   swim-speed: 4
-  regeneration-rate: 100
   damage-reduction: 1
 
 # Sample custom attributes

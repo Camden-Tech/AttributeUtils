@@ -53,7 +53,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         }
 
         getServer().getOnlinePlayers()
-                .forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId(), entityAttributeHandler));
+                .forEach(player -> persistence.savePlayer(attributeFacade, player.getUniqueId()));
         persistence.saveGlobals(attributeFacade);
     }
 
@@ -95,7 +95,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         registerVanillaBaselines();
         newPersistence.loadGlobalsAsync(newAttributeFacade);
         Executor syncExecutor = command -> getServer().getScheduler().runTask(this, command);
-        getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayerAsync(newAttributeFacade, player.getUniqueId(), newEntityAttributeHandler)
+        getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayerAsync(newAttributeFacade, player.getUniqueId())
                 .thenRunAsync(() -> {
                     newItemAttributeHandler.applyDefaults(player.getInventory());
                     newItemAttributeHandler.applyPersistentAttributes(player);

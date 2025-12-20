@@ -99,20 +99,6 @@ public final class AttributeDefinitionFactory {
                 true,
                 defaultBase(config, "knockback_resistance", 0)
         ));
-        definitions.put("max_hunger", cappedAttribute(
-                "max_hunger",
-                "Max Hunger",
-                capConfig(config, "max_hunger", defaultBase(config, "max_hunger", 20)),
-                false,
-                defaultBase(config, "max_hunger", 20)
-        ));
-        definitions.put("oxygen_bonus", cappedAttribute(
-                "oxygen_bonus",
-                "Oxygen Bonus",
-                capConfig(config, "oxygen_bonus", 600),
-                false,
-                defaultBase(config, "oxygen_bonus", 0)
-        ));
         definitions.put("block_range", cappedAttribute(
                 "block_range",
                 "Block Interaction Range",
@@ -203,13 +189,6 @@ public final class AttributeDefinitionFactory {
                 capConfig(config, "swim_speed", 4),
                 false,
                 defaultBase(config, "swim_speed", 1)
-        ));
-        definitions.put("regeneration_rate", cappedAttribute(
-                "regeneration_rate",
-                "Regeneration Rate",
-                capConfig(config, "regeneration_rate", 100),
-                false,
-                defaultBase(config, "regeneration_rate", 1)
         ));
         definitions.put("damage_reduction", cappedAttribute(
                 "damage_reduction",

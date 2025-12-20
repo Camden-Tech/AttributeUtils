@@ -4,11 +4,8 @@ import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.command.CommandParsingUtils;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
-import me.baddcamden.attributeutils.persistence.ResourceMeterState;
-import me.baddcamden.attributeutils.persistence.ResourceMeterStore;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
@@ -17,7 +14,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -26,51 +22,22 @@ import org.bukkit.scheduler.BukkitTask;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 /**
  * Integrates entity interactions with the attribute computation pipeline. Responsibilities include applying computed
  * caps (current stage) to live player entities and translating command-provided baseline/cap values into persistent
  * data for spawned entities so that subsequent computations start from the correct stage values.
  */
-public class EntityAttributeHandler implements ResourceMeterStore {
-
-    /**
-     * The number of hunger bars shown in the vanilla UI.
-     */
-    private static final int HUNGER_BARS = 20;
+public class EntityAttributeHandler {
     /**
      * Divisor to translate attribute speed stages into Bukkit fly speed (clamped to [-1, 1]).
      */
     private static final double FLY_SPEED_SCALE = 4.0d;
-    /**
-     * Minimum vanilla hunger level required before regeneration begins.
-     */
-    private static final int MINIMUM_FOOD_LEVEL_FOR_REGENERATION = 18;
-    /**
-     * Number of ticks between vanilla regeneration pulses.
-     */
-    private static final int VANILLA_REGEN_INTERVAL_TICKS = 80;
-    /**
-     * Saturation multiplier used by vanilla to increase regen while saturated.
-     */
-    private static final double VANILLA_SATURATED_REGEN_MULTIPLIER = 8.0d;
-    /**
-     * Exhaustion increase per heart regenerated in vanilla.
-     */
-    private static final double VANILLA_EXHAUSTION_PER_HEALTH = 6.0d;
-    /**
-     * Smallest heal amount considered meaningful; avoids tiny floating-point churn.
-     */
-    private static final double MINIMUM_HEALING_AMOUNT = 0.00001d;
     /**
      * Tolerance for comparing floating point deltas when applying modifiers.
      */
@@ -105,22 +72,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
      * Pre-resolved mapping of custom attribute ids to Bukkit attributes.
      */
     private final Map<String, Attribute> vanillaAttributeTargets;
-    /**
-     * Tracked hunger meters keyed by player id.
-     */
-    private final Map<UUID, ResourceMeter> hungerMeters = new HashMap<>();
-    /**
-     * Tracks the last applied oxygen bonus so it can be re-based against vanilla values.
-     */
-    private final Map<UUID, Integer> appliedOxygenBonuses = new HashMap<>();
-    /**
-     * Accumulated fractional regeneration amounts keyed by entity id.
-     */
-    private final Map<UUID, Double> regenerationRemainders = new HashMap<>();
-    /**
-     * Living entities that should receive regeneration ticks.
-     */
-    private final Set<UUID> regenerationTargets = new HashSet<>();
     private Method transientModifierMethod;
     private boolean transientMethodResolved;
     private BukkitTask ticker;
@@ -136,17 +87,14 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Syncs player-facing values (hunger and oxygen bonus), applies speed modifiers, and registers regeneration tracking.
+     * Syncs player movement-related attributes.
      */
     public void applyPlayerCaps(Player player) {
         if (player == null) {
             return;
         }
-        syncHunger(player);
-        applyOxygenBonus(player);
         applyFlySpeed(player);
         applySwimSpeed(player);
-        registerRegenerationTarget(player);
     }
 
     public SpawnedEntityResult spawnAttributedEntity(Location location,
@@ -190,10 +138,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     public void applyPersistentAttributes(Entity entity) {
         if (entity == null) {
             return;
-        }
-
-        if (entity instanceof LivingEntity living) {
-            registerRegenerationTarget(living);
         }
 
         PersistentDataContainer container = entity.getPersistentDataContainer();
@@ -341,14 +285,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             return;
         }
         Attribute target = resolveVanillaTarget(attributeId);
-        if (target == null && isHunger(attributeId)) {
-            syncHunger(player);
-            return;
-        }
-        if (target == null && isOxygenBonus(attributeId)) {
-            applyOxygenBonus(player);
-            return;
-        }
         if (target == null) {
             return;
         }
@@ -404,79 +340,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
                 .ifPresent(instance::removeModifier);
     }
 
-    private boolean isHunger(String attributeId) {
-        return "max_hunger".equalsIgnoreCase(attributeId);
-    }
-
-    private boolean isOxygenBonus(String attributeId) {
-        return "oxygen_bonus".equalsIgnoreCase(attributeId);
-    }
-
-    /**
-     * Adjusts hunger meter based on the requested change, returning the display hunger level that should be applied.
-     */
-    public int handleFoodLevelChange(Player player, int requestedFoodLevel) {
-        if (player == null) {
-            return requestedFoodLevel;
-        }
-        ResourceMeter meter = resolveHungerMeter(player, computeHungerCap(player));
-        double delta = requestedFoodLevel - player.getFoodLevel();
-        meter.applyDelta(delta);
-        return meter.asDisplay(HUNGER_BARS);
-    }
-
     /**
      * Clears cached attribute state for the given player so a subsequent login starts fresh.
      */
     public void clearPlayerData(UUID playerId) {
-        hungerMeters.remove(playerId);
-        appliedOxygenBonuses.remove(playerId);
-        regenerationRemainders.remove(playerId);
-        regenerationTargets.remove(playerId);
-    }
-
-    /**
-     * Restores cached meters from persistence for a player.
-     */
-    @Override
-    public void hydrateMeters(UUID playerId, ResourceMeterState hunger) {
-        if (playerId == null) {
-            return;
-        }
-        if (hunger != null) {
-            hungerMeters.put(playerId, ResourceMeter.fromState(hunger));
-        }
-    }
-
-    /**
-     * Provides the current hunger meter for persistence.
-     */
-    @Override
-    public ResourceMeterState getHungerMeter(UUID playerId) {
-        ResourceMeter meter = hungerMeters.get(playerId);
-        return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
-    }
-
-    /**
-     * Determines whether vanilla regeneration should be replaced by the custom pipeline.
-     */
-    public boolean shouldCancelVanillaRegeneration(EntityRegainHealthEvent event) {
-        if (!(event.getEntity() instanceof LivingEntity living)) {
-            return false;
-        }
-
-        EntityRegainHealthEvent.RegainReason reason = event.getRegainReason();
-        if (reason != EntityRegainHealthEvent.RegainReason.SATIATED
-                && reason != EntityRegainHealthEvent.RegainReason.REGEN) {
-            return false;
-        }
-
-        if (attributeFacade.getDefinition("regeneration_rate").isEmpty()) {
-            return false;
-        }
-
-        double regenRate = computeRegenerationRate(living);
-        return regenRate >= 0 && (living instanceof Player || regenerationTargets.contains(living.getUniqueId()));
     }
 
     /**
@@ -514,61 +381,6 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         instance.addModifier(modifier);
     }
 
-    private void syncHunger(Player player) {
-        ResourceMeter meter = resolveHungerMeter(player, computeHungerCap(player));
-        player.setFoodLevel(meter.asDisplay(HUNGER_BARS));
-    }
-
-    private void applyOxygenBonus(Player player) {
-        if (player == null || attributeFacade.getDefinition("oxygen_bonus").isEmpty()) {
-            return;
-        }
-
-        UUID playerId = player.getUniqueId();
-        int previousBonus = appliedOxygenBonuses.getOrDefault(playerId, 0);
-        int baseMaxAir = Math.max(0, player.getMaximumAir() - previousBonus);
-        int bonus = (int) Math.round(Math.max(attributeFacade.compute("oxygen_bonus", player).currentFinal(), 0));
-        int newMaxAir = Math.max(0, baseMaxAir + bonus);
-        appliedOxygenBonuses.put(playerId, bonus);
-
-        if (newMaxAir == player.getMaximumAir()) {
-            return;
-        }
-
-        player.setMaximumAir(newMaxAir);
-        player.setRemainingAir(Math.min(player.getRemainingAir(), newMaxAir));
-    }
-
-    /**
-     * Computes the maximum hunger cap, clamped to non-negative values.
-     */
-    private double computeHungerCap(Player player) {
-        return Math.max(attributeFacade.compute("max_hunger", player).currentFinal(), 0);
-    }
-
-    /**
-     * Resolves or creates a hunger meter for the player, adjusting to the provided cap.
-     */
-    private ResourceMeter resolveHungerMeter(Player player, double cap) {
-        return resolveMeter(player.getUniqueId(), hungerMeters, cap,
-                () -> ResourceMeter.fromDisplay(player.getFoodLevel(), HUNGER_BARS, cap));
-    }
-
-    /**
-     * Common helper to fetch or create a resource meter keyed by player id.
-     */
-    private ResourceMeter resolveMeter(UUID playerId,
-                                       Map<UUID, ResourceMeter> meters,
-                                       double cap,
-                                       Supplier<ResourceMeter> creator) {
-        ResourceMeter meter = meters.computeIfAbsent(playerId, ignored -> creator.get());
-        meter.updateMax(cap);
-        return meter;
-    }
-
-    private void registerRegenerationTarget(LivingEntity entity) {
-        regenerationTargets.add(entity.getUniqueId());
-    }
 
     /**
      * Starts (or restarts) the repeating tick that keeps player attributes in sync.
@@ -581,25 +393,12 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Repeatedly applies speed updates and regeneration to tracked entities.
+     * Repeatedly applies speed updates to tracked players.
      */
     private void tickPlayers() {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             applyFlySpeed(player);
             applySwimSpeed(player);
-            tickRegeneration(player, true);
-        }
-
-        for (UUID targetId : List.copyOf(regenerationTargets)) {
-            Entity entity = plugin.getServer().getEntity(targetId);
-            if (!(entity instanceof LivingEntity living) || !entity.isValid()) {
-                regenerationTargets.remove(targetId);
-                continue;
-            }
-            if (entity instanceof Player) {
-                continue;
-            }
-            tickRegeneration(living, false);
         }
     }
 
@@ -652,192 +451,4 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         addModifier(instance, modifier);
     }
 
-    /**
-     * Applies custom regeneration logic to a living entity. For players, hunger gating is optionally respected.
-     */
-    private void tickRegeneration(LivingEntity entity, boolean respectHunger) {
-        double regenRate = computeRegenerationRate(entity);
-        double maxHealth = resolveMaxHealth(entity);
-        if (!canRegenerate(entity, regenRate, maxHealth)) {
-            regenerationRemainders.remove(entity.getUniqueId());
-            return;
-        }
-
-        if (respectHunger && entity instanceof Player player && player.getFoodLevel() < MINIMUM_FOOD_LEVEL_FOR_REGENERATION) {
-            return;
-        }
-
-        double accumulated = accumulateHealing(entity, regenRate);
-        double missing = maxHealth - entity.getHealth();
-        double requestedHeal = Math.min(accumulated, missing);
-        if (!isMeaningfulHealing(requestedHeal)) {
-            regenerationRemainders.put(entity.getUniqueId(), accumulated);
-            return;
-        }
-
-        EntityRegainHealthEvent event = new EntityRegainHealthEvent(entity, requestedHeal, EntityRegainHealthEvent.RegainReason.CUSTOM);
-        plugin.getServer().getPluginManager().callEvent(event);
-        if (event.isCancelled()) {
-            regenerationRemainders.put(entity.getUniqueId(), accumulated);
-            return;
-        }
-
-        double actualHeal = Math.min(Math.min(event.getAmount(), accumulated), missing);
-        if (!isMeaningfulHealing(actualHeal)) {
-            regenerationRemainders.put(entity.getUniqueId(), accumulated);
-            return;
-        }
-
-        applyRegeneration(entity, maxHealth, accumulated, actualHeal);
-    }
-
-    /**
-     * Represents a resource with a current and maximum value (e.g., hunger) that can be translated to and
-     * from display scales used by vanilla UI elements.
-     */
-    static final class ResourceMeter {
-        private double current;
-        private double max;
-
-        private ResourceMeter(double current, double max) {
-            this.max = Math.max(max, 0);
-            this.current = clamp(current, this.max);
-        }
-
-        /**
-         * Creates a meter from a displayed value (e.g., food bars) scaled to a custom cap.
-         */
-        static ResourceMeter fromDisplay(int displayValue, int displayMax, double max) {
-            double clampedDisplay = clamp(displayValue, displayMax);
-            double fraction = displayMax > 0 ? clampedDisplay / (double) displayMax : 0;
-            return new ResourceMeter(fraction * Math.max(max, 0), Math.max(max, 0));
-        }
-
-        /**
-         * Restores a meter from persisted state.
-         */
-        static ResourceMeter fromState(ResourceMeterState state) {
-            double max = state == null ? 0 : state.max();
-            double current = state == null ? 0 : state.current();
-            return new ResourceMeter(current, max);
-        }
-
-        void updateMax(double newMax) {
-            double cappedMax = Math.max(newMax, 0);
-            double fraction = max > 0 ? current / max : 0;
-            max = cappedMax;
-            current = clamp(fraction * max, max);
-        }
-
-        /**
-         * Applies a raw delta against the current value within the meter's cap.
-         */
-        void applyDelta(double delta) {
-            current = clamp(current + delta, max);
-        }
-
-        void restoreToMax() {
-            current = max;
-        }
-
-        /**
-         * Applies a delta expressed in display units (bars/bubbles) rather than raw resource units.
-         */
-        void applyDisplayDelta(double displayDelta, double displayScale) {
-            applyDelta(displayDelta * displayScale);
-        }
-
-        /**
-         * Translates the current resource into a UI-friendly count (e.g., food bars).
-         */
-        int asDisplay(int displayMax) {
-            if (max <= 0) {
-                return 0;
-            }
-            double fraction = current / max;
-            return (int) Math.ceil(Math.min(fraction, 1.0) * displayMax);
-        }
-
-        double getCurrent() {
-            return current;
-        }
-
-        double getMax() {
-            return max;
-        }
-
-        private static double clamp(double value, double max) {
-            return Math.max(0, Math.min(value, max));
-        }
-    }
-
-    private double computeRegenerationRate(LivingEntity entity) {
-        return entity instanceof Player player
-                ? attributeFacade.compute("regeneration_rate", player).currentFinal()
-                : attributeFacade.compute("regeneration_rate", entity.getUniqueId(), null).currentFinal();
-    }
-
-    /**
-     * Resolves the max health attribute using Bukkit's API, favoring attribute instances when present.
-     */
-    private double resolveMaxHealth(LivingEntity entity) {
-        org.bukkit.attribute.AttributeInstance maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
-        return maxHealthAttr != null ? maxHealthAttr.getValue() : entity.getMaxHealth();
-    }
-
-    /**
-     * Basic validation to ensure regeneration is meaningful and entity is still alive.
-     */
-    private boolean canRegenerate(LivingEntity entity, double regenRate, double maxHealth) {
-        return regenRate > 0 && maxHealth > MINIMUM_MAX_HEALTH && !entity.isDead() && entity.getHealth() < maxHealth;
-    }
-
-    /**
-     * Accumulates fractional healing ticks, honoring vanilla saturation multiplier when applicable.
-     */
-    private double accumulateHealing(LivingEntity entity, double regenRate) {
-        double saturationMultiplier = computeSaturationMultiplier(entity);
-        double perTick = (regenRate * saturationMultiplier) / (double) VANILLA_REGEN_INTERVAL_TICKS;
-        return regenerationRemainders.getOrDefault(entity.getUniqueId(), 0.0d) + perTick;
-    }
-
-    private boolean isMeaningfulHealing(double amount) {
-        return amount > MINIMUM_HEALING_AMOUNT;
-    }
-
-    /**
-     * Applies calculated regeneration, adds exhaustion for players, spawns visuals, and stores remainders.
-     */
-    private void applyRegeneration(LivingEntity entity, double maxHealth, double accumulated, double actualHeal) {
-        entity.setHealth(Math.min(maxHealth, entity.getHealth() + actualHeal));
-        if (entity instanceof Player player) {
-            float exhaustionIncrease = (float) (VANILLA_EXHAUSTION_PER_HEALTH * actualHeal);
-            player.setExhaustion(player.getExhaustion() + exhaustionIncrease);
-        }
-        showHeartAnimation(entity);
-        regenerationRemainders.put(entity.getUniqueId(), accumulated - actualHeal);
-    }
-
-    private double computeSaturationMultiplier(LivingEntity entity) {
-        if (!(entity instanceof Player player)) {
-            return 1.0d;
-        }
-        return player.getSaturation() > 0 ? VANILLA_SATURATED_REGEN_MULTIPLIER : 1.0d;
-    }
-
-    /**
-     * Adds a heart particle to indicate regeneration.
-     */
-    private void showHeartAnimation(LivingEntity entity) {
-        Location location = entity.getLocation().add(0, entity.getHeight() * 0.6d, 0);
-        entity.getWorld().spawnParticle(
-                Particle.HEART,
-                location,
-                1,
-                0.25d,
-                0.25d,
-                0.25d,
-                0.0d
-        );
-    }
 }
