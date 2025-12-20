@@ -129,9 +129,9 @@ public class AttributeListener implements Listener {
 
     /**
      * Clamps oxygen changes to the computed maximum oxygen cap for the player. The cap uses the
-     * {@code "max_oxygen"} attribute (in air ticks) to represent the highest allowable air amount.
-     * When the event's {@link EntityAirChangeEvent#getAmount()} exceeds that cap, the requested amount
-     * is truncated to the cap's integer portion to avoid the server applying invalid air values.
+     * {@code "max_oxygen"} attribute to represent the highest allowable air amount. When the event's
+     * {@link EntityAirChangeEvent#getAmount()} exceeds that cap, the requested amount is truncated to
+     * the cap's integer portion to avoid the server applying invalid air values.
      *
      * @param event entity air change event containing the updated oxygen value for the player.
      */
