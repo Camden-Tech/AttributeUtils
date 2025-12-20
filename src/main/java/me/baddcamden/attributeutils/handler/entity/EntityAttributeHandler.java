@@ -421,7 +421,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     private boolean isOxygen(String attributeId) {
-        return "max_oxygen".equalsIgnoreCase(attributeId) || "oxygen_bonus".equalsIgnoreCase(attributeId);
+        return "max_oxygen".equalsIgnoreCase(attributeId);
     }
 
     /**
@@ -576,12 +576,11 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
-     * Computes the total oxygen cap (base + bonus) expressed as bubbles.
+     * Computes the total oxygen cap expressed as bubbles.
      */
     private double computeOxygenCap(Player player) {
         AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
-        AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
-        double airCap = Math.max(oxygen.currentFinal() + oxygenBonus.currentFinal(), 0);
+        double airCap = Math.max(oxygen.currentFinal(), 0);
         double bubbleCap = airCap > 0 ? airCap / AIR_PER_BUBBLE : DEFAULT_MAX_BUBBLES;
         return bubbleCap;
     }
