@@ -13,15 +13,10 @@ public interface ResourceMeterStore {
      * Restores persisted meter states for the given player. Implementations may choose to ignore
      * {@code null} states to leave existing in-memory values intact.
      */
-    void hydrateMeters(UUID playerId, ResourceMeterState hunger, ResourceMeterState oxygen);
+    void hydrateMeters(UUID playerId, ResourceMeterState hunger);
 
     /**
      * @return the current hunger meter state for the given player, or {@code null} if none is tracked.
      */
     ResourceMeterState getHungerMeter(UUID playerId);
-
-    /**
-     * @return the current oxygen meter state for the given player, or {@code null} if none is tracked.
-     */
-    ResourceMeterState getOxygenMeter(UUID playerId);
 }
