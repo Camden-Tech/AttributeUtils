@@ -317,42 +317,42 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     private double resolveArmorValue(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
-                : resolveAttributeByNames("GENERIC_ARMOR", "ARMOR");
+                : resolveAttributeByNames("ARMOR");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveArmorToughnessValue(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
-                : resolveAttributeByNames("GENERIC_ARMOR_TOUGHNESS", "ARMOR_TOUGHNESS");
+                : resolveAttributeByNames("ARMOR_TOUGHNESS");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveKnockbackResistanceValue(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
-                : resolveAttributeByNames("GENERIC_KNOCKBACK_RESISTANCE", "KNOCKBACK_RESISTANCE");
+                : resolveAttributeByNames("KNOCKBACK_RESISTANCE");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveAttackDamage(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
-                : resolveAttributeByNames("GENERIC_ATTACK_DAMAGE", "ATTACK_DAMAGE");
+                : resolveAttributeByNames("ATTACK_DAMAGE");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveAttackKnockback(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
-                : resolveAttributeByNames("GENERIC_ATTACK_KNOCKBACK", "ATTACK_KNOCKBACK");
+                : resolveAttributeByNames("ATTACK_KNOCKBACK");
         return getAttributeValue(player, target, fallback);
     }
 
     private double resolveAttackSpeed(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
-                : resolveAttributeByNames("GENERIC_ATTACK_SPEED", "ATTACK_SPEED");
+                : resolveAttributeByNames("ATTACK_SPEED");
         return getAttributeValue(player, target, fallback);
     }
 
