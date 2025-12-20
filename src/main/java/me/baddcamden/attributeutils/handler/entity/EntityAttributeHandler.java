@@ -10,28 +10,30 @@ import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.attribute.Attributable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -41,31 +43,99 @@ import java.util.function.Supplier;
  */
 public class EntityAttributeHandler implements ResourceMeterStore {
 
-    private final AttributeFacade attributeFacade;
-    private final Plugin plugin;
-    private final Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets;
-    private final Map<UUID, ResourceMeter> hungerMeters = new HashMap<>();
-    private final Map<UUID, ResourceMeter> oxygenMeters = new HashMap<>();
-    private final Map<UUID, Double> regenerationRemainders = new HashMap<>();
-    private final Set<UUID> regenerationTargets = new HashSet<>();
+    /**
+     * The number of hunger bars shown in the vanilla UI.
+     */
     private static final int HUNGER_BARS = 20;
+    /**
+     * Number of air ticks that make up a single vanilla air bubble.
+     */
     private static final int AIR_PER_BUBBLE = 30;
+    /**
+     * Vanilla Minecraft renders ten air bubbles by default.
+     */
     private static final double VANILLA_MAX_BUBBLES = 10.0d;
+    /**
+     * Divisor to translate attribute speed stages into Bukkit fly speed (clamped to [-1, 1]).
+     */
     private static final double FLY_SPEED_SCALE = 4.0d;
+    /**
+     * Minimum vanilla hunger level required before regeneration begins.
+     */
     private static final int MINIMUM_FOOD_LEVEL_FOR_REGENERATION = 18;
+    /**
+     * Number of ticks between vanilla regeneration pulses.
+     */
     private static final int VANILLA_REGEN_INTERVAL_TICKS = 80;
+    /**
+     * Saturation multiplier used by vanilla to increase regen while saturated.
+     */
     private static final double VANILLA_SATURATED_REGEN_MULTIPLIER = 8.0d;
+    /**
+     * Exhaustion increase per heart regenerated in vanilla.
+     */
     private static final double VANILLA_EXHAUSTION_PER_HEALTH = 6.0d;
+    /**
+     * Smallest heal amount considered meaningful; avoids tiny floating-point churn.
+     */
     private static final double MINIMUM_HEALING_AMOUNT = 0.00001d;
+    /**
+     * Tolerance for comparing floating point deltas when applying modifiers.
+     */
+    private static final double ATTRIBUTE_DELTA_EPSILON = 0.0000001d;
+    /**
+     * Minimum health applied when MAX_HEALTH is adjusted to avoid invalid values.
+     */
+    private static final double MINIMUM_MAX_HEALTH = 0.0001d;
+    /**
+     * Prefix used when constructing modifier ids and names.
+     */
+    private static final String ATTRIBUTE_MODIFIER_PREFIX = "attributeutils:";
+    /**
+     * Persistent data key prefix/suffix used for attribute storage.
+     */
+    private static final String ATTRIBUTE_KEY_PREFIX = "attr_";
+    private static final String ATTRIBUTE_CAP_SUFFIX = "_cap";
+    /**
+     * Deterministic modifier id for swim speed adjustments.
+     */
     private static final java.util.UUID SWIM_SPEED_MODIFIER_ID = java.util.UUID.nameUUIDFromBytes(
-            "attributeutils:swim_speed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            (ATTRIBUTE_MODIFIER_PREFIX + "swim_speed").getBytes(StandardCharsets.UTF_8));
+    /**
+     * Entry point into the attribute computation pipeline.
+     */
+    private final AttributeFacade attributeFacade;
+    /**
+     * Owning plugin, used for scheduling and persistent data scoping.
+     */
+    private final Plugin plugin;
+    /**
+     * Pre-resolved mapping of custom attribute ids to Bukkit attributes.
+     */
+    private final Map<String, Attribute> vanillaAttributeTargets;
+    /**
+     * Tracked hunger meters keyed by player id.
+     */
+    private final Map<UUID, ResourceMeter> hungerMeters = new HashMap<>();
+    /**
+     * Tracked oxygen meters keyed by player id.
+     */
+    private final Map<UUID, ResourceMeter> oxygenMeters = new HashMap<>();
+    /**
+     * Accumulated fractional regeneration amounts keyed by entity id.
+     */
+    private final Map<UUID, Double> regenerationRemainders = new HashMap<>();
+    /**
+     * Living entities that should receive regeneration ticks.
+     */
+    private final Set<UUID> regenerationTargets = new HashSet<>();
     private Method transientModifierMethod;
     private boolean transientMethodResolved;
     private BukkitTask ticker;
 
     public EntityAttributeHandler(AttributeFacade attributeFacade,
                                   Plugin plugin,
-                                  Map<String, org.bukkit.attribute.Attribute> vanillaAttributeTargets) {
+                                  Map<String, Attribute> vanillaAttributeTargets) {
         this.attributeFacade = attributeFacade;
         this.plugin = plugin;
         this.vanillaAttributeTargets = vanillaAttributeTargets;
@@ -73,6 +143,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         startTicker();
     }
 
+    /**
+     * Syncs player-facing values (hunger/oxygen), applies speed modifiers, and registers regeneration tracking.
+     */
     public void applyPlayerCaps(Player player) {
         if (player == null) {
             return;
@@ -89,6 +162,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
                                                     List<CommandParsingUtils.AttributeDefinition> definitions) {
         if (location == null || location.getWorld() == null) {
             throw new IllegalArgumentException("invalid-location");
+        }
+        if (definitions == null || definitions.isEmpty()) {
+            throw new IllegalArgumentException("attribute-definitions-required");
         }
 
         Entity entity = location.getWorld().spawnEntity(location, entityType);
@@ -130,18 +206,16 @@ public class EntityAttributeHandler implements ResourceMeterStore {
 
         PersistentDataContainer container = entity.getPersistentDataContainer();
         container.getKeys().forEach(key -> {
-            String keyName = key.getKey();
-            if (!key.getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))) {
-                return;
-            }
-            if (!keyName.startsWith("attr_")) {
+            if (!isPluginAttributeKey(key)) {
                 return;
             }
 
-            boolean cap = keyName.endsWith("_cap");
-            String attributeId = keyName.substring("attr_".length(), cap ? keyName.length() - 4 : keyName.length());
-            Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId)
-                    .or(() -> attributeFacade.getDefinition(attributeId.replace('_', '.')));
+            AttributeKeyDetails keyDetails = parseAttributeKey(key.getKey());
+            if (keyDetails == null) {
+                return;
+            }
+
+            Optional<AttributeDefinition> definition = findAttributeDefinition(keyDetails.attributeId());
             if (definition.isEmpty()) {
                 return;
             }
@@ -153,7 +227,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
 
             AttributeDefinition attr = definition.get();
             double clampedValue = attr.capConfig().clamp(value);
-            if (cap) {
+            if (keyDetails.isCap()) {
                 applyVanillaAttribute(entity, attr.id(), clampedValue);
                 return;
             }
@@ -166,52 +240,93 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         });
     }
 
+    /**
+     * Applies a raw value to a vanilla attribute, clamping health safely when necessary.
+     */
     private void applyVanillaAttribute(Entity entity, String attributeId, double value) {
-        if (entity == null || attributeId == null || attributeId.isBlank()) {
+        if (!(entity instanceof Attributable attributable) || isBlank(attributeId)) {
             return;
         }
 
-        Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
-        if (target == null) {
-            target = resolveAttribute(attributeId);
-        }
+        Attribute target = resolveVanillaTarget(attributeId);
         if (target == null) {
             return;
         }
 
-        if (!(entity instanceof org.bukkit.attribute.Attributable attributable)) {
-            return;
-        }
-
-        org.bukkit.attribute.AttributeInstance instance = attributable.getAttribute(target);
+        AttributeInstance instance = attributable.getAttribute(target);
         if (instance == null) {
             return;
         }
 
         instance.setBaseValue(value);
-        if (entity instanceof LivingEntity living && (target == Attribute.MAX_HEALTH)) {
-            double safeHealth = Math.max(0.0001d, value);
+        if (entity instanceof LivingEntity living && target == Attribute.MAX_HEALTH) {
+            double safeHealth = Math.max(MINIMUM_MAX_HEALTH, value);
             living.setHealth(safeHealth);
         }
     }
 
     private NamespacedKey valueKey(String attributeId) {
-        return new NamespacedKey(plugin, "attr_" + sanitize(attributeId));
+        return new NamespacedKey(plugin, ATTRIBUTE_KEY_PREFIX + sanitize(attributeId));
     }
 
     private NamespacedKey capKey(String attributeId) {
-        return new NamespacedKey(plugin, "attr_" + sanitize(attributeId) + "_cap");
+        return new NamespacedKey(plugin, ATTRIBUTE_KEY_PREFIX + sanitize(attributeId) + ATTRIBUTE_CAP_SUFFIX);
     }
 
     private String sanitize(String attributeId) {
         return attributeId.toLowerCase(Locale.ROOT).replace('.', '_');
     }
 
+    private boolean isBlank(String attributeId) {
+        return attributeId == null || attributeId.isBlank();
+    }
+
+    private Attribute resolveVanillaTarget(String attributeId) {
+        if (isBlank(attributeId)) {
+            return null;
+        }
+        Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
+        return target != null ? target : resolveAttribute(attributeId);
+    }
+
+    private boolean isPluginAttributeKey(NamespacedKey key) {
+        return key != null && key.getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))
+                && key.getKey().startsWith(ATTRIBUTE_KEY_PREFIX);
+    }
+
+    private AttributeKeyDetails parseAttributeKey(String key) {
+        if (key == null || !key.startsWith(ATTRIBUTE_KEY_PREFIX)) {
+            return null;
+        }
+        boolean isCap = key.endsWith(ATTRIBUTE_CAP_SUFFIX);
+        int start = ATTRIBUTE_KEY_PREFIX.length();
+        int end = isCap ? key.length() - ATTRIBUTE_CAP_SUFFIX.length() : key.length();
+        if (end <= start) {
+            return null;
+        }
+        String attributeId = key.substring(start, end);
+        return new AttributeKeyDetails(attributeId, isCap);
+    }
+
+    private Optional<AttributeDefinition> findAttributeDefinition(String attributeId) {
+        if (attributeId == null || attributeId.isBlank()) {
+            return Optional.empty();
+        }
+        return attributeFacade.getDefinition(attributeId)
+                .or(() -> attributeFacade.getDefinition(attributeId.replace('_', '.')));
+    }
+
+    private record AttributeKeyDetails(String attributeId, boolean isCap) {
+    }
+
+    /**
+     * Encapsulates the newly spawned entity plus a summary of applied attributes for display.
+     */
     public record SpawnedEntityResult(Entity entity, String summary) {
     }
 
-    public void applyVanillaAttribute(org.bukkit.entity.LivingEntity entity, String attributeId) {
-        if (entity == null || attributeId == null || attributeId.isBlank()) {
+    public void applyVanillaAttribute(LivingEntity entity, String attributeId) {
+        if (entity == null || isBlank(attributeId)) {
             return;
         }
 
@@ -220,47 +335,20 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             return;
         }
 
-        org.bukkit.attribute.Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
-        if (target == null) {
-            target = resolveAttribute(attributeId);
-        }
+        Attribute target = resolveVanillaTarget(attributeId);
         if (target == null) {
             return;
         }
 
-        org.bukkit.attribute.AttributeInstance instance = entity.getAttribute(target);
-        if (instance == null) {
-            return;
-        }
-
-        java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
-                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        instance.getModifiers().stream()
-                .filter(modifier -> modifier.getUniqueId().equals(modifierId))
-                .findFirst()
-                .ifPresent(instance::removeModifier);
-
-        double baseline = instance.getValue();
         double computed = attributeFacade.compute(attributeId, entity.getUniqueId(), null).currentFinal();
-        double delta = computed - baseline;
-        if (Math.abs(delta) < 0.0000001) {
-            return;
-        }
-
-        org.bukkit.attribute.AttributeModifier modifier = new org.bukkit.attribute.AttributeModifier(
-                modifierId,
-                "attributeutils:" + attributeId,
-                delta,
-                org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER
-        );
-        addModifier(instance, modifier);
+        applyComputedModifier(entity, target, attributeId, computed);
     }
 
     public void applyVanillaAttribute(Player player, String attributeId) {
-        if (player == null || attributeId == null || attributeId.isBlank()) {
+        if (player == null || isBlank(attributeId)) {
             return;
         }
-        org.bukkit.attribute.Attribute target = vanillaAttributeTargets.get(attributeId.toLowerCase(Locale.ROOT));
+        Attribute target = resolveVanillaTarget(attributeId);
         if (target == null && isHunger(attributeId)) {
             syncHunger(player);
             return;
@@ -270,38 +358,11 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             return;
         }
         if (target == null) {
-            target = resolveAttribute(attributeId);
-        }
-        if (target == null) {
             return;
         }
 
-        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(target);
-        if (instance == null) {
-            return;
-        }
-
-        java.util.UUID modifierId = java.util.UUID.nameUUIDFromBytes(("attributeutils:" + attributeId)
-                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        instance.getModifiers().stream()
-                .filter(modifier -> modifier.getUniqueId().equals(modifierId))
-                .findFirst()
-                .ifPresent(instance::removeModifier);
-
-        double baseline = instance.getValue();
         double computed = attributeFacade.compute(attributeId, player).currentFinal();
-        double delta = computed - baseline;
-        if (Math.abs(delta) < 0.0000001) {
-            return;
-        }
-
-        org.bukkit.attribute.AttributeModifier modifier = new org.bukkit.attribute.AttributeModifier(
-                modifierId,
-                "attributeutils:" + attributeId,
-                delta,
-                org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER
-        );
-        addModifier(instance, modifier);
+        applyComputedModifier(player, target, attributeId, computed);
     }
 
     private Attribute resolveAttribute(String attributeId) {
@@ -313,6 +374,44 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
     }
 
+    private void applyComputedModifier(Attributable attributable, Attribute target, String attributeId, double computed) {
+        if (attributable == null || target == null) {
+            return;
+        }
+        AttributeInstance instance = attributable.getAttribute(target);
+        if (instance == null) {
+            return;
+        }
+
+        UUID modifierId = attributeModifierId(attributeId);
+        removeModifierById(instance, modifierId);
+
+        double baseline = instance.getValue();
+        double delta = computed - baseline;
+        if (Math.abs(delta) < ATTRIBUTE_DELTA_EPSILON) {
+            return;
+        }
+
+        AttributeModifier modifier = new AttributeModifier(
+                modifierId,
+                ATTRIBUTE_MODIFIER_PREFIX + attributeId,
+                delta,
+                AttributeModifier.Operation.ADD_NUMBER
+        );
+        addModifier(instance, modifier);
+    }
+
+    private UUID attributeModifierId(String attributeId) {
+        return java.util.UUID.nameUUIDFromBytes((ATTRIBUTE_MODIFIER_PREFIX + attributeId).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void removeModifierById(AttributeInstance instance, UUID modifierId) {
+        instance.getModifiers().stream()
+                .filter(modifier -> modifier.getUniqueId().equals(modifierId))
+                .findFirst()
+                .ifPresent(instance::removeModifier);
+    }
+
     private boolean isHunger(String attributeId) {
         return "max_hunger".equalsIgnoreCase(attributeId);
     }
@@ -321,14 +420,26 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return "max_oxygen".equalsIgnoreCase(attributeId) || "oxygen_bonus".equalsIgnoreCase(attributeId);
     }
 
+    /**
+     * Adjusts hunger meter based on the requested change, returning the display hunger level that should be applied.
+     */
     public int handleFoodLevelChange(Player player, int requestedFoodLevel) {
+        if (player == null) {
+            return requestedFoodLevel;
+        }
         ResourceMeter meter = resolveHungerMeter(player, computeHungerCap(player));
         double delta = requestedFoodLevel - player.getFoodLevel();
         meter.applyDelta(delta);
         return meter.asDisplay(HUNGER_BARS);
     }
 
+    /**
+     * Adjusts oxygen meter when the vanilla engine attempts to change remaining air.
+     */
     public int handleAirChange(Player player, int requestedAirAmount) {
+        if (player == null) {
+            return requestedAirAmount;
+        }
         double oxygenCap = computeOxygenCap(player);
         ResourceMeter meter = resolveOxygenMeter(player, oxygenCap);
         double vanillaDelta = requestedAirAmount - toVanillaAirTicks(meter);
@@ -347,6 +458,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         regenerationTargets.remove(playerId);
     }
 
+    /**
+     * Restores cached meters from persistence for a player.
+     */
     @Override
     public void hydrateMeters(UUID playerId, ResourceMeterState hunger, ResourceMeterState oxygen) {
         if (playerId == null) {
@@ -360,18 +474,27 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
     }
 
+    /**
+     * Provides the current hunger meter for persistence.
+     */
     @Override
     public ResourceMeterState getHungerMeter(UUID playerId) {
         ResourceMeter meter = hungerMeters.get(playerId);
         return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
     }
 
+    /**
+     * Provides the current oxygen meter for persistence.
+     */
     @Override
     public ResourceMeterState getOxygenMeter(UUID playerId) {
         ResourceMeter meter = oxygenMeters.get(playerId);
         return meter == null ? null : new ResourceMeterState(meter.getCurrent(), meter.getMax());
     }
 
+    /**
+     * Determines whether vanilla regeneration should be replaced by the custom pipeline.
+     */
     public boolean shouldCancelVanillaRegeneration(EntityRegainHealthEvent event) {
         if (!(event.getEntity() instanceof LivingEntity living)) {
             return false;
@@ -387,12 +510,13 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             return false;
         }
 
-        double regenRate = living instanceof Player player
-                ? attributeFacade.compute("regeneration_rate", player).currentFinal()
-                : attributeFacade.compute("regeneration_rate", living.getUniqueId(), null).currentFinal();
+        double regenRate = computeRegenerationRate(living);
         return regenRate >= 0 && (living instanceof Player || regenerationTargets.contains(living.getUniqueId()));
     }
 
+    /**
+     * Determines whether the running Bukkit version supports transient attribute modifiers.
+     */
     private void resolveTransientModifierMethod() {
         try {
             transientModifierMethod = org.bukkit.attribute.AttributeInstance.class
@@ -404,6 +528,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
     }
 
+    /**
+     * Applies an attribute modifier, preferring Bukkit's transient API when available.
+     */
     private void addModifier(org.bukkit.attribute.AttributeInstance instance,
                              org.bukkit.attribute.AttributeModifier modifier) {
         if (!transientMethodResolved) {
@@ -433,10 +560,16 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         player.setRemainingAir(toVanillaAirTicks(meter));
     }
 
+    /**
+     * Computes the maximum hunger cap, clamped to non-negative values.
+     */
     private double computeHungerCap(Player player) {
         return Math.max(attributeFacade.compute("max_hunger", player).currentFinal(), 0);
     }
 
+    /**
+     * Computes the total oxygen cap (base + bonus) expressed as bubbles.
+     */
     private double computeOxygenCap(Player player) {
         AttributeValueStages oxygen = attributeFacade.compute("max_oxygen", player);
         AttributeValueStages oxygenBonus = attributeFacade.compute("oxygen_bonus", player);
@@ -453,6 +586,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return (int) Math.round(vanillaAir);
     }
 
+    /**
+     * Determines how many raw units correspond to a single displayed bubble.
+     */
     private double oxygenDisplayScale(ResourceMeter meter) {
         if (meter == null || meter.getMax() <= 0) {
             return 0;
@@ -460,16 +596,25 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return meter.getMax() / VANILLA_MAX_BUBBLES;
     }
 
+    /**
+     * Resolves or creates a hunger meter for the player, adjusting to the provided cap.
+     */
     private ResourceMeter resolveHungerMeter(Player player, double cap) {
         return resolveMeter(player.getUniqueId(), hungerMeters, cap,
                 () -> ResourceMeter.fromDisplay(player.getFoodLevel(), HUNGER_BARS, cap));
     }
 
+    /**
+     * Resolves or creates an oxygen meter for the player, adjusting to the provided cap.
+     */
     private ResourceMeter resolveOxygenMeter(Player player, double cap) {
         return resolveMeter(player.getUniqueId(), oxygenMeters, cap,
                 () -> new ResourceMeter(cap, cap));
     }
 
+    /**
+     * Common helper to fetch or create a resource meter keyed by player id.
+     */
     private ResourceMeter resolveMeter(UUID playerId,
                                        Map<UUID, ResourceMeter> meters,
                                        double cap,
@@ -483,6 +628,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         regenerationTargets.add(entity.getUniqueId());
     }
 
+    /**
+     * Starts (or restarts) the repeating tick that keeps player attributes in sync.
+     */
     private void startTicker() {
         if (ticker != null) {
             ticker.cancel();
@@ -490,6 +638,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         ticker = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickPlayers, 1L, 1L);
     }
 
+    /**
+     * Repeatedly applies speed, oxygen/hunger updates, and regeneration to tracked entities.
+     */
     private void tickPlayers() {
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             applyFlySpeed(player);
@@ -510,14 +661,20 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
     }
 
+    /**
+     * Applies computed flying speed to the player, clamping to Bukkit's expected range.
+     */
     private void applyFlySpeed(Player player) {
         AttributeValueStages stages = attributeFacade.compute("flying_speed", player);
         float clamped = (float) Math.max(-1.0d, Math.min(1.0d, stages.currentFinal() / FLY_SPEED_SCALE));
-        if (Math.abs(player.getFlySpeed() - clamped) > 0.00001f) {
+        if (Math.abs(player.getFlySpeed() - clamped) > ATTRIBUTE_DELTA_EPSILON) {
             player.setFlySpeed(clamped);
         }
     }
 
+    /**
+     * Applies swim speed modifier while the player is swimming or submerged.
+     */
     private void applySwimSpeed(Player player) {
         org.bukkit.attribute.AttributeInstance instance = player.getAttribute(Attribute.MOVEMENT_SPEED);
         if (instance == null) {
@@ -540,19 +697,22 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         }
 
         double multiplier = swimSpeed - 1.0d;
-        if (Math.abs(multiplier) < 0.0000001d) {
+        if (Math.abs(multiplier) < ATTRIBUTE_DELTA_EPSILON) {
             return;
         }
 
         AttributeModifier modifier = new AttributeModifier(
                 SWIM_SPEED_MODIFIER_ID,
-                "attributeutils:swim_speed",
+                ATTRIBUTE_MODIFIER_PREFIX + "swim_speed",
                 multiplier,
                 AttributeModifier.Operation.MULTIPLY_SCALAR_1
         );
         addModifier(instance, modifier);
     }
 
+    /**
+     * Applies custom regeneration logic to a living entity. For players, hunger gating is optionally respected.
+     */
     private void tickRegeneration(LivingEntity entity, boolean respectHunger) {
         double regenRate = computeRegenerationRate(entity);
         double maxHealth = resolveMaxHealth(entity);
@@ -589,6 +749,10 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         applyRegeneration(entity, maxHealth, accumulated, actualHeal);
     }
 
+    /**
+     * Represents a resource with a current and maximum value (e.g., hunger or oxygen) that can be translated to and
+     * from display scales used by vanilla UI elements.
+     */
     static final class ResourceMeter {
         private double current;
         private double max;
@@ -598,12 +762,18 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             this.current = clamp(current, this.max);
         }
 
+        /**
+         * Creates a meter from a displayed value (e.g., food bars) scaled to a custom cap.
+         */
         static ResourceMeter fromDisplay(int displayValue, int displayMax, double max) {
             double clampedDisplay = clamp(displayValue, displayMax);
             double fraction = displayMax > 0 ? clampedDisplay / (double) displayMax : 0;
             return new ResourceMeter(fraction * Math.max(max, 0), Math.max(max, 0));
         }
 
+        /**
+         * Restores a meter from persisted state.
+         */
         static ResourceMeter fromState(ResourceMeterState state) {
             double max = state == null ? 0 : state.max();
             double current = state == null ? 0 : state.current();
@@ -617,14 +787,23 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             current = clamp(fraction * max, max);
         }
 
+        /**
+         * Applies a raw delta against the current value within the meter's cap.
+         */
         void applyDelta(double delta) {
             current = clamp(current + delta, max);
         }
 
+        /**
+         * Applies a delta expressed in display units (bars/bubbles) rather than raw resource units.
+         */
         void applyDisplayDelta(double displayDelta, double displayScale) {
             applyDelta(displayDelta * displayScale);
         }
 
+        /**
+         * Translates the current resource into a UI-friendly count (e.g., food bars).
+         */
         int asDisplay(int displayMax) {
             if (max <= 0) {
                 return 0;
@@ -652,15 +831,24 @@ public class EntityAttributeHandler implements ResourceMeterStore {
                 : attributeFacade.compute("regeneration_rate", entity.getUniqueId(), null).currentFinal();
     }
 
+    /**
+     * Resolves the max health attribute using Bukkit's API, favoring attribute instances when present.
+     */
     private double resolveMaxHealth(LivingEntity entity) {
         org.bukkit.attribute.AttributeInstance maxHealthAttr = entity.getAttribute(Attribute.MAX_HEALTH);
         return maxHealthAttr != null ? maxHealthAttr.getValue() : entity.getMaxHealth();
     }
 
+    /**
+     * Basic validation to ensure regeneration is meaningful and entity is still alive.
+     */
     private boolean canRegenerate(LivingEntity entity, double regenRate, double maxHealth) {
-        return regenRate > 0 && !entity.isDead() && entity.getHealth() < maxHealth;
+        return regenRate > 0 && maxHealth > MINIMUM_MAX_HEALTH && !entity.isDead() && entity.getHealth() < maxHealth;
     }
 
+    /**
+     * Accumulates fractional healing ticks, honoring vanilla saturation multiplier when applicable.
+     */
     private double accumulateHealing(LivingEntity entity, double regenRate) {
         double saturationMultiplier = computeSaturationMultiplier(entity);
         double perTick = (regenRate * saturationMultiplier) / (double) VANILLA_REGEN_INTERVAL_TICKS;
@@ -671,6 +859,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return amount > MINIMUM_HEALING_AMOUNT;
     }
 
+    /**
+     * Applies calculated regeneration, adds exhaustion for players, spawns visuals, and stores remainders.
+     */
     private void applyRegeneration(LivingEntity entity, double maxHealth, double accumulated, double actualHeal) {
         entity.setHealth(Math.min(maxHealth, entity.getHealth() + actualHeal));
         if (entity instanceof Player player) {
@@ -688,6 +879,9 @@ public class EntityAttributeHandler implements ResourceMeterStore {
         return player.getSaturation() > 0 ? VANILLA_SATURATED_REGEN_MULTIPLIER : 1.0d;
     }
 
+    /**
+     * Adds a heart particle to indicate regeneration.
+     */
     private void showHeartAnimation(LivingEntity entity) {
         Location location = entity.getLocation().add(0, entity.getHeight() * 0.6d, 0);
         entity.getWorld().spawnParticle(
