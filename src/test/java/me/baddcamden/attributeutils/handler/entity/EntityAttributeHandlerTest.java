@@ -35,11 +35,13 @@ class EntityAttributeHandlerTest {
 
         double vanillaDelta = -airPerBubble; // Lose one vanilla bubble (30 air ticks)
         double bubbleDelta = vanillaDelta / airPerBubble;
-        meter.applyDisplayDelta(bubbleDelta / displayScale, displayScale);
+        meter.applyDisplayDelta(bubbleDelta, displayScale);
 
-        assertEquals(19.0, meter.getCurrent(), 0.0001);
-        assertEquals(10, meter.asDisplay(10));
-        assertEquals(570.0, meter.getCurrent() * airPerBubble, 0.0001);
+        assertEquals(18.0, meter.getCurrent(), 0.0001);
+        assertEquals(9, meter.asDisplay(10));
+        double vanillaMaxAirTicks = 10.0 * airPerBubble;
+        double expectedVanillaAir = (meter.getCurrent() / meter.getMax()) * vanillaMaxAirTicks;
+        assertEquals(270.0, expectedVanillaAir, 0.0001);
         assertEquals(600.0, oxygenCapInBubbles * airPerBubble, 0.0001);
     }
 }
