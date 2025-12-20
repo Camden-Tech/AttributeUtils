@@ -113,13 +113,6 @@ public final class AttributeDefinitionFactory {
                 false,
                 defaultBase(config, "max_oxygen", 300)
         ));
-        definitions.put("oxygen_bonus", cappedAttribute(
-                "oxygen_bonus",
-                "Oxygen Bonus",
-                capConfig(config, "oxygen_bonus", 300),
-                false,
-                defaultBase(config, "oxygen_bonus", 0)
-        ));
         definitions.put("block_range", cappedAttribute(
                 "block_range",
                 "Block Interaction Range",

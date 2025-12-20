@@ -64,11 +64,6 @@ attributes:
     current-base: 300
     default-final-baseline: 300
     modifiers: {}
-  oxygen_bonus:
-    default-base: 0
-    current-base: 0
-    default-final-baseline: 0
-    modifiers: {}
   block_range:
     default-base: 5
     current-base: 5
