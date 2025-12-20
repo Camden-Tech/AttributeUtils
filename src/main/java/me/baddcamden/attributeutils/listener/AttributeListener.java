@@ -19,8 +19,9 @@ import java.util.concurrent.Executor;
 
 /**
  * Listens for player lifecycle and attribute-related events to keep persisted data in sync and enforce
- * calculated attribute limits. The listener ensures player data is loaded and saved during join/quit and
- * applies default item attributes to new inventories.
+ * calculated attribute limits. The listener ensures player data is loaded and saved during join/quit,
+ * reapplies caps after inventory changes, and refreshes persistent item attributes when entities spawn
+ * or chunks load.
  */
 public class AttributeListener implements Listener {
 
@@ -33,6 +34,7 @@ public class AttributeListener implements Listener {
     /**
      * Creates a new listener bound to the application's attribute components.
      *
+     * @param plugin owning plugin used to schedule synchronous tasks.
      * @param attributeFacade facade for computing final attribute values for players; must be non-null.
      * @param persistence persistence service for loading and saving player attribute data.
      * @param itemAttributeHandler handler that applies default attribute data to player inventories.
@@ -51,11 +53,8 @@ public class AttributeListener implements Listener {
     }
 
     /**
-     * Loads the player's persisted attributes, applies default item attributes to new inventory slots,
-     * and reapplies entity caps on join. The event's player is expected to be non-null and represent
-     * the joining user; no value is returned because event handlers communicate via side effects on the
-     * Bukkit event system. Caps are re-applied to ensure the newly loaded attributes immediately affect
-     * the player's state.
+     * Loads persisted player attributes asynchronously, then applies defaults and caps on the main thread
+     * once loading completes. This ensures players immediately benefit from stored modifiers after joining.
      *
      * @param event player join event containing the joining player.
      */
@@ -70,10 +69,8 @@ public class AttributeListener implements Listener {
     }
 
     /**
-     * Persists the player's attribute data and clears temporary state on quit. The event always
-     * provides the quitting player; no return value is produced because persistence occurs as a
-     * side effect. Temporary attributes are purged so that any session-scoped effects do not bleed
-     * into subsequent sessions.
+     * Saves player attributes asynchronously when the player quits and then clears transient state on the main thread.
+     * Temporary modifiers and cached caps are purged to avoid leaking session-specific data.
      *
      * @param event player quit event containing the quitting player.
      */
@@ -87,11 +84,22 @@ public class AttributeListener implements Listener {
                 }));
     }
 
+    /**
+     * Reapplies persistent item attributes and caps when players change their held item slot.
+     *
+     * @param event event representing the change of held item.
+     */
     @EventHandler
     public void onItemHeld(PlayerItemHeldEvent event) {
         syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
     }
 
+    /**
+     * Reapplies persistent attributes and caps whenever a player clicks within their inventory, accounting for both
+     * additions and removals that could affect attribute sources.
+     *
+     * @param event inventory click event fired by Bukkit.
+     */
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getWhoClicked() instanceof org.bukkit.entity.Player player) {
@@ -99,11 +107,23 @@ public class AttributeListener implements Listener {
         }
     }
 
+    /**
+     * Reapplies persistent attributes and caps after swapping items between hands, ensuring both main-hand and off-hand
+     * equipment changes are reflected.
+     *
+     * @param event hand swap event.
+     */
     @EventHandler
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
         syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
     }
 
+    /**
+     * Applies persistent attributes and caps to newly spawned entities and living entities, letting default attributes
+     * take effect immediately.
+     *
+     * @param event entity spawn event.
+     */
     @EventHandler
     public void onEntitySpawn(EntitySpawnEvent event) {
         entityAttributeHandler.applyPersistentAttributes(event.getEntity());
@@ -112,6 +132,12 @@ public class AttributeListener implements Listener {
         }
     }
 
+    /**
+     * Reapplies persistent attributes and caps to all entities in a chunk when it loads, ensuring data remains
+     * consistent after chunks are rehydrated from disk.
+     *
+     * @param event chunk load event.
+     */
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
         for (org.bukkit.entity.Entity entity : event.getChunk().getEntities()) {
@@ -122,6 +148,12 @@ public class AttributeListener implements Listener {
         }
     }
 
+    /**
+     * Helper that reapplies persistent attributes and caps for a player in response to inventory changes. Intended to
+     * be invoked on the main thread.
+     *
+     * @param player player whose attributes should be refreshed.
+     */
     private void refreshPlayer(org.bukkit.entity.Player player) {
         itemAttributeHandler.applyPersistentAttributes(player);
         entityAttributeHandler.applyPlayerCaps(player);

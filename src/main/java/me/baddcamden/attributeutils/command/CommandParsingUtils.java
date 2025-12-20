@@ -19,7 +19,7 @@ import me.baddcamden.attributeutils.model.ModifierOperation;
 /**
  * Utility functions for turning user input into normalized attribute keys and numeric values.
  * Parsed keys are tied back to specific modifier buckets or baselines depending on the invoking command, while numeric
- * inputs may be clamped against cap configuration to ensure stage boundaries are preserved before computation.
+ * inputs are validated before being applied so invalid parameters can be reported directly to the command sender.
  */
 public final class CommandParsingUtils {
 
@@ -29,6 +29,17 @@ public final class CommandParsingUtils {
     private CommandParsingUtils() {
     }
 
+    /**
+     * Parses a plugin and key segment into a normalized namespaced key while sending validation errors back to the
+     * command sender. Plugin segments are lower-cased, and key segments are lower-cased with dashes converted to
+     * underscores for consistency with stored attribute ids.
+     *
+     * @param sender         command sender to notify of validation issues.
+     * @param pluginSegment  raw plugin segment provided by the user.
+     * @param keySegment     raw key segment provided by the user.
+     * @param messages       message formatter for error responses.
+     * @return optional containing the normalized key when valid.
+     */
     public static Optional<NamespacedAttributeKey> parseAttributeKey(CommandSender sender,
                                                                     String pluginSegment,
                                                                     String keySegment,
@@ -54,6 +65,15 @@ public final class CommandParsingUtils {
         return Optional.of(new NamespacedAttributeKey(normalizedPlugin, normalizedKey));
     }
 
+    /**
+     * Parses a single dot-delimited attribute key (plugin.key) and validates its format. Errors are reported to the
+     * sender before returning an empty optional.
+     *
+     * @param sender   command sender to notify.
+     * @param raw      raw key string provided by the user.
+     * @param messages message formatter for error responses.
+     * @return optional namespaced key when valid.
+     */
     public static Optional<NamespacedAttributeKey> parseAttributeKey(CommandSender sender, String raw, CommandMessages messages) {
         if (raw == null || raw.isBlank()) {
             sender.sendMessage(messages.format(
@@ -75,6 +95,15 @@ public final class CommandParsingUtils {
         return parseAttributeKey(sender, parts[0], parts[1], messages);
     }
 
+    /**
+     * Attempts to parse a numeric argument and reports errors to the sender if parsing fails.
+     *
+     * @param sender   command sender to notify on failure.
+     * @param raw      raw numeric string.
+     * @param label    user-friendly label for the numeric value.
+     * @param messages message formatter for error responses.
+     * @return optional double containing the parsed value.
+     */
     public static Optional<Double> parseNumeric(CommandSender sender, String raw, String label, CommandMessages messages) {
         try {
             return Optional.of(Double.parseDouble(raw));
@@ -87,6 +116,15 @@ public final class CommandParsingUtils {
         }
     }
 
+    /**
+     * Validates and parses a cap override argument in the form {@code cap=<value>}. Ensures the cap is non-negative
+     * and informs the sender when the input is malformed.
+     *
+     * @param sender   command sender to notify on validation failures.
+     * @param raw      raw cap override string.
+     * @param messages message formatter for error responses.
+     * @return optional containing the parsed cap when valid.
+     */
     public static Optional<Double> parseCapOverride(CommandSender sender, String raw, CommandMessages messages) {
         if (!raw.startsWith("cap=")) {
             sender.sendMessage(messages.format(
@@ -111,6 +149,15 @@ public final class CommandParsingUtils {
         return capValue;
     }
 
+    /**
+     * Parses a modifier operation from user input, accepting add or multiply variants. Invalid values trigger an
+     * error message to the sender.
+     *
+     * @param sender   command sender to notify.
+     * @param raw      raw operation string.
+     * @param messages message formatter for error responses.
+     * @return optional containing the parsed operation.
+     */
     public static Optional<ModifierOperation> parseOperation(CommandSender sender, String raw, CommandMessages messages) {
         try {
             return Optional.of(ModifierOperation.valueOf(raw.toUpperCase(Locale.ROOT)));
@@ -123,6 +170,15 @@ public final class CommandParsingUtils {
         }
     }
 
+    /**
+     * Parses a scope token describing which baselines a command should target. Accepted values are default, current,
+     * or both; invalid entries are reported to the sender.
+     *
+     * @param sender   command sender to notify.
+     * @param raw      raw scope string.
+     * @param messages message formatter for error responses.
+     * @return optional containing the parsed scope.
+     */
     public static Optional<Scope> parseScope(CommandSender sender, String raw, CommandMessages messages) {
         String lower = raw.toLowerCase(Locale.ROOT);
         switch (lower) {
@@ -141,6 +197,18 @@ public final class CommandParsingUtils {
         }
     }
 
+    /**
+     * Parses attribute definitions from an argument array starting at the given index. Each definition consumes a
+     * plugin, key, and numeric value, followed by optional cap and criteria tokens. Validation errors are sent to the
+     * sender and result in an empty list.
+     *
+     * @param sender          command sender to notify.
+     * @param args            full argument array.
+     * @param startIndex      index where attribute parsing should begin.
+     * @param messages        message formatter for error responses.
+     * @param attributeExists predicate to verify whether an attribute id is registered; may be null to skip checks.
+     * @return list of parsed attribute definitions, or empty if validation fails.
+     */
     public static List<AttributeDefinition> parseAttributeDefinitions(
             CommandSender sender,
             String[] args,
@@ -150,6 +218,20 @@ public final class CommandParsingUtils {
         return parseAttributeDefinitions(sender, args, startIndex, messages, attributeExists, null, null);
     }
 
+    /**
+     * Parses attribute definitions with optional validation for allowed criteria values. Each definition consumes a
+     * plugin, key, and numeric value, followed by optional {@code cap=} and {@code criteria=} tokens. Validation errors
+     * are sent to the sender and result in an empty list.
+     *
+     * @param sender             command sender to notify.
+     * @param args               full argument array.
+     * @param startIndex         index where attribute parsing should begin.
+     * @param messages           message formatter for error responses.
+     * @param attributeExists    predicate to verify whether an attribute id is registered; may be null to skip checks.
+     * @param criterionValidator predicate to validate criteria tokens; may be null to allow all criteria.
+     * @param allowedCriteria    collection of allowed criteria names to echo back in error messages.
+     * @return list of parsed attribute definitions, or empty if validation fails.
+     */
     public static List<AttributeDefinition> parseAttributeDefinitions(
             CommandSender sender,
             String[] args,
@@ -244,10 +326,16 @@ public final class CommandParsingUtils {
         CURRENT,
         BOTH;
 
+        /**
+         * @return true when the scope includes the default baseline.
+         */
         public boolean appliesToDefault() {
             return this == DEFAULT || this == BOTH;
         }
 
+        /**
+         * @return true when the scope includes the current baseline.
+         */
         public boolean appliesToCurrent() {
             return this == CURRENT || this == BOTH;
         }
@@ -255,15 +343,29 @@ public final class CommandParsingUtils {
 
     public record NamespacedAttributeKey(String plugin, String key) {
 
+        /**
+         * @return normalized key segment.
+         */
         public String key() {
             return key;
         }
 
+        /**
+         * @return dot-delimited plugin and key combination.
+         */
         public String asString() {
             return plugin + "." + key;
         }
     }
 
+    /**
+     * Builds a sorted list of namespaced attribute ids for tab completion from a collection of definitions. Normalizes
+     * ids to lower-case and applies the default plugin to single-segment ids.
+     *
+     * @param definitions   attribute definitions to inspect.
+     * @param defaultPlugin plugin id to prepend to single-segment ids.
+     * @return sorted list of unique namespaced ids.
+     */
     public static List<String> namespacedCompletions(Collection<me.baddcamden.attributeutils.model.AttributeDefinition> definitions,
                                                      String defaultPlugin) {
         if (definitions == null) {
@@ -281,6 +383,15 @@ public final class CommandParsingUtils {
         return namespacedCompletionsFromIds(normalizedIds, defaultPlugin);
     }
 
+    /**
+     * Builds a sorted list of namespaced attribute ids for tab completion from a collection of raw id strings.
+     * Strings already containing a plugin segment are preserved; otherwise, the provided default plugin is prefixed
+     * when available.
+     *
+     * @param ids            attribute ids to normalize.
+     * @param defaultPlugin  plugin id to prepend to single-segment ids.
+     * @return sorted list of unique namespaced ids.
+     */
     public static List<String> namespacedCompletionsFromIds(Collection<String> ids, String defaultPlugin) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
@@ -312,6 +423,15 @@ public final class CommandParsingUtils {
         private final Double capOverride;
         private final String criterion;
 
+        /**
+         * Represents a parsed attribute definition from command input, including the target key, value, and optional
+         * cap override and trigger criterion.
+         *
+         * @param key         namespaced key for the attribute.
+         * @param value       numeric value to apply.
+         * @param capOverride optional cap override value.
+         * @param criterion   optional trigger criterion name.
+         */
         public AttributeDefinition(NamespacedAttributeKey key, double value, Double capOverride, String criterion) {
             this.key = key;
             this.value = value;
@@ -319,18 +439,30 @@ public final class CommandParsingUtils {
             this.criterion = criterion;
         }
 
+        /**
+         * @return namespaced key for the attribute.
+         */
         public NamespacedAttributeKey getKey() {
             return key;
         }
 
+        /**
+         * @return numeric value associated with the attribute.
+         */
         public double getValue() {
             return value;
         }
 
+        /**
+         * @return optional cap override value.
+         */
         public Optional<Double> getCapOverride() {
             return Optional.ofNullable(capOverride);
         }
 
+        /**
+         * @return optional trigger criterion name.
+         */
         public Optional<String> getCriterion() {
             return Optional.ofNullable(criterion);
         }
