@@ -8,6 +8,7 @@ import me.baddcamden.attributeutils.persistence.ResourceMeterState;
 import me.baddcamden.attributeutils.persistence.ResourceMeterStore;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Entity;
@@ -54,6 +55,7 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     private static final double FLY_SPEED_SCALE = 4.0d;
     private static final int MINIMUM_FOOD_LEVEL_FOR_REGENERATION = 18;
     private static final int VANILLA_REGEN_INTERVAL_TICKS = 80;
+    private static final double VANILLA_SATURATED_REGEN_MULTIPLIER = 8.0d;
     private static final double VANILLA_EXHAUSTION_PER_HEALTH = 6.0d;
     private static final double MINIMUM_HEALING_AMOUNT = 0.00001d;
     private static final java.util.UUID SWIM_SPEED_MODIFIER_ID = java.util.UUID.nameUUIDFromBytes(
@@ -649,7 +651,8 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     private double accumulateHealing(LivingEntity entity, double regenRate) {
-        double perTick = regenRate / (double) VANILLA_REGEN_INTERVAL_TICKS;
+        double saturationMultiplier = computeSaturationMultiplier(entity);
+        double perTick = (regenRate * saturationMultiplier) / (double) VANILLA_REGEN_INTERVAL_TICKS;
         return regenerationRemainders.getOrDefault(entity.getUniqueId(), 0.0d) + perTick;
     }
 
@@ -663,6 +666,27 @@ public class EntityAttributeHandler implements ResourceMeterStore {
             float exhaustionIncrease = (float) (VANILLA_EXHAUSTION_PER_HEALTH * actualHeal);
             player.setExhaustion(player.getExhaustion() + exhaustionIncrease);
         }
+        showHeartAnimation(entity);
         regenerationRemainders.put(entity.getUniqueId(), accumulated - actualHeal);
+    }
+
+    private double computeSaturationMultiplier(LivingEntity entity) {
+        if (!(entity instanceof Player player)) {
+            return 1.0d;
+        }
+        return player.getSaturation() > 0 ? VANILLA_SATURATED_REGEN_MULTIPLIER : 1.0d;
+    }
+
+    private void showHeartAnimation(LivingEntity entity) {
+        Location location = entity.getLocation().add(0, entity.getHeight() * 0.6d, 0);
+        entity.getWorld().spawnParticle(
+                Particle.HEART,
+                location,
+                1,
+                0.25d,
+                0.25d,
+                0.25d,
+                0.0d
+        );
     }
 }
