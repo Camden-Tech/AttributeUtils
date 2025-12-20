@@ -426,6 +426,8 @@ public class EntityAttributeHandler implements ResourceMeterStore {
     }
 
     /**
+     * Clears cached attribute state for the given player so a subsequent login starts fresh.
+     */
     public void clearPlayerData(UUID playerId) {
         hungerMeters.remove(playerId);
         appliedOxygenBonuses.remove(playerId);
