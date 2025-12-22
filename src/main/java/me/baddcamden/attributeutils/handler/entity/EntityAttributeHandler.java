@@ -164,15 +164,13 @@ public class EntityAttributeHandler {
             AttributeDefinition attr = definition.get();
             double clampedValue = attr.capConfig().clamp(value);
             if (keyDetails.isCap()) {
-                applyVanillaAttribute(entity, attr.id(), clampedValue);
+                attributeFacade.setPlayerCapOverride(entity.getUniqueId(), attr.id(), clampedValue);
                 return;
             }
 
             applyVanillaAttribute(entity, attr.id(), clampedValue);
-            if (entity instanceof Player player) {
-                attributeFacade.getOrCreatePlayerInstance(player.getUniqueId(), attr.id())
-                        .setCurrentBaseValue(clampedValue);
-            }
+            attributeFacade.getOrCreatePlayerInstance(entity.getUniqueId(), attr.id())
+                    .setCurrentBaseValue(clampedValue);
         });
     }
 

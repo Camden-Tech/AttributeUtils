@@ -177,6 +177,32 @@ public class AttributeFacade {
     }
 
     /**
+     * Assigns a cap override for the provided player and attribute. The cap value is clamped to the
+     * attribute's global minimum to avoid invalid overrides and stored using the instance's
+     * {@code capOverrideKey} so subsequent computations honor the persisted cap.
+     */
+    public void setPlayerCapOverride(UUID playerId, String attributeId, double capValue) {
+        AttributeDefinition definition = definitions.get(normalize(attributeId));
+        if (definition == null) {
+            throw new IllegalArgumentException("Unknown attribute: " + attributeId);
+        }
+
+        AttributeInstance instance = getOrCreatePlayerInstance(playerId, definition);
+        String overrideKey = instance.getCapOverrideKey();
+        if (overrideKey == null || overrideKey.isBlank()) {
+            overrideKey = playerId == null ? null : playerId.toString();
+            instance.setCapOverrideKey(overrideKey);
+        }
+
+        if (overrideKey == null || overrideKey.isBlank()) {
+            return;
+        }
+
+        double boundedCap = Math.max(definition.capConfig().globalMin(), capValue);
+        definition.capConfig().overrideMaxValues().put(overrideKey.toLowerCase(Locale.ROOT), boundedCap);
+    }
+
+    /**
      * Removes a global modifier when present. Unknown attributes are ignored to allow callers to safely clean up.
      *
      * @param attributeId attribute id whose modifier should be removed.
