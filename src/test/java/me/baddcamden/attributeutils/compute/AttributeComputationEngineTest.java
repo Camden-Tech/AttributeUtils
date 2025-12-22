@@ -9,6 +9,7 @@ import me.baddcamden.attributeutils.model.ModifierOperation;
 import me.baddcamden.attributeutils.model.MultiplierApplicability;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -73,5 +74,31 @@ class AttributeComputationEngineTest {
         assertEquals(26.4, stages.rawCurrent(), EPSILON);
         assertEquals(29.82, stages.currentPermanent(), EPSILON);
         assertEquals(39.564, stages.currentFinal(), EPSILON);
+    }
+
+    @Test
+    void capOverrideClampsComputedValuesWithoutMutatingCurrentBase() {
+        CapConfig capConfig = new CapConfig(0.0, 100.0, new HashMap<>());
+        AttributeDefinition definition = new AttributeDefinition(
+                "attack_speed",
+                "Attack Speed",
+                true,
+                10.0,
+                10.0,
+                capConfig,
+                MultiplierApplicability.allowAllMultipliers()
+        );
+
+        AttributeInstance playerInstance = definition.newInstance();
+        playerInstance.setCapOverrideKey("player-123");
+        playerInstance.setCurrentBaseValue(12.0);
+        capConfig.overrideMaxValues().put("player-123", 5.0);
+
+        AttributeComputationEngine engine = new AttributeComputationEngine();
+        AttributeValueStages stages = engine.compute(definition, null, playerInstance, null, null);
+
+        assertEquals(12.0, playerInstance.getCurrentBaseValue(), EPSILON);
+        assertEquals(5.0, stages.defaultFinal(), EPSILON);
+        assertEquals(5.0, stages.currentFinal(), EPSILON);
     }
 }
