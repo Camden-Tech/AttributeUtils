@@ -113,6 +113,7 @@ public class ItemAttributeHandler {
      */
     public ItemDeliveryResult deliverItem(Player target, ItemStack itemStack) {
         PlayerInventory inventory = target.getInventory();
+
         Map<Integer, ItemStack> overflow = inventory.addItem(itemStack);
         boolean dropped = false;
         if (!overflow.isEmpty()) {
