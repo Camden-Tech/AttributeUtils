@@ -47,6 +47,7 @@ public class AttributeFacade {
     private final Map<String, VanillaAttributeSupplier> vanillaSuppliers = new ConcurrentHashMap<>();
     private final Map<String, AttributeInstance> globalInstances = new ConcurrentHashMap<>();
     private final Map<UUID, Map<String, AttributeInstance>> playerInstances = new ConcurrentHashMap<>();
+    private AttributeRefreshListener attributeRefreshListener;
 
     /**
      * Creates a façade bound to the plugin instance and computation engine. The plugin is only used for logging
@@ -209,9 +210,15 @@ public class AttributeFacade {
      * @param key         modifier key to remove.
      */
     public void removeGlobalModifier(String attributeId, String key) {
-        AttributeInstance instance = globalInstances.get(normalize(attributeId));
+        String normalizedId = normalize(attributeId);
+        AttributeInstance instance = globalInstances.get(normalizedId);
         if (instance != null) {
-            instance.removeModifier(key);
+            String normalizedKey = key == null ? null : key.toLowerCase(Locale.ROOT);
+            boolean removed = normalizedKey != null && instance.getModifiers().containsKey(normalizedKey);
+            instance.removeModifier(normalizedKey);
+            if (removed) {
+                refreshAll(normalizedId);
+            }
         }
     }
 
@@ -227,9 +234,15 @@ public class AttributeFacade {
         if (store == null) {
             return;
         }
-        AttributeInstance instance = store.get(normalize(attributeId));
+        String normalizedId = normalize(attributeId);
+        AttributeInstance instance = store.get(normalizedId);
         if (instance != null) {
-            instance.removeModifier(key);
+            String normalizedKey = key == null ? null : key.toLowerCase(Locale.ROOT);
+            boolean removed = normalizedKey != null && instance.getModifiers().containsKey(normalizedKey);
+            instance.removeModifier(normalizedKey);
+            if (removed) {
+                refreshPlayer(playerId, normalizedId);
+            }
         }
     }
 
@@ -333,5 +346,39 @@ public class AttributeFacade {
      */
     private String normalize(String id) {
         return id.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Registers a listener that will be notified when modifiers are removed so live entities can refresh their values.
+     *
+     * @param listener refresh listener to notify.
+     */
+    public void setAttributeRefreshListener(AttributeRefreshListener listener) {
+        this.attributeRefreshListener = listener;
+    }
+
+    private void refreshPlayer(UUID playerId, String attributeId) {
+        AttributeRefreshListener listener = this.attributeRefreshListener;
+        if (listener == null) {
+            return;
+        }
+        listener.refreshAttributeForPlayer(playerId, attributeId);
+    }
+
+    private void refreshAll(String attributeId) {
+        AttributeRefreshListener listener = this.attributeRefreshListener;
+        if (listener == null) {
+            return;
+        }
+        listener.refreshAttributeForAll(attributeId);
+    }
+
+    /**
+     * Listener invoked when modifier removals occur so implementations can re-apply live entity attributes.
+     */
+    public interface AttributeRefreshListener {
+        void refreshAttributeForPlayer(UUID playerId, String attributeId);
+
+        void refreshAttributeForAll(String attributeId);
     }
 }
