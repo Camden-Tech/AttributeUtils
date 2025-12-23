@@ -17,6 +17,7 @@ import me.baddcamden.attributeutils.model.CapConfig;
 import me.baddcamden.attributeutils.model.MultiplierApplicability;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
 import me.baddcamden.attributeutils.command.CommandMessages;
+import me.baddcamden.attributeutils.VanillaAttributeResolver;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.command.PluginCommand;
@@ -283,15 +284,12 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
     }
 
     private double getAttributeValue(Player player, Attribute attribute, double fallback) {
-        if (attribute == null) {
-            return fallback;
-        }
-        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(attribute);
-        if (instance != null) {
-            return instance.getValue();
-        }
-
-        return computeEquipmentAttribute(player, attribute, fallback);
+        return VanillaAttributeResolver.resolvePlayerAttribute(
+                player,
+                attribute,
+                fallback,
+                () -> computeEquipmentAttribute(player, attribute, fallback)
+        );
     }
 
     private VanillaAttributeSupplier createDynamicSupplier(String attributeId, Attribute attribute, double defaultBase) {

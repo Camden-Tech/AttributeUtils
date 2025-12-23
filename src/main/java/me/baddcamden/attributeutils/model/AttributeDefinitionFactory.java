@@ -110,7 +110,7 @@ public final class AttributeDefinitionFactory {
                 "interaction_range",
                 "Entity Interaction Range",
                 capConfig(config, "interaction_range", 64),
-                false,
+                true,
                 defaultBase(config, "interaction_range", 3)
         ));
         definitions.put("block_break_speed", cappedAttribute(
@@ -194,7 +194,7 @@ public final class AttributeDefinitionFactory {
                 "damage_reduction",
                 "Damage Reduction",
                 capConfig(config, "damage_reduction", 1),
-                false,
+                true,
                 defaultBase(config, "damage_reduction", 0)
         ));
         return definitions;
