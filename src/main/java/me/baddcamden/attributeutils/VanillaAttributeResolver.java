@@ -80,7 +80,7 @@ public final class VanillaAttributeResolver {
         return equipmentComputation == null ? fallback : equipmentComputation.getAsDouble();
     }
 
-    private static boolean isPluginModifier(AttributeModifier modifier) {
+    static boolean isPluginModifier(AttributeModifier modifier) {
         if (modifier == null) {
             return false;
         }

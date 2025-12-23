@@ -6,6 +6,8 @@ import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
 import me.baddcamden.attributeutils.model.CapConfig;
 import me.baddcamden.attributeutils.model.MultiplierApplicability;
+import me.baddcamden.attributeutils.model.ModifierEntry;
+import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
@@ -14,6 +16,7 @@ import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -91,6 +94,82 @@ class AttributeUtilitiesVanillaBaselineTest {
         assertBaseline(facade.compute("armor_toughness", player), armorToughness, 0.0);
         assertBaseline(facade.compute("knockback_resistance", player), knockbackResistance, 0.0);
         assertEquals(0.0, facade.compute("damage_reduction", player).rawCurrent(), EPSILON);
+    }
+
+    @Test
+    void additiveModifiersDoNotCompoundAcrossRecomputes() {
+        Plugin plugin = mock(Plugin.class);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("vanilla-baseline-test"));
+        AttributeFacade facade = new AttributeFacade(plugin, new AttributeComputationEngine());
+        registerDynamic(facade, "attack_speed", 4.0, 40.0);
+
+        Player player = mock(Player.class);
+        UUID playerId = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(playerId);
+
+        AttributeModifier pluginModifier = new AttributeModifier(UUID.randomUUID(), "attributeutils:attack_speed", 15.0, AttributeModifier.Operation.ADD_NUMBER);
+        AttributeModifier vanillaModifier = new AttributeModifier(UUID.randomUUID(), "vanilla:training", 2.0, AttributeModifier.Operation.ADD_NUMBER);
+        AttributeInstance instance = mockedAttributeInstance(4.0, pluginModifier, vanillaModifier);
+        when(player.getAttribute(Attribute.ATTACK_SPEED)).thenReturn(instance);
+        facade.registerVanillaBaseline("attack_speed", p -> VanillaAttributeResolver.resolveVanillaValue(instance, 4.0));
+
+        ModifierEntry additive = new ModifierEntry(
+                "test.additive",
+                ModifierOperation.ADD,
+                15.0,
+                false,
+                true,
+                true,
+                false,
+                Set.of()
+        );
+        facade.setPlayerModifier(playerId, "attack_speed", additive);
+
+        AttributeValueStages first = facade.compute("attack_speed", player);
+        AttributeValueStages second = facade.compute("attack_speed", player);
+
+        double expectedVanilla = VanillaAttributeResolver.resolveVanillaValue(instance, 4.0);
+        double expectedFinal = expectedVanilla + additive.amount();
+        assertEquals(expectedFinal, first.currentFinal(), EPSILON);
+        assertEquals(expectedFinal, second.currentFinal(), EPSILON);
+    }
+
+    @Test
+    void multiplierModifiersDoNotCompoundAcrossRecomputes() {
+        Plugin plugin = mock(Plugin.class);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("vanilla-baseline-test"));
+        AttributeFacade facade = new AttributeFacade(plugin, new AttributeComputationEngine());
+        registerDynamic(facade, "attack_damage", 1.0, 40.0);
+
+        Player player = mock(Player.class);
+        UUID playerId = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(playerId);
+
+        AttributeModifier pluginModifier = new AttributeModifier(UUID.randomUUID(), "attributeutils:attack_damage", 0.5, AttributeModifier.Operation.MULTIPLY_SCALAR_1);
+        AttributeModifier vanillaModifier = new AttributeModifier(UUID.randomUUID(), "vanilla:smithing", 0.2, AttributeModifier.Operation.MULTIPLY_SCALAR_1);
+        AttributeInstance instance = mockedAttributeInstance(10.0, pluginModifier, vanillaModifier);
+        when(player.getAttribute(Attribute.ATTACK_DAMAGE)).thenReturn(instance);
+        facade.registerVanillaBaseline("attack_damage", p -> VanillaAttributeResolver.resolveVanillaValue(instance, 10.0));
+
+        ModifierEntry multiplier = new ModifierEntry(
+                "test.multiplier",
+                ModifierOperation.MULTIPLY,
+                1.5,
+                false,
+                true,
+                true,
+                false,
+                Set.of()
+        );
+        facade.setPlayerModifier(playerId, "attack_damage", multiplier);
+
+        AttributeValueStages first = facade.compute("attack_damage", player);
+        AttributeValueStages second = facade.compute("attack_damage", player);
+
+        double expectedVanilla = VanillaAttributeResolver.resolveVanillaValue(instance, 10.0);
+        double expectedFinal = expectedVanilla * multiplier.amount();
+        assertEquals(expectedFinal, first.currentFinal(), EPSILON);
+        assertEquals(expectedFinal, second.currentFinal(), EPSILON);
     }
 
     private void assertBaseline(AttributeValueStages stages, AttributeInstance instance, double fallback) {
