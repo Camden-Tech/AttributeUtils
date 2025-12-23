@@ -404,6 +404,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             }
 
             for (AttributeModifier modifier : modifiers) {
+                if (VanillaAttributeResolver.isPluginModifier(modifier)) {
+                    continue;
+                }
                 EquipmentSlot slot = modifier.getSlot();
                 if (slot != null && slot != entry.getKey()) {
                     continue;
