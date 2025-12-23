@@ -470,7 +470,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             instance.setDefaultBaseValue(clamped);
             instance.setCurrentBaseValue(clamped);
             instance.setDefaultFinalBaseline(clamped);
-            persistence.savePlayerAsync(attributeFacade, player.getUniqueId(), entityAttributeHandler);
+            persistence.savePlayerAsync(attributeFacade, player.getUniqueId());
             entityAttributeHandler.applyVanillaAttribute(player, definition.id());
             entityAttributeHandler.applyPlayerCaps(player);
         }
