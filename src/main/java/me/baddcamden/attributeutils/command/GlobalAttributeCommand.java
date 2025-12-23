@@ -465,12 +465,13 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     private void propagateToPlayers(AttributeDefinition definition, double clamped) {
         Set<UUID> onlinePlayerIds = new HashSet<>();
         for (Player player : plugin.getServer().getOnlinePlayers()) {
-            onlinePlayerIds.add(player.getUniqueId());
-            AttributeInstance instance = attributeFacade.getOrCreatePlayerInstance(player.getUniqueId(), definition.id());
+            UUID playerId = player.getUniqueId();
+            onlinePlayerIds.add(playerId);
+            AttributeInstance instance = attributeFacade.getOrCreatePlayerInstance(playerId, definition.id());
             instance.setDefaultBaseValue(clamped);
             instance.setCurrentBaseValue(clamped);
             instance.setDefaultFinalBaseline(clamped);
-            persistence.savePlayerAsync(attributeFacade, player.getUniqueId());
+            persistence.savePlayerAsync(attributeFacade, playerId);
             entityAttributeHandler.applyVanillaAttribute(player, definition.id());
             entityAttributeHandler.applyPlayerCaps(player);
         }
