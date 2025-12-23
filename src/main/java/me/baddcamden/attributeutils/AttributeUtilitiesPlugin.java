@@ -7,6 +7,7 @@ import me.baddcamden.attributeutils.command.EntityAttributeCommand;
 import me.baddcamden.attributeutils.command.GlobalAttributeCommand;
 import me.baddcamden.attributeutils.command.ItemAttributeCommand;
 import me.baddcamden.attributeutils.command.PlayerModifierCommand;
+import me.baddcamden.attributeutils.command.TestHordeCommand;
 import me.baddcamden.attributeutils.compute.AttributeComputationEngine;
 import me.baddcamden.attributeutils.handler.AttributeRefreshDispatcher;
 import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
@@ -474,6 +475,12 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             EntityAttributeCommand entityAttributeCommand = new EntityAttributeCommand(this, entityAttributeHandler, attributeFacade);
             entitiesCommand.setExecutor(entityAttributeCommand);
             entitiesCommand.setTabCompleter(entityAttributeCommand);
+        }
+
+        PluginCommand hordeCommand = getCommand("testhorde");
+        if (hordeCommand != null) {
+            TestHordeCommand testHordeCommand = new TestHordeCommand(this, attributeFacade, itemAttributeHandler, entityAttributeHandler);
+            hordeCommand.setExecutor(testHordeCommand);
         }
     }
 

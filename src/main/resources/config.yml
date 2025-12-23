@@ -199,3 +199,10 @@ messages:
     unknown-attribute: "&cUnknown attribute '{attribute}'."
     spawn-failed: "&cAn error occurred while spawning the entity."
     spawned: "&aSpawned {entity} with attributes: {attributes}."
+  test-horde-command:
+    invalid-sender: "&cOnly players can run this sandbox horde test."
+    no-permission: "&cYou do not have permission to spawn a test horde."
+    no-attributes: "&cNo attributes are registered; cannot build randomized gear."
+    dry-run: "&eDry run: would spawn {count} zombies with randomized gear."
+    spawn-failed: "&cA zombie failed to spawn or equip attributes."
+    spawned: "&aSpawned {count} zombies with randomized attribute gear."

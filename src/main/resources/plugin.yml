@@ -26,6 +26,10 @@ commands:
     description: Spawn entities with inline attribute definitions.
     usage: /<command> <entityType> <plugin> <name> <value> [cap=<cap> ...]
     permission: attributeutils.command.entities
+  testhorde:
+    description: Spawn a randomized zombie horde with attribute-rich gear.
+    usage: /<command> [dryrun]
+    permission: attributeutils.command.testhorde
 permissions:
   attributeutils.command.attributes:
     description: Allows use of the /attributes command.
@@ -44,4 +48,7 @@ permissions:
     default: op
   attributeutils.command.entities:
     description: Allows spawning entities with inline attribute definitions.
+    default: op
+  attributeutils.command.testhorde:
+    description: Allows spawning a randomized zombie horde for testing.
     default: op
