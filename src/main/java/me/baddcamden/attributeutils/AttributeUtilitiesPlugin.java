@@ -1,13 +1,14 @@
 package me.baddcamden.attributeutils;
 
 import me.baddcamden.attributeutils.api.AttributeFacade;
+import me.baddcamden.attributeutils.api.VanillaAttributeSupplier;
 import me.baddcamden.attributeutils.command.AttributeCommand;
 import me.baddcamden.attributeutils.command.EntityAttributeCommand;
 import me.baddcamden.attributeutils.command.GlobalAttributeCommand;
 import me.baddcamden.attributeutils.command.ItemAttributeCommand;
 import me.baddcamden.attributeutils.command.PlayerModifierCommand;
 import me.baddcamden.attributeutils.compute.AttributeComputationEngine;
-import me.baddcamden.attributeutils.api.VanillaAttributeSupplier;
+import me.baddcamden.attributeutils.handler.AttributeRefreshDispatcher;
 import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.listener.AttributeListener;
@@ -86,6 +87,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         vanillaAttributeTargets = new HashMap<>();
         EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this, vanillaAttributeTargets);
         ItemAttributeHandler newItemAttributeHandler = new ItemAttributeHandler(newAttributeFacade, this, newEntityAttributeHandler);
+        newAttributeFacade.setAttributeRefreshListener(new AttributeRefreshDispatcher(this, newEntityAttributeHandler));
 
         this.attributeFacade = newAttributeFacade;
         this.persistence = newPersistence;
