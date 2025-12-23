@@ -53,7 +53,7 @@ public class AttributeListener implements Listener {
     }
 
     /**
-     * Loads persisted player attributes asynchronously, then applies defaults and caps on the main thread
+     * Loads persisted player attributes asynchronously, then reapplies attributes and caps on the main thread
      * once loading completes. This ensures players immediately benefit from stored modifiers after joining.
      *
      * @param event player join event containing the joining player.
@@ -62,7 +62,6 @@ public class AttributeListener implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         persistence.loadPlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
                 .thenRunAsync(() -> {
-                    itemAttributeHandler.applyDefaults(event.getPlayer().getInventory());
                     itemAttributeHandler.applyPersistentAttributes(event.getPlayer());
                     entityAttributeHandler.applyPlayerCaps(event.getPlayer());
                 }, syncExecutor);
@@ -79,7 +78,6 @@ public class AttributeListener implements Listener {
         persistence.savePlayerAsync(attributeFacade, event.getPlayer().getUniqueId())
                 .whenComplete((ignored, error) -> syncExecutor.execute(() -> {
                     attributeFacade.purgeTemporary(event.getPlayer().getUniqueId());
-                    entityAttributeHandler.clearPlayerData(event.getPlayer().getUniqueId());
                     itemAttributeHandler.clearAppliedModifiers(event.getPlayer().getUniqueId());
                 }));
     }

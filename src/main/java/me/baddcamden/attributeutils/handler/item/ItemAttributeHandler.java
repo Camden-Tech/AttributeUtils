@@ -50,15 +50,6 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Ensures attribute defaults are primed for the provided inventory. Currently used to warm caches on join.
-     *
-     * @param inventory player inventory
-     */
-    public void applyDefaults(PlayerInventory inventory) {
-        attributeFacade.getDefinitions();
-    }
-
-    /**
      * Builds an {@link ItemStack} with the provided material and attribute definitions applied as persistent data and lore.
      *
      * @param material    the material to construct

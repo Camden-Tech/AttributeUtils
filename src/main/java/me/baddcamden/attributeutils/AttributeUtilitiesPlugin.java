@@ -97,7 +97,6 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         Executor syncExecutor = command -> getServer().getScheduler().runTask(this, command);
         getServer().getOnlinePlayers().forEach(player -> newPersistence.loadPlayerAsync(newAttributeFacade, player.getUniqueId())
                 .thenRunAsync(() -> {
-                    newItemAttributeHandler.applyDefaults(player.getInventory());
                     newItemAttributeHandler.applyPersistentAttributes(player);
                     newEntityAttributeHandler.applyPlayerCaps(player);
                 }, syncExecutor));

@@ -339,12 +339,6 @@ public class EntityAttributeHandler {
     }
 
     /**
-     * Clears cached attribute state for the given player so a subsequent login starts fresh.
-     */
-    public void clearPlayerData(UUID playerId) {
-    }
-
-    /**
      * Determines whether the running Bukkit version supports transient attribute modifiers.
      */
     private void resolveTransientModifierMethod() {
