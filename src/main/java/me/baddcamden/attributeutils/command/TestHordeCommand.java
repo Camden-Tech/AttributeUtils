@@ -23,15 +23,17 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
- * Spawns an attribute-heavy zombie horde for quick sandbox testing. Each equipped item is decorated
- * with randomized attribute definitions, and matching modifier entries are applied directly to the
- * spawned entities so the attribute computation pipeline mirrors real gameplay interactions.
+ * Command that spawns an attribute-heavy zombie horde for quick sandbox testing. Each equipped item
+ * is decorated with randomized attribute definitions, and matching modifier entries are applied
+ * directly to the spawned entities so the attribute computation pipeline mirrors real gameplay
+ * interactions for gear and direct entity modifiers alike.
  */
 public class TestHordeCommand implements CommandExecutor {
 
@@ -51,7 +53,7 @@ public class TestHordeCommand implements CommandExecutor {
     private final CommandMessages messages;
 
     /**
-     * Creates a new sandbox horde command.
+     * Creates a new sandbox horde command used for validating the attribute pipeline end-to-end.
      *
      * @param plugin                 owning plugin for scheduling and logging.
      * @param attributeFacade        facade for attribute definitions and modifier management.
@@ -98,6 +100,7 @@ public class TestHordeCommand implements CommandExecutor {
             return true;
         }
 
+        // Accept a lightweight "dryrun" flag for quick previewing without world impact.
         boolean dryRun = args.length > 0 && "dryrun".equalsIgnoreCase(args[0]);
         int zombieCount = ThreadLocalRandom.current().nextInt(MIN_ZOMBIES, MAX_ZOMBIES + 1);
         if (dryRun) {
@@ -112,6 +115,7 @@ public class TestHordeCommand implements CommandExecutor {
 
         for (int index = 0; index < zombieCount; index++) {
             try {
+                // Spawn each zombie slightly offset from the player to avoid crowding at a single block.
                 Zombie zombie = player.getWorld().spawn(adjustedLocation(player.getLocation()), Zombie.class);
                 HordeLoadout loadout = decorateZombie(zombie, definitions);
                 applyVanillaTouches(zombie, loadout.touchedAttributes());
@@ -165,6 +169,7 @@ public class TestHordeCommand implements CommandExecutor {
 
         Set<String> touchedAttributes = new HashSet<>();
         for (AttributedItem attributedItem : attributedItems) {
+            // Apply modifiers directly to the entity so behavior mirrors equipped items in combat calculations.
             applyModifiers(zombie, attributedItem, touchedAttributes);
         }
 
@@ -214,6 +219,7 @@ public class TestHordeCommand implements CommandExecutor {
                     false,
                     Set.of());
 
+            //VAGUE/IMPROVEMENT NEEDED Using player-scoped modifier storage for mobs may not be intentional; confirm API expectations.
             attributeFacade.setPlayerModifier(entity.getUniqueId(), roll.attributeId(), entry);
             touchedAttributes.add(roll.attributeId());
         }
@@ -301,29 +307,49 @@ public class TestHordeCommand implements CommandExecutor {
     /**
      * Builds placeholder map for a dry-run preview message.
      */
-    private java.util.Map<String, String> buildPreviewPlaceholders(int zombieCount) {
-        return java.util.Map.of("count", Integer.toString(zombieCount));
+    private Map<String, String> buildPreviewPlaceholders(int zombieCount) {
+        return Map.of("count", Integer.toString(zombieCount));
     }
 
     /**
      * Builds placeholder map for the spawn completion message containing count and item summaries.
      */
-    private java.util.Map<String, String> buildSpawnPlaceholders(int zombieCount, List<String> summaries) {
-        return java.util.Map.of(
+    private Map<String, String> buildSpawnPlaceholders(int zombieCount, List<String> summaries) {
+        return Map.of(
                 "count", Integer.toString(zombieCount),
                 "summary", String.join("; ", summaries)
         );
     }
 
+    /**
+     * Immutable value object describing a randomized attribute roll applied to an item and its owning entity.
+     *
+     * @param attributeId identifier of the attribute whose modifier is being applied.
+     * @param key         namespaced key derived from the id for item serialization.
+     * @param operation   additive or multiplicative operation selected for the roll.
+     * @param amount      magnitude of the modifier according to the chosen operation.
+     */
     private record AttributeRoll(String attributeId,
                                  CommandParsingUtils.NamespacedAttributeKey key,
                                  ModifierOperation operation,
                                  double amount) {
     }
 
+    /**
+     * Captures an item generated for the horde along with the attribute rolls used to decorate it.
+     *
+     * @param item  fully built item stack equipped onto the zombie.
+     * @param rolls collection of rolls written both to the item and to the entity modifiers.
+     */
     private record AttributedItem(ItemStack item, List<AttributeRoll> rolls) {
     }
 
+    /**
+     * Represents the result of generating gear and modifiers for a single zombie for later reporting.
+     *
+     * @param touchedAttributes attribute ids that were modified on the entity.
+     * @param summary           textual summary of roll counts per item for messaging.
+     */
     private record HordeLoadout(Set<String> touchedAttributes, String summary) {
     }
 }
