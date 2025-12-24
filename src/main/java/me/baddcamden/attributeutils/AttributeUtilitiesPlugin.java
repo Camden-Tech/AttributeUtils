@@ -42,14 +42,34 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.Locale;
 
+/**
+ * Core plugin entry point that wires attribute definitions, handlers, and persistence.
+ * <p>
+ * The lifecycle mirrors Bukkit's {@link JavaPlugin} flow while coordinating configuration-driven
+ * vanilla baselines, custom attribute definitions, and runtime command/listener registration.
+ */
 public class AttributeUtilitiesPlugin extends JavaPlugin {
 
+    /** Facade that exposes attribute registration and lookup utilities to commands and handlers. */
     private AttributeFacade attributeFacade;
+    /** Persistence layer responsible for loading and saving player/global attribute data. */
     private AttributePersistence persistence;
+    /** Applies and recalculates item-based attributes for players. */
     private ItemAttributeHandler itemAttributeHandler;
+    /** Manages entity attribute adjustments and caps for players and other entities. */
     private EntityAttributeHandler entityAttributeHandler;
+    /**
+     * Tracks Bukkit attribute targets keyed by attribute ids when vanilla baselines resolve directly
+     * to a Bukkit {@link Attribute}. This is reused when applying item modifiers.
+     */
     private Map<String, Attribute> vanillaAttributeTargets;
 
+    /**
+     * Persists all online player attribute data and global settings on the main thread.
+     * <p>
+     * This guard clauses when core collaborators have not been initialized yet (e.g., during early
+     * enable failures).
+     */
     private void saveAllPlayersSync() {
         if (persistence == null || attributeFacade == null || entityAttributeHandler == null) {
             return;
@@ -60,17 +80,28 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         persistence.saveGlobals(attributeFacade);
     }
 
+    /**
+     * Standard Bukkit enable hook. Ensures the default config exists before building plugin
+     * collaborators.
+     */
     @Override
     public void onEnable() {
         saveDefaultConfig();
         initializePlugin();
     }
 
+    /**
+     * Standard Bukkit disable hook that persists any outstanding player/global attribute changes.
+     */
     @Override
     public void onDisable() {
         saveAllPlayersSync();
     }
 
+    /**
+     * Reloads configuration, definitions, and persistent player/global data while keeping runtime
+     * state consistent.
+     */
     public void reloadAttributes() {
         saveAllPlayersSync();
 
@@ -78,6 +109,11 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         initializePlugin();
     }
 
+    /**
+     * Reinitializes all plugin components and reconnects commands/listeners after configuration
+     * reloads or server start. Existing scheduled tasks and listeners are cleared before rebuilding
+     * dependencies.
+     */
     private void initializePlugin() {
         getServer().getScheduler().cancelTasks(this);
         HandlerList.unregisterAll(this);
@@ -109,6 +145,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         registerListeners();
     }
 
+    /**
+     * Registers vanilla attribute definitions and caps from the primary configuration file.
+     */
     private void loadDefinitions() {
         Map<String, me.baddcamden.attributeutils.model.AttributeDefinition> vanillaAttributes = AttributeDefinitionFactory.vanillaAttributes(getConfig());
         vanillaAttributes.values().forEach(attributeFacade::registerDefinition);
@@ -118,6 +157,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
                 vanillaAttributes.keySet());
     }
 
+    /**
+     * Loads custom attribute definitions from the configured folder, logging and skipping malformed
+     * entries rather than failing the startup.
+     */
     private void loadCustomAttributes() {
         if (getConfig().getBoolean("load-custom-attributes-from-folder", true)) {
             Path customFolder = getDataFolder().toPath().resolve(getConfig().getString("custom-attributes-folder", "custom-attributes"));
@@ -149,6 +192,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         }
     }
 
+    /**
+     * Parses a custom attribute definition from a YAML file and returns a fully constructed
+     * {@link AttributeDefinition} or {@code null} when required fields are missing.
+     */
     private AttributeDefinition parseCustomAttribute(Path file) {
         YamlConfiguration config = YamlConfiguration.loadConfiguration(file.toFile());
 
@@ -182,6 +229,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         );
     }
 
+    /**
+     * Parses configuration values into a {@link CapConfig}, applying defaults when the section is
+     * absent.
+     */
     private CapConfig parseCapConfig(ConfigurationSection section) {
         if (section == null) {
             return new CapConfig(0, Double.MAX_VALUE, Map.of());
@@ -200,6 +251,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return new CapConfig(min, max, overrides);
     }
 
+    /**
+     * Builds multiplier applicability rules from configuration, defaulting to allow-all with optional
+     * opt-out lists when unspecified.
+     */
     private MultiplierApplicability parseMultipliers(ConfigurationSection section) {
         if (section == null) {
             return MultiplierApplicability.allowAllMultipliers();
@@ -219,6 +274,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return MultiplierApplicability.optIn(allowed);
     }
 
+    /**
+     * Reads vanilla baseline definitions and wires suppliers that surface default Bukkit attribute
+     * values, food level, maximum air, or static values.
+     */
     private void registerVanillaBaselines() {
         ConfigurationSection defaults = getConfig().getConfigurationSection("vanilla-attribute-defaults");
         if (defaults == null) {
@@ -286,6 +345,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         });
     }
 
+    /**
+     * Resolves the current attribute value for a player using Bukkit's API while allowing equipment
+     * modifiers to contribute when a raw attribute value is missing.
+     */
     private double getAttributeValue(Player player, Attribute attribute, double fallback) {
         return VanillaAttributeResolver.resolvePlayerAttribute(
                 player,
@@ -295,6 +358,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         );
     }
 
+    /**
+     * Creates specialized suppliers for attributes that need to account for equipment contributions
+     * to reflect vanilla mechanics (e.g., armor/attack values).
+     */
     private VanillaAttributeSupplier createDynamicSupplier(String attributeId, Attribute attribute, double defaultBase) {
         switch (attributeId) {
             case "armor":
@@ -314,6 +381,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         }
     }
 
+    /**
+     * Resolve armor by reading the configured attribute or a best-effort fallback to the Bukkit
+     * attribute name.
+     */
     private double resolveArmorValue(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
@@ -321,6 +392,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return getAttributeValue(player, target, fallback);
     }
 
+    /**
+     * Resolve armor toughness by reading the configured attribute or a best-effort fallback to the
+     * Bukkit attribute name.
+     */
     private double resolveArmorToughnessValue(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
@@ -328,6 +403,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return getAttributeValue(player, target, fallback);
     }
 
+    /**
+     * Resolve knockback resistance using the configured attribute when available.
+     */
     private double resolveKnockbackResistanceValue(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
@@ -335,6 +413,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return getAttributeValue(player, target, fallback);
     }
 
+    /**
+     * Resolve attack damage using the configured attribute when available.
+     */
     private double resolveAttackDamage(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
@@ -342,6 +423,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return getAttributeValue(player, target, fallback);
     }
 
+    /**
+     * Resolve attack knockback using the configured attribute when available.
+     */
     private double resolveAttackKnockback(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
@@ -349,6 +433,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return getAttributeValue(player, target, fallback);
     }
 
+    /**
+     * Resolve attack speed using the configured attribute when available.
+     */
     private double resolveAttackSpeed(Player player, Attribute configuredAttribute, double fallback) {
         Attribute target = configuredAttribute != null
                 ? configuredAttribute
@@ -356,6 +443,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return getAttributeValue(player, target, fallback);
     }
 
+    /**
+     * Attempts to resolve the first valid Bukkit {@link Attribute} by its enum name, trying each
+     * candidate in order.
+     */
     private Attribute resolveAttributeByNames(String... names) {
         for (String name : names) {
             try {
@@ -367,6 +458,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return null;
     }
 
+    /**
+     * Computes attribute values contributed exclusively by equipment modifiers, ignoring plugin
+     * modifiers to avoid double application.
+     */
     private double computeEquipmentAttribute(Player player, Attribute attribute, double fallback) {
         if (player == null || attribute == null) {
             return fallback;
@@ -413,7 +508,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
                 }
                 switch (modifier.getOperation()) {
                     case ADD_NUMBER -> additive += modifier.getAmount();
-                    default -> multiplicative *= 1 + modifier.getAmount();
+                    default -> multiplicative *= 1 + modifier.getAmount(); //VAGUE/IMPROVEMENT NEEDED Different scalar operations may require distinct handling.
                 }
             }
         }
@@ -421,6 +516,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return (fallback + additive) * multiplicative;
     }
 
+    /**
+     * Attempts to resolve an {@link Attribute} from a list of candidate enum names, returning the
+     * first valid match or {@code null} if none succeed.
+     */
     private Attribute resolveAttribute(java.util.List<String> candidates) {
         for (String candidate : candidates) {
             try {
@@ -432,6 +531,10 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return null;
     }
 
+    /**
+     * Extracts candidate Bukkit attribute names from configuration, supporting string or list
+     * representations for convenience.
+     */
     private java.util.List<String> resolveAttributeCandidates(ConfigurationSection entry) {
         if (entry.isList("bukkit-attributes")) {
             return entry.getStringList("bukkit-attributes");
@@ -442,6 +545,9 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         return java.util.Collections.emptyList();
     }
 
+    /**
+     * Registers plugin commands and their executors/tab completers when available in {@code plugin.yml}.
+     */
     private void registerCommands() {
         CommandMessages messages = new CommandMessages(this);
 
@@ -487,10 +593,18 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         }
     }
 
+    /**
+     * Hooks listener instances into the Bukkit event system.
+     */
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new AttributeListener(this, attributeFacade, persistence, itemAttributeHandler, entityAttributeHandler), this);
+        getServer().getPluginManager().registerEvents(
+                new AttributeListener(this, attributeFacade, persistence, itemAttributeHandler, entityAttributeHandler),
+                this);
     }
 
+    /**
+     * Exposes the initialized {@link AttributeFacade} for other components.
+     */
     public AttributeFacade getAttributeFacade() {
         return attributeFacade;
     }
