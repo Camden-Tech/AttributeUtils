@@ -144,6 +144,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                         .forEach(part -> parsedKeys.add(part.toLowerCase()));
                 useMultiplierKeys = true;
                 multiplierKeys = parsedKeys.isEmpty() ? Collections.emptySet() : parsedKeys;
+                //VAGUE/IMPROVEMENT NEEDED Validate multiplier keys against known definitions to fail fast on typos.
                 continue;
             }
 
@@ -223,6 +224,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         attributeFacade.setPlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry);
         entityAttributeHandler.applyVanillaAttribute(target, attributeKey.get().key());
 
+        // The scheduler expects ticks (20 per second), so multiply seconds to align with Minecraft timing.
         durationSeconds.ifPresent(seconds -> plugin.getServer().getScheduler().runTaskLater(plugin,
                 () -> {
                     attributeFacade.removePlayerModifier(target.getUniqueId(), attributeKey.get().key(), entry.key());
@@ -456,6 +458,7 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
             normalizedId = normalizedId.split("\\.", 2)[1];
         }
         final String lookupId = normalizedId;
+        //VAGUE/IMPROVEMENT NEEDED Namespaces are discarded here; if multiple plugins share the same local id the match may be ambiguous.
         return attributeFacade.getPlayerInstances(player.getUniqueId()).entrySet().stream()
                 .filter(entry -> entry.getKey().equals(lookupId))
                 .map(entry -> entry.getValue().getModifiers().keySet())
