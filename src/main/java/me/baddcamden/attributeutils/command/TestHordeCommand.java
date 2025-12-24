@@ -50,6 +50,14 @@ public class TestHordeCommand implements CommandExecutor {
     private final EntityAttributeHandler entityAttributeHandler;
     private final CommandMessages messages;
 
+    /**
+     * Creates a new sandbox horde command.
+     *
+     * @param plugin                 owning plugin for scheduling and logging.
+     * @param attributeFacade        facade for attribute definitions and modifier management.
+     * @param itemAttributeHandler   builder that decorates items with attribute data.
+     * @param entityAttributeHandler handler used to apply vanilla attributes after modifiers are set.
+     */
     public TestHordeCommand(AttributeUtilitiesPlugin plugin,
                             AttributeFacade attributeFacade,
                             ItemAttributeHandler itemAttributeHandler,
@@ -61,6 +69,11 @@ public class TestHordeCommand implements CommandExecutor {
         this.messages = new CommandMessages(plugin);
     }
 
+    /**
+     * Spawns a random number of attributed zombies around the invoking player, optionally running in dry-run mode to
+     * preview the spawn count. Attribute rolls are derived from registered definitions and applied both to equipped
+     * items and directly to the entities so the computation pipeline can be exercised.
+     */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
@@ -118,6 +131,9 @@ public class TestHordeCommand implements CommandExecutor {
         return true;
     }
 
+    /**
+     * Offsets a location randomly on the X/Z plane to spread spawned zombies around the player.
+     */
     private Location adjustedLocation(Location origin) {
         if (origin == null) {
             throw new IllegalArgumentException("Missing player location for horde spawn");
@@ -128,6 +144,10 @@ public class TestHordeCommand implements CommandExecutor {
         return origin.clone().add(offsetX, 0, offsetZ);
     }
 
+    /**
+     * Builds gear and modifiers for a single zombie, wiring attributes into armor, weapon, and direct modifiers while
+     * tracking which attributes were touched for later vanilla synchronization.
+     */
     private HordeLoadout decorateZombie(Zombie zombie, List<AttributeDefinition> definitions) {
         List<AttributedItem> attributedItems = new ArrayList<>();
         attributedItems.add(buildAttributedItem(Material.LEATHER_HELMET, definitions));
@@ -151,6 +171,9 @@ public class TestHordeCommand implements CommandExecutor {
         return new HordeLoadout(touchedAttributes, summarize(attributedItems));
     }
 
+    /**
+     * Equips the provided attributed items onto the zombie and removes drop chances to keep the sandbox clean.
+     */
     private void applyEquipment(EntityEquipment equipment, List<AttributedItem> attributedItems) {
         for (AttributedItem attributedItem : attributedItems) {
             ItemStack itemStack = attributedItem.item();
@@ -176,6 +199,9 @@ public class TestHordeCommand implements CommandExecutor {
         equipment.setItemInMainHandDropChance(0.0f);
     }
 
+    /**
+     * Writes modifier entries from an attributed item directly to the entity and records touched attribute ids.
+     */
     private void applyModifiers(LivingEntity entity, AttributedItem attributedItem, Set<String> touchedAttributes) {
         for (AttributeRoll roll : attributedItem.rolls()) {
             ModifierEntry entry = new ModifierEntry(
@@ -193,11 +219,17 @@ public class TestHordeCommand implements CommandExecutor {
         }
     }
 
+    /**
+     * Builds a unique modifier key for a generated item roll using the entity id and material.
+     */
     private String buildModifierKey(LivingEntity entity, AttributedItem attributedItem, AttributeRoll roll) {
         String materialKey = attributedItem.item().getType().name().toLowerCase(Locale.ROOT);
         return "attributeutils.testhorde." + entity.getUniqueId() + "." + materialKey + "." + roll.attributeId();
     }
 
+    /**
+     * Invokes vanilla attribute application for every attribute mutated during horde generation.
+     */
     private void applyVanillaTouches(LivingEntity entity, Set<String> touchedAttributes) {
         if (touchedAttributes.isEmpty()) {
             return;
@@ -208,6 +240,10 @@ public class TestHordeCommand implements CommandExecutor {
         }
     }
 
+    /**
+     * Builds an attributed item with randomized rolls, throwing when the material cannot hold attribute data so callers
+     * can surface useful error messages.
+     */
     private AttributedItem buildAttributedItem(Material material, List<AttributeDefinition> definitions) {
         List<AttributeRoll> rolls = randomRolls(definitions);
         List<CommandParsingUtils.AttributeDefinition> commandDefinitions = rolls.stream()
@@ -222,6 +258,10 @@ public class TestHordeCommand implements CommandExecutor {
         }
     }
 
+    /**
+     * Generates a random set of attribute rolls for an item, choosing additive or multiplicative operations and amounts
+     * within predefined ranges.
+     */
     private List<AttributeRoll> randomRolls(List<AttributeDefinition> definitions) {
         int rollCount = ThreadLocalRandom.current().nextInt(MIN_ITEM_ATTRIBUTES, MAX_ITEM_ATTRIBUTES + 1);
         List<AttributeRoll> rolls = new ArrayList<>();
@@ -237,6 +277,9 @@ public class TestHordeCommand implements CommandExecutor {
         return rolls;
     }
 
+    /**
+     * Resolves a namespaced attribute key from an attribute id, using the plugin namespace when one is missing.
+     */
     private CommandParsingUtils.NamespacedAttributeKey resolveKey(String attributeId) {
         String normalized = Objects.requireNonNull(attributeId, "attributeId").toLowerCase(Locale.ROOT);
         if (normalized.contains(".")) {
@@ -246,16 +289,25 @@ public class TestHordeCommand implements CommandExecutor {
         return new CommandParsingUtils.NamespacedAttributeKey(plugin.getName().toLowerCase(Locale.ROOT), normalized);
     }
 
+    /**
+     * Summarizes how many rolls were applied to each item type for inclusion in the success message.
+     */
     private String summarize(List<AttributedItem> items) {
         return items.stream()
                 .map(item -> item.item().getType().name() + "=" + item.rolls().size())
                 .collect(Collectors.joining(", "));
     }
 
+    /**
+     * Builds placeholder map for a dry-run preview message.
+     */
     private java.util.Map<String, String> buildPreviewPlaceholders(int zombieCount) {
         return java.util.Map.of("count", Integer.toString(zombieCount));
     }
 
+    /**
+     * Builds placeholder map for the spawn completion message containing count and item summaries.
+     */
     private java.util.Map<String, String> buildSpawnPlaceholders(int zombieCount, List<String> summaries) {
         return java.util.Map.of(
                 "count", Integer.toString(zombieCount),

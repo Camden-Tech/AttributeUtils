@@ -35,6 +35,13 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
     private final me.baddcamden.attributeutils.api.AttributeFacade attributeFacade;
     private final CommandMessages messages;
 
+    /**
+     * Creates a new entity attribute command handler.
+     *
+     * @param plugin                  owning plugin used for configuration and permissions.
+     * @param entityAttributeHandler  handler for spawning and mutating attributed entities.
+     * @param attributeFacade         registry for attribute definitions used during validation.
+     */
     public EntityAttributeCommand(Plugin plugin, EntityAttributeHandler entityAttributeHandler, me.baddcamden.attributeutils.api.AttributeFacade attributeFacade) {
         this.plugin = plugin;
         this.entityAttributeHandler = entityAttributeHandler;
@@ -43,6 +50,11 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
         this.disallowedEntityTypes = loadDisallowedTypes();
     }
 
+    /**
+     * Parses the entity attribute command to spawn an attributed mob near the player. The method validates permissions,
+     * sender type, entity availability, disallowed lists, and attribute definitions before delegating to
+     * {@link EntityAttributeHandler#spawnAttributedEntity}.
+     */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("attributeutils.command.entities")) {
@@ -119,6 +131,10 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /**
+     * Attempts to resolve an {@link EntityType} using Bukkit's lookup facilities and enum names, allowing flexible
+     * casing from command senders.
+     */
     private EntityType resolveEntityType(String raw) {
         EntityType entityType = EntityType.fromName(raw);
         if (entityType != null) {
@@ -131,6 +147,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    /**
+     * Reads the disallowed entity list from configuration and resolves each entry to an {@link EntityType}.
+     */
     private Set<EntityType> loadDisallowedTypes() {
         List<String> configured = plugin.getConfig().getStringList("entity-command.disallowed-entities");
         if (configured.isEmpty()) {
@@ -147,6 +166,10 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
         return result;
     }
 
+    /**
+     * Provides tab completion suggestions for entity attribute commands, iterating through entity type, plugin,
+     * attribute name, value, and optional cap tokens to mirror the parsing order.
+     */
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
@@ -189,6 +212,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
         return attributePlugins();
     }
 
+    /**
+     * Lists plugin namespaces drawn from registered attribute ids for tab completion.
+     */
     private List<String> attributePlugins() {
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
                 .map(value -> value.split("\\.", 2)[0])
@@ -197,6 +223,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * Lists attribute names for a given plugin namespace to help complete the {@code <name>} token.
+     */
     private List<String> attributeNames(String pluginName) {
         String normalized = pluginName == null ? "" : pluginName.toLowerCase(Locale.ROOT);
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
@@ -206,6 +235,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * @return sorted, spawnable entity type names for the first command argument.
+     */
     private List<String> entityNames() {
         return java.util.Arrays.stream(EntityType.values())
                 .filter(EntityType::isSpawnable)
@@ -214,6 +246,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Filters options by prefix using case-insensitive comparison.
+     */
     private List<String> filter(List<String> options, String prefix) {
         String lower = prefix.toLowerCase(Locale.ROOT);
         List<String> matches = new ArrayList<>();
