@@ -33,11 +33,21 @@ import java.util.function.Supplier;
  */
 public class AttributePersistence {
 
+    /** Owning plugin used for scheduling async/sync writes. */
     private final JavaPlugin plugin;
+    /** Root data directory for attribute persistence (global and per-player). */
     private final Path dataFolder;
+    /** Executor proxying to the Bukkit async scheduler for background IO. */
     private final Executor asyncExecutor;
+    /** Executor proxying to the Bukkit sync scheduler for main-thread work. */
     private final Executor syncExecutor;
 
+    /**
+     * Creates a new persistence helper backed by the provided plugin scheduler and data folder.
+     *
+     * @param dataFolder base directory containing global.yml and players/
+     * @param plugin     plugin instance used to schedule work
+     */
     public AttributePersistence(Path dataFolder, JavaPlugin plugin) {
         this.plugin = plugin;
         this.dataFolder = dataFolder;
@@ -45,6 +55,10 @@ public class AttributePersistence {
         this.syncExecutor = runnable -> plugin.getServer().getScheduler().runTask(plugin, runnable);
     }
 
+    /**
+     * Loads global attribute instances and cap overrides synchronously if the global file exists.
+     * Missing files are treated as no-op to avoid creating defaults on disk prematurely.
+     */
     public void loadGlobals(AttributeFacade facade) {
         Path file = dataFolder.resolve("global.yml");
         if (Files.notExists(file)) {
@@ -56,6 +70,11 @@ public class AttributePersistence {
         loadInstances(facade, config.getConfigurationSection("attributes"), null);
     }
 
+    /**
+     * Writes current global instances and cap overrides to disk on the calling thread.
+     *
+     * @param facade attribute API exposing global instances and definitions
+     */
     public void saveGlobals(AttributeFacade facade) {
         FileConfiguration config = new YamlConfiguration();
         ConfigurationSection attributes = config.createSection("attributes");
@@ -65,6 +84,11 @@ public class AttributePersistence {
         save(config, dataFolder.resolve("global.yml"));
     }
 
+    /**
+     * Loads global state from disk asynchronously and applies it back on the main thread.
+     *
+     * @return future completing after main-thread load work has finished
+     */
     public CompletableFuture<Void> loadGlobalsAsync(AttributeFacade facade) {
         Path file = dataFolder.resolve("global.yml");
         return supplyAsync(() -> Files.notExists(file) ? null : YamlConfiguration.loadConfiguration(file.toFile()))
@@ -76,6 +100,9 @@ public class AttributePersistence {
                         }));
     }
 
+    /**
+     * Persists global state asynchronously to avoid blocking the main thread.
+     */
     public CompletableFuture<Void> saveGlobalsAsync(AttributeFacade facade) {
         return supplySync(() -> {
                     FileConfiguration config = new YamlConfiguration();
@@ -88,6 +115,9 @@ public class AttributePersistence {
                 .thenCompose(this::writeAsync);
     }
 
+    /**
+     * Loads an individual player's attribute instances if their file exists.
+     */
     public void loadPlayer(AttributeFacade facade, UUID playerId) {
         Path file = dataFolder.resolve("players").resolve(playerId.toString() + ".yml");
         if (Files.notExists(file)) {
@@ -97,6 +127,9 @@ public class AttributePersistence {
         loadInstances(facade, config.getConfigurationSection("attributes"), playerId);
     }
 
+    /**
+     * Saves a player's attribute instances synchronously, creating the players directory if needed.
+     */
     public void savePlayer(AttributeFacade facade, UUID playerId) {
         FileConfiguration config = new YamlConfiguration();
         ConfigurationSection attributes = config.createSection("attributes");
@@ -105,10 +138,14 @@ public class AttributePersistence {
         try {
             Files.createDirectories(folder);
         } catch (IOException ignored) {
+            //VAGUE/IMPROVEMENT NEEDED swallowing IOException hides disk issues during save
         }
         save(config, folder.resolve(playerId.toString() + ".yml"));
     }
 
+    /**
+     * Loads a player's attribute instances asynchronously and applies them on the main thread.
+     */
     public CompletableFuture<Void> loadPlayerAsync(AttributeFacade facade, UUID playerId) {
         Path file = dataFolder.resolve("players").resolve(playerId.toString() + ".yml");
         return supplyAsync(() -> Files.notExists(file) ? null : YamlConfiguration.loadConfiguration(file.toFile()))
@@ -119,6 +156,9 @@ public class AttributePersistence {
                         }));
     }
 
+    /**
+     * Saves a player's attribute instances asynchronously.
+     */
     public CompletableFuture<Void> savePlayerAsync(AttributeFacade facade, UUID playerId) {
         return supplySync(() -> {
                     FileConfiguration config = new YamlConfiguration();
@@ -264,6 +304,13 @@ public class AttributePersistence {
         loadCapOverrides(facade, caps, "");
     }
 
+    /**
+     * Recursively walks cap override sections to populate per-target max values.
+     *
+     * @param facade attribute definitions for lookup
+     * @param section current configuration level being traversed
+     * @param prefix  accumulated attribute ID prefix for nested sections
+     */
     private void loadCapOverrides(AttributeFacade facade, ConfigurationSection section, String prefix) {
         for (String key : section.getKeys(false)) {
             ConfigurationSection child = section.getConfigurationSection(key);
@@ -287,6 +334,9 @@ public class AttributePersistence {
         }
     }
 
+    /**
+     * Writes cap overrides for each definition into the given section if any exist.
+     */
     private void writeCapOverrides(ConfigurationSection section, AttributeFacade facade) {
         if (section == null) {
             return;
@@ -302,34 +352,59 @@ public class AttributePersistence {
         }
     }
 
+    /**
+     * Saves the provided configuration to the target location, creating parent directories.
+     */
     private void save(FileConfiguration config, Path target) {
         try {
             Files.createDirectories(target.getParent());
             config.save(target.toFile());
         } catch (IOException ignored) {
+            //VAGUE/IMPROVEMENT NEEDED logging suppressed prevents diagnosing save failures
         }
     }
 
+    /**
+     * Asynchronously writes a configuration to disk using the async executor.
+     */
     private CompletableFuture<Void> writeAsync(PersistedConfig config) {
         return runAsync(() -> save(config.configuration(), config.target()));
     }
 
+    /**
+     * Runs a task on the async executor.
+     */
     private CompletableFuture<Void> runAsync(Runnable runnable) {
         return CompletableFuture.runAsync(runnable, asyncExecutor);
     }
 
+    /**
+     * Runs a task on the sync executor.
+     */
     private CompletableFuture<Void> runSync(Runnable runnable) {
         return CompletableFuture.runAsync(runnable, syncExecutor);
     }
 
+    /**
+     * Supplies a value using the async executor.
+     */
     private <T> CompletableFuture<T> supplyAsync(Supplier<T> supplier) {
         return CompletableFuture.supplyAsync(supplier, asyncExecutor);
     }
 
+    /**
+     * Supplies a value using the sync executor.
+     */
     private <T> CompletableFuture<T> supplySync(Supplier<T> supplier) {
         return CompletableFuture.supplyAsync(supplier, syncExecutor);
     }
 
+    /**
+     * Pairing of a configuration to be written and its destination on disk.
+     *
+     * @param configuration configuration ready to be serialized to YAML
+     * @param target        target file path for persistence
+     */
     private record PersistedConfig(FileConfiguration configuration, Path target) {
     }
 }
