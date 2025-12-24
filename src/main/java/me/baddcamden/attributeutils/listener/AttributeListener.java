@@ -4,6 +4,9 @@ import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.handler.entity.EntityAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntitySpawnEvent;
@@ -25,10 +28,15 @@ import java.util.concurrent.Executor;
  */
 public class AttributeListener implements Listener {
 
+    /** Facade used for deriving attribute values during persistence operations. */
     private final AttributeFacade attributeFacade;
+    /** Service that loads and saves persisted attribute data for players. */
     private final AttributePersistence persistence;
+    /** Handles applying and clearing item-based attribute modifiers. */
     private final ItemAttributeHandler itemAttributeHandler;
+    /** Handles applying attribute caps and other entity-level constraints. */
     private final EntityAttributeHandler entityAttributeHandler;
+    /** Executes follow-up tasks synchronously on the main server thread. */
     private final Executor syncExecutor;
 
     /**
@@ -100,7 +108,7 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getWhoClicked() instanceof org.bukkit.entity.Player player) {
+        if (event.getWhoClicked() instanceof Player player) {
             syncExecutor.execute(() -> refreshPlayer(player));
         }
     }
@@ -117,30 +125,32 @@ public class AttributeListener implements Listener {
     }
 
     /**
-     * Applies persistent attributes and caps to newly spawned entities and living entities, letting default attributes
-     * take effect immediately.
+     * Applies persistent attribute defaults to new entities and re-applies item attributes for living entities so they
+     * start with the correct modifiers.
+     * //VAGUE/IMPROVEMENT NEEDED Clarify whether caps should also be enforced here or only during player refresh.
      *
      * @param event entity spawn event.
      */
     @EventHandler
     public void onEntitySpawn(EntitySpawnEvent event) {
         entityAttributeHandler.applyPersistentAttributes(event.getEntity());
-        if (event.getEntity() instanceof org.bukkit.entity.LivingEntity living) {
+        if (event.getEntity() instanceof LivingEntity living) {
             itemAttributeHandler.applyPersistentAttributes(living);
         }
     }
 
     /**
-     * Reapplies persistent attributes and caps to all entities in a chunk when it loads, ensuring data remains
-     * consistent after chunks are rehydrated from disk.
+     * Reapplies persistent attributes to all entities in a chunk when it loads, ensuring data remains consistent after
+     * chunks are rehydrated from disk.
+     * //VAGUE/IMPROVEMENT NEEDED Confirm whether item-level attributes should be refreshed for non-player living entities.
      *
      * @param event chunk load event.
      */
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
-        for (org.bukkit.entity.Entity entity : event.getChunk().getEntities()) {
+        for (Entity entity : event.getChunk().getEntities()) {
             entityAttributeHandler.applyPersistentAttributes(entity);
-            if (entity instanceof org.bukkit.entity.LivingEntity living) {
+            if (entity instanceof LivingEntity living) {
                 itemAttributeHandler.applyPersistentAttributes(living);
             }
         }
@@ -152,7 +162,7 @@ public class AttributeListener implements Listener {
      *
      * @param player player whose attributes should be refreshed.
      */
-    private void refreshPlayer(org.bukkit.entity.Player player) {
+    private void refreshPlayer(Player player) {
         itemAttributeHandler.applyPersistentAttributes(player);
         entityAttributeHandler.applyPlayerCaps(player);
     }
