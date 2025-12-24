@@ -23,9 +23,19 @@ import me.baddcamden.attributeutils.model.ModifierOperation;
  */
 public final class CommandParsingUtils {
 
+    /**
+     * Validation pattern for plugin segments, restricting to alphanumeric characters, underscores, and hyphens.
+     */
     private static final Pattern PLUGIN_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]+$");
+
+    /**
+     * Validation pattern for key segments, restricting to alphanumeric characters, underscores, dashes, and dots.
+     */
     private static final Pattern KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9_.-]+$");
 
+    /**
+     * Hidden constructor because this class only exposes static helpers.
+     */
     private CommandParsingUtils() {
     }
 
@@ -105,6 +115,14 @@ public final class CommandParsingUtils {
      * @return optional double containing the parsed value.
      */
     public static Optional<Double> parseNumeric(CommandSender sender, String raw, String label, CommandMessages messages) {
+        if (raw == null) {
+            sender.sendMessage(messages.format(
+                    "messages.shared.invalid-numeric",
+                    Map.of("label", label, "value", ""),
+                    "§cInvalid " + label + ": ''. Provide a numeric value."));
+            return Optional.empty();
+        }
+
         try {
             return Optional.of(Double.parseDouble(raw));
         } catch (NumberFormatException ex) {
@@ -199,8 +217,8 @@ public final class CommandParsingUtils {
 
     /**
      * Parses attribute definitions from an argument array starting at the given index. Each definition consumes a
-     * plugin, key, and numeric value, followed by optional cap and criteria tokens. Validation errors are sent to the
-     * sender and result in an empty list.
+     * plugin segment, key segment, and numeric value, followed by optional cap and criteria tokens. Validation errors
+     * are sent to the sender and result in an empty list.
      *
      * @param sender          command sender to notify.
      * @param args            full argument array.
@@ -220,8 +238,8 @@ public final class CommandParsingUtils {
 
     /**
      * Parses attribute definitions with optional validation for allowed criteria values. Each definition consumes a
-     * plugin, key, and numeric value, followed by optional {@code cap=} and {@code criteria=} tokens. Validation errors
-     * are sent to the sender and result in an empty list.
+     * plugin segment, key segment, and numeric value, followed by optional {@code cap=} and {@code criteria=} tokens.
+     * Validation errors are sent to the sender and result in an empty list.
      *
      * @param sender             command sender to notify.
      * @param args               full argument array.
@@ -243,7 +261,7 @@ public final class CommandParsingUtils {
         if (startIndex >= args.length) {
             sender.sendMessage(messages.format(
                     "messages.shared.definition-missing",
-                    "§cProvide attribute definitions as <plugin>.<key> <value> [cap=<cap> criteria=<criteria>]."));
+                    "§cProvide attribute definitions as <plugin> <key> <value> [cap=<cap> criteria=<criteria>]."));
             return Collections.emptyList();
         }
 
@@ -265,6 +283,8 @@ public final class CommandParsingUtils {
             }
 
             if (attributeExists != null && !attributeExists.test(key.get().key().toLowerCase(Locale.ROOT))) {
+                //VAGUE/IMPROVEMENT NEEDED plugin segment is ignored during existence checks, which may allow
+                // collisions between different plugins.
                 sender.sendMessage(messages.format(
                         "messages.shared.unknown-attribute",
                         Map.of("attribute", key.get().asString()),
@@ -321,9 +341,15 @@ public final class CommandParsingUtils {
         return definitions;
     }
 
+    /**
+     * Indicates which baselines a command should target.
+     */
     public enum Scope {
+        /** Default baseline only. */
         DEFAULT,
+        /** Active baseline only. */
         CURRENT,
+        /** Both default and active baselines. */
         BOTH;
 
         /**
@@ -341,7 +367,20 @@ public final class CommandParsingUtils {
         }
     }
 
+    /**
+     * Represents a normalized plugin-qualified attribute identifier.
+     *
+     * @param plugin normalized plugin id segment.
+     * @param key    normalized attribute key segment.
+     */
     public record NamespacedAttributeKey(String plugin, String key) {
+
+        /**
+         * @return normalized plugin segment.
+         */
+        public String plugin() {
+            return plugin;
+        }
 
         /**
          * @return normalized key segment.
@@ -418,9 +457,21 @@ public final class CommandParsingUtils {
     }
 
     public static class AttributeDefinition {
+        /**
+         * Namespaced key associated with this definition.
+         */
         private final NamespacedAttributeKey key;
+        /**
+         * Numeric value representing the attribute strength or modifier amount.
+         */
         private final double value;
+        /**
+         * Optional cap value overriding the attribute's configured cap.
+         */
         private final Double capOverride;
+        /**
+         * Optional trigger that determines when the attribute applies.
+         */
         private final String criterion;
 
         /**
