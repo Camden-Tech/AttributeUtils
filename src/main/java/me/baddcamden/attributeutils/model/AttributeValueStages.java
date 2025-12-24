@@ -1,16 +1,18 @@
 package me.baddcamden.attributeutils.model;
 
 /**
- * Snapshot of the values produced by {@code AttributeComputationEngine}. Each pair describes the
- * state of an attribute after a stage in the pipeline:
- * <ul>
- *     <li>{@code rawDefault}: default baseline after caps, before modifiers.</li>
- *     <li>{@code defaultPermanent}: default baseline after permanent modifiers.</li>
- *     <li>{@code defaultFinal}: default baseline after temporary modifiers.</li>
- *     <li>{@code rawCurrent}: current baseline aligned with the default final value.</li>
- *     <li>{@code currentPermanent}: current value after permanent current modifiers.</li>
- *     <li>{@code currentFinal}: final value after all current modifiers.</li>
- * </ul>
+ * Snapshot of the values produced by {@code AttributeComputationEngine}. Each component captures
+ * the running total after a discrete stage in the computation pipeline, starting from capped
+ * baselines and ending with every modifier applied.
+ *
+ * @param rawDefault        capped default baseline before any modifiers are considered.
+ * @param defaultPermanent  default baseline after permanent modifiers are applied in isolation.
+ * @param defaultFinal      default baseline after all default modifiers (permanent and temporary).
+ * @param rawCurrent        current baseline after synchronization with the default final value for
+ *                          static attributes or after vanilla resolution for dynamic attributes.
+ * @param currentPermanent  current baseline after only permanent current modifiers.
+ * @param currentFinal      fully resolved current value after all current modifiers have been
+ *                          applied.
  */
 public record AttributeValueStages(double rawDefault,
                                    double defaultPermanent,
@@ -28,6 +30,11 @@ public record AttributeValueStages(double rawDefault,
         return rawDefault;
     }
 
+    /**
+     * Returns the current baseline that will later feed into permanent and temporary current
+     * modifiers. This value is already clamped and, for static attributes, synchronized with the
+     * default stage to avoid drift between the two tracks.
+     */
     @Override
     public double rawCurrent() {
         return rawCurrent;
