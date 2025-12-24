@@ -126,6 +126,9 @@ public class AttributeComputationEngine {
             double vanilla = vanillaSupplier == null || player == null ? definition.defaultCurrentValue() : vanillaSupplier.getVanillaValue(player);
             double adjusted = vanilla;
             if (playerInstance != null) {
+                //VAGUE/IMPROVEMENT NEEDED assumes the stored base delta should be transferred onto the live
+                //VAGUE/IMPROVEMENT NEEDED vanilla reading instead of the definition's default, which may not
+                //VAGUE/IMPROVEMENT NEEDED reflect how the original base was computed.
                 adjusted += playerInstance.getCurrentBaseValue() - definition.defaultCurrentValue();
             } else if (globalInstance != null) {
                 adjusted += globalInstance.getCurrentBaseValue() - definition.defaultCurrentValue();
