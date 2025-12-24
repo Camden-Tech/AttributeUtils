@@ -26,8 +26,17 @@ import java.util.Objects;
  */
 public final class AttributeInstance {
 
+    /**
+     * Definition that governs caps, defaults, and applicability rules for this instance.
+     */
     private final AttributeDefinition definition;
+    /**
+     * Persisted base value shared by all players before any modifiers are applied.
+     */
     private double defaultBaseValue;
+    /**
+     * Player- or context-specific base value that can diverge from the default baseline.
+     */
     private double currentBaseValue;
     /**
      * Cached result of the last default computation. Used to adjust the current baseline by
@@ -40,14 +49,41 @@ public final class AttributeInstance {
      * entries to avoid duplication.
      */
     private final Map<String, ModifierEntry> modifiers = new LinkedHashMap<>();
+    /**
+     * Permanent additive modifiers applied during the default-layer computation stage.
+     */
     private final Map<String, ModifierEntry> defaultPermanentAdditives = new LinkedHashMap<>();
+    /**
+     * Temporary additive modifiers applied during the default-layer computation stage.
+     */
     private final Map<String, ModifierEntry> defaultTemporaryAdditives = new LinkedHashMap<>();
+    /**
+     * Permanent multiplier modifiers applied during the default-layer computation stage.
+     */
     private final Map<String, ModifierEntry> defaultPermanentMultipliers = new LinkedHashMap<>();
+    /**
+     * Temporary multiplier modifiers applied during the default-layer computation stage.
+     */
     private final Map<String, ModifierEntry> defaultTemporaryMultipliers = new LinkedHashMap<>();
+    /**
+     * Permanent additive modifiers applied during the current-layer computation stage.
+     */
     private final Map<String, ModifierEntry> currentPermanentAdditives = new LinkedHashMap<>();
+    /**
+     * Temporary additive modifiers applied during the current-layer computation stage.
+     */
     private final Map<String, ModifierEntry> currentTemporaryAdditives = new LinkedHashMap<>();
+    /**
+     * Permanent multiplier modifiers applied during the current-layer computation stage.
+     */
     private final Map<String, ModifierEntry> currentPermanentMultipliers = new LinkedHashMap<>();
+    /**
+     * Temporary multiplier modifiers applied during the current-layer computation stage.
+     */
     private final Map<String, ModifierEntry> currentTemporaryMultipliers = new LinkedHashMap<>();
+    /**
+     * Optional key used to override the definition's default cap selection.
+     */
     private String capOverrideKey;
 
     /**
@@ -68,7 +104,7 @@ public final class AttributeInstance {
         this.definition = Objects.requireNonNull(definition, "definition");
         this.defaultBaseValue = defaultBaseValue;
         this.currentBaseValue = currentBaseValue;
-        this.defaultFinalBaseline = definition.defaultCurrentValue();
+        this.defaultFinalBaseline = definition.defaultCurrentValue(); //VAGUE/IMPROVEMENT NEEDED defaultFinalBaseline ignores the provided baselines and assumes the definition's defaults
         this.capOverrideKey = capOverrideKey;
     }
 
@@ -210,11 +246,12 @@ public final class AttributeInstance {
     /**
      * Registers a modifier and distributes it into the appropriate buckets for both the default
      * and current stages. Buckets only retain a single entry per key; calling this method again
-     * with the same key replaces the previous modifier everywhere.
+     * with the same key replaces the previous modifier everywhere. Keys are normalized to lowercase
+     * so lookups remain consistent across commands and persistence.
      */
     public void addModifier(ModifierEntry modifier) {
         Objects.requireNonNull(modifier, "modifier");
-        String key = modifier.key().toLowerCase();
+        String key = normalizeKey(modifier.key());
         removeModifier(key);
         modifiers.put(key, modifier);
         addToBucket(key, modifier, true);
@@ -229,7 +266,7 @@ public final class AttributeInstance {
         if (key == null) {
             return;
         }
-        String normalized = key.toLowerCase();
+        String normalized = normalizeKey(key);
         modifiers.remove(normalized);
         removeFromBuckets(normalized);
     }
@@ -247,10 +284,7 @@ public final class AttributeInstance {
             }
             return false;
         });
-        defaultTemporaryAdditives.clear();
-        defaultTemporaryMultipliers.clear();
-        currentTemporaryAdditives.clear();
-        currentTemporaryMultipliers.clear();
+        clearTemporaryBuckets();
     }
 
     /**
@@ -292,6 +326,20 @@ public final class AttributeInstance {
         this.defaultFinalBaseline = defaultFinal;
     }
 
+    /**
+     * Removes any remaining temporary bucket entries to guarantee clean state after purging the
+     * main modifier map.
+     */
+    private void clearTemporaryBuckets() {
+        defaultTemporaryAdditives.clear();
+        defaultTemporaryMultipliers.clear();
+        currentTemporaryAdditives.clear();
+        currentTemporaryMultipliers.clear();
+    }
+
+    /**
+     * Places a modifier into the correct permanent/temporary bucket for the selected layer.
+     */
     private void addToBucket(String key, ModifierEntry modifier, boolean defaultLayer) {
         if (defaultLayer && !modifier.appliesToDefault()) {
             return;
@@ -304,6 +352,9 @@ public final class AttributeInstance {
         target.put(key, modifier);
     }
 
+    /**
+     * Resolves the bucket that matches the modifier's operation, duration, and target layer.
+     */
     private Map<String, ModifierEntry> resolveBucket(ModifierEntry modifier, boolean defaultLayer) {
         boolean temporary = modifier.isTemporary();
         if (modifier.operation() == ModifierOperation.ADD) {
@@ -319,6 +370,9 @@ public final class AttributeInstance {
         return temporary ? currentTemporaryMultipliers : currentPermanentMultipliers;
     }
 
+    /**
+     * Removes a modifier from every bucket, regardless of which layer it previously targeted.
+     */
     private void removeFromBuckets(String key) {
         defaultPermanentAdditives.remove(key);
         defaultTemporaryAdditives.remove(key);
@@ -328,5 +382,12 @@ public final class AttributeInstance {
         currentTemporaryAdditives.remove(key);
         currentPermanentMultipliers.remove(key);
         currentTemporaryMultipliers.remove(key);
+    }
+
+    /**
+     * Normalizes modifier keys to lowercase to allow case-insensitive storage and lookups.
+     */
+    private String normalizeKey(String key) {
+        return key.toLowerCase();
     }
 }
