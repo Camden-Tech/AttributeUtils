@@ -9,17 +9,24 @@ import java.util.stream.Collectors;
  * Controls which multiplier modifiers can participate in a computation. This allows attribute
  * definitions to opt-in to specific multiplier buckets or opt-out of unwanted ones while still
  * keeping additive modifiers intact.
+ *
+ * @param applyAll    whether every multiplier modifier is eligible by default (subject to {@code ignoredKeys})
+ * @param allowedKeys lowercased keys that may participate when {@code applyAll} is {@code false}
+ * @param ignoredKeys lowercased keys that are always excluded, even when {@code applyAll} is {@code true}
  */
 public record MultiplierApplicability(boolean applyAll, Set<String> allowedKeys, Set<String> ignoredKeys) {
 
+    /**
+     * Normalizes component sets to lowercased, non-null, unmodifiable collections so all lookups
+     * use consistent casing and ignore missing inputs.
+     */
     public MultiplierApplicability {
         allowedKeys = normalize(allowedKeys);
         ignoredKeys = normalize(ignoredKeys);
     }
 
     /**
-     * @return a configuration that permits all multiplier modifiers except those explicitly
-     * ignored.
+     * @return a configuration that permits all multiplier modifiers with no exclusions.
      */
     public static MultiplierApplicability allowAllMultipliers() {
         return new MultiplierApplicability(true, Collections.emptySet(), Collections.emptySet());
@@ -27,7 +34,7 @@ public record MultiplierApplicability(boolean applyAll, Set<String> allowedKeys,
 
     /**
      * Builds a configuration that only allows multiplier modifiers whose keys appear in the given
-     * set.
+     * set. Provided keys are normalized to lowercase and {@code null} values are ignored.
      */
     public static MultiplierApplicability optIn(Set<String> allowedKeys) {
         return new MultiplierApplicability(false, allowedKeys, Collections.emptySet());
@@ -35,6 +42,7 @@ public record MultiplierApplicability(boolean applyAll, Set<String> allowedKeys,
 
     /**
      * Builds a configuration that allows all multipliers except the keys listed in {@code ignoredKeys}.
+     * Provided keys are normalized to lowercase and {@code null} values are ignored.
      */
     public static MultiplierApplicability optOut(Set<String> ignoredKeys) {
         return new MultiplierApplicability(true, Collections.emptySet(), ignoredKeys);
@@ -46,6 +54,7 @@ public record MultiplierApplicability(boolean applyAll, Set<String> allowedKeys,
      * against stored sets.
      */
     public boolean canApply(String modifierKey) {
+        //VAGUE/IMPROVEMENT NEEDED clarify expected behavior when modifierKey is null to avoid potential NPEs.
         String normalizedKey = modifierKey.toLowerCase();
         if (ignoredKeys.contains(normalizedKey)) {
             return false;
