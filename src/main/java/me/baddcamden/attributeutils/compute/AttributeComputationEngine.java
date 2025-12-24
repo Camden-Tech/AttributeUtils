@@ -40,7 +40,16 @@ public class AttributeComputationEngine {
     /**
      * Computes all stages for a single attribute, combining global and player modifier buckets.
      * Caps, defaults and current baselines are resolved in one pass so callers can persist or apply
-     * the staged values directly.
+     * the staged values directly. The return value maps to {@link AttributeValueStages} components
+     * as follows:
+     * <ul>
+     *     <li>{@code rawDefault}: clamped default base prior to modifiers.</li>
+     *     <li>{@code defaultPermanent}: default base after permanent modifiers only.</li>
+     *     <li>{@code defaultFinal}: default base after all default modifiers.</li>
+     *     <li>{@code rawCurrent}: clamped current base after synchronization or vanilla lookup.</li>
+     *     <li>{@code currentPermanent}: current base after permanent modifiers only.</li>
+     *     <li>{@code currentFinal}: current base after all current modifiers.</li>
+     * </ul>
      */
     public AttributeValueStages compute(AttributeDefinition definition,
                                         AttributeInstance globalInstance,
@@ -124,6 +133,7 @@ public class AttributeComputationEngine {
                                         double defaultFinal) {
         if (definition.dynamic()) {
             double vanilla = vanillaSupplier == null || player == null ? definition.defaultCurrentValue() : vanillaSupplier.getVanillaValue(player);
+            //VAGUE/IMPROVEMENT NEEDED Clarify whether falling back to the default current value is the intended behavior when no vanilla supplier is registered.
             double adjusted = vanilla;
             if (playerInstance != null) {
                 //VAGUE/IMPROVEMENT NEEDED assumes the stored base delta should be transferred onto the live
