@@ -62,12 +62,12 @@ public class ItemAttributeHandler {
      */
     public ItemBuildResult buildAttributeItem(Material material, List<CommandParsingUtils.AttributeDefinition> definitions) {
         ItemStack itemStack = new ItemStack(material);
-        Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = itemStack.getAttributeModifiers();
+
         ItemMeta meta = itemStack.getItemMeta();
         if (meta == null) {
             throw new IllegalArgumentException("unsupported-material");
         }
-
+        Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = itemStack.getItemMeta().getAttributeModifiers();
         if (defaultAttributeModifiers != null && (meta.getAttributeModifiers() == null || meta.getAttributeModifiers().isEmpty())) {
             meta.setAttributeModifiers(defaultAttributeModifiers);
         }
