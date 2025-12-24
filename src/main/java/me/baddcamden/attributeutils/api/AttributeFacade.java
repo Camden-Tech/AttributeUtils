@@ -39,14 +39,25 @@ import java.util.regex.Pattern;
  */
 public class AttributeFacade {
 
+    /**
+     * Expected format for modifier source keys, ensuring each entry is namespaced as
+     * {@code plugin.key} to avoid collisions between plugins.
+     */
     private static final Pattern SOURCE_KEY_PATTERN = Pattern.compile("[a-z0-9_-]+\\.[a-z0-9_.-]+", Pattern.CASE_INSENSITIVE);
 
+    /** Owning plugin used solely for logging warnings about invalid calls. */
     private final Plugin plugin;
+    /** Engine that combines baselines, modifiers, caps, and vanilla suppliers into staged values. */
     private final AttributeComputationEngine computationEngine;
+    /** Registered attribute definitions keyed by normalized id. */
     private final Map<String, AttributeDefinition> definitions = new ConcurrentHashMap<>();
+    /** Optional vanilla value suppliers keyed by normalized attribute id. */
     private final Map<String, VanillaAttributeSupplier> vanillaSuppliers = new ConcurrentHashMap<>();
+    /** Global attribute instances that store shared baselines and modifier buckets. */
     private final Map<String, AttributeInstance> globalInstances = new ConcurrentHashMap<>();
+    /** Per-player attribute instances keyed by player id then normalized attribute id. */
     private final Map<UUID, Map<String, AttributeInstance>> playerInstances = new ConcurrentHashMap<>();
+    /** Listener that translates modifier removals into live refresh operations. */
     private AttributeRefreshListener attributeRefreshListener;
 
     /**
@@ -75,7 +86,7 @@ public class AttributeFacade {
 
     /**
      * Registers a supplier for vanilla baseline values that will be included when computing an attribute. The key
-     * is normalized to align with registered definitions.
+     * is normalized to align with registered definitions and should typically match the attribute id.
      *
      * @param key      attribute identifier, typically the same id used for the definition.
      * @param supplier provider that returns the vanilla baseline value for a player.
@@ -86,6 +97,8 @@ public class AttributeFacade {
 
     /**
      * Returns an immutable view of every definition currently registered with the façade.
+     * Caller should treat the returned collection as read-only and instead use {@link #registerDefinition(AttributeDefinition)}
+     * to add additional entries.
      */
     public Collection<AttributeDefinition> getDefinitions() {
         return Collections.unmodifiableCollection(definitions.values());
@@ -118,7 +131,8 @@ public class AttributeFacade {
 
     /**
      * Computes the staged attribute values for the provided player using the player's UUID extracted from
-     * the {@link Player} object.
+     * the {@link Player} object. When {@code player} is {@code null}, the computation is performed without
+     * player-specific overrides.
      *
      * @param id     attribute id to compute.
      * @param player player whose modifiers and overrides should be applied; may be null for global computations.
@@ -180,7 +194,8 @@ public class AttributeFacade {
     /**
      * Assigns a cap override for the provided player and attribute. The cap value is clamped to the
      * attribute's global minimum to avoid invalid overrides and stored using the instance's
-     * {@code capOverrideKey} so subsequent computations honor the persisted cap.
+     * {@code capOverrideKey} so subsequent computations honor the persisted cap. No refresh is triggered here because
+     * callers are expected to recompute manually after persisting overrides.
      */
     public void setPlayerCapOverride(UUID playerId, String attributeId, double capValue) {
         AttributeDefinition definition = definitions.get(normalize(attributeId));
@@ -305,6 +320,7 @@ public class AttributeFacade {
         Map<String, AttributeInstance> map = playerInstances.computeIfAbsent(playerId, ignored -> new HashMap<>());
         String normalizedId = normalize(definition.id());
         return map.computeIfAbsent(normalizedId, ignored -> {
+            //VAGUE/IMPROVEMENT NEEDED Clarify whether the cap override key should differ from the player id or support multi-identity scenarios.
             AttributeInstance instance = new AttributeInstance(definition, definition.defaultBaseValue(), definition.defaultCurrentValue(), playerId.toString());
             instance.setCapOverrideKey(playerId.toString());
             return instance;
@@ -332,7 +348,8 @@ public class AttributeFacade {
     }
 
     /**
-     * Validates modifier keys to ensure they follow the expected plugin-scoped format.
+     * Validates modifier keys to ensure they follow the expected plugin-scoped format and prevents collisions between
+     * unrelated plugins when multiple systems contribute modifiers.
      */
     private ModifierEntry validate(ModifierEntry entry) {
         if (!SOURCE_KEY_PATTERN.matcher(entry.key()).matches()) {
@@ -342,7 +359,8 @@ public class AttributeFacade {
     }
 
     /**
-     * Normalizes attribute identifiers to a lower-case format for consistent lookups.
+     * Normalizes attribute identifiers to a lower-case format for consistent lookups. Callers must ensure {@code id}
+     * is non-null before invoking this helper.
      */
     private String normalize(String id) {
         return id.toLowerCase(Locale.ROOT);
@@ -350,6 +368,7 @@ public class AttributeFacade {
 
     /**
      * Registers a listener that will be notified when modifiers are removed so live entities can refresh their values.
+     * Only one listener is supported because dispatch logic is centralized in {@link me.baddcamden.attributeutils.handler.AttributeRefreshDispatcher}.
      *
      * @param listener refresh listener to notify.
      */
@@ -357,6 +376,10 @@ public class AttributeFacade {
         this.attributeRefreshListener = listener;
     }
 
+    /**
+     * Notifies the refresh listener to update a single player's computed attribute. No-ops when no listener is registered
+     * to avoid forcing callers to null-check.
+     */
     private void refreshPlayer(UUID playerId, String attributeId) {
         AttributeRefreshListener listener = this.attributeRefreshListener;
         if (listener == null) {
@@ -365,6 +388,10 @@ public class AttributeFacade {
         listener.refreshAttributeForPlayer(playerId, attributeId);
     }
 
+    /**
+     * Notifies the refresh listener to update all players for a given attribute. This is primarily used when a global
+     * modifier is removed and all live entities need to be updated.
+     */
     private void refreshAll(String attributeId) {
         AttributeRefreshListener listener = this.attributeRefreshListener;
         if (listener == null) {
@@ -377,8 +404,15 @@ public class AttributeFacade {
      * Listener invoked when modifier removals occur so implementations can re-apply live entity attributes.
      */
     public interface AttributeRefreshListener {
+        /**
+         * Refreshes the computed attribute values for a single player. Implementations typically recalculate and
+         * reapply values to the live entity represented by {@code playerId}.
+         */
         void refreshAttributeForPlayer(UUID playerId, String attributeId);
 
+        /**
+         * Refreshes the computed attribute values for all entities that use the supplied attribute id.
+         */
         void refreshAttributeForAll(String attributeId);
     }
 }
