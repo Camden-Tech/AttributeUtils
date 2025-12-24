@@ -76,6 +76,10 @@ public class EntityAttributeHandler {
     private boolean transientMethodResolved;
     private BukkitTask ticker;
 
+    /**
+     * Creates a handler that synchronizes computed attribute values with Bukkit entities and begins the periodic
+     * player tick used to refresh movement-related attributes.
+     */
     public EntityAttributeHandler(AttributeFacade attributeFacade,
                                   Plugin plugin,
                                   Map<String, Attribute> vanillaAttributeTargets) {
@@ -97,6 +101,10 @@ public class EntityAttributeHandler {
         applySwimSpeed(player);
     }
 
+    /**
+     * Spawns a Bukkit entity at the provided location and persists baseline attribute and cap data for each definition.
+     * Matching vanilla attributes are updated immediately so the spawned entity reflects the requested values.
+     */
     public SpawnedEntityResult spawnAttributedEntity(Location location,
                                                     EntityType entityType,
                                                     List<CommandParsingUtils.AttributeDefinition> definitions) {
@@ -135,6 +143,10 @@ public class EntityAttributeHandler {
         return new SpawnedEntityResult(entity, String.join(", ", summary));
     }
 
+    /**
+     * Rehydrates persisted attribute values and cap overrides from an entity's data container, applying clamped values
+     * to vanilla attributes and the attribute pipeline when appropriate.
+     */
     public void applyPersistentAttributes(Entity entity) {
         if (entity == null) {
             return;
@@ -199,22 +211,37 @@ public class EntityAttributeHandler {
         }
     }
 
+    /**
+     * Builds a persistent data key for an attribute value entry.
+     */
     private NamespacedKey valueKey(String attributeId) {
         return new NamespacedKey(plugin, ATTRIBUTE_KEY_PREFIX + sanitize(attributeId));
     }
 
+    /**
+     * Builds a persistent data key for an attribute cap override entry.
+     */
     private NamespacedKey capKey(String attributeId) {
         return new NamespacedKey(plugin, ATTRIBUTE_KEY_PREFIX + sanitize(attributeId) + ATTRIBUTE_CAP_SUFFIX);
     }
 
+    /**
+     * Normalizes attribute identifiers for safe storage in {@link NamespacedKey} values.
+     */
     private String sanitize(String attributeId) {
         return attributeId.toLowerCase(Locale.ROOT).replace('.', '_');
     }
 
+    /**
+     * Returns whether the provided attribute id is either null or composed only of whitespace.
+     */
     private boolean isBlank(String attributeId) {
         return attributeId == null || attributeId.isBlank();
     }
 
+    /**
+     * Resolves a configured mapping for the attribute or falls back to Bukkit's vanilla attribute registry.
+     */
     private Attribute resolveVanillaTarget(String attributeId) {
         if (isBlank(attributeId)) {
             return null;
@@ -223,11 +250,17 @@ public class EntityAttributeHandler {
         return target != null ? target : resolveAttribute(attributeId);
     }
 
+    /**
+     * Checks whether a persistent data key belongs to this plugin and follows the attribute key pattern.
+     */
     private boolean isPluginAttributeKey(NamespacedKey key) {
         return key != null && key.getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))
                 && key.getKey().startsWith(ATTRIBUTE_KEY_PREFIX);
     }
 
+    /**
+     * Extracts the attribute id and whether the key represents a cap override from a stored data key.
+     */
     private AttributeKeyDetails parseAttributeKey(String key) {
         if (key == null || !key.startsWith(ATTRIBUTE_KEY_PREFIX)) {
             return null;
@@ -242,6 +275,9 @@ public class EntityAttributeHandler {
         return new AttributeKeyDetails(attributeId, isCap);
     }
 
+    /**
+     * Looks up an attribute definition using the provided id, accepting either dotted or underscored formats.
+     */
     private Optional<AttributeDefinition> findAttributeDefinition(String attributeId) {
         if (attributeId == null || attributeId.isBlank()) {
             return Optional.empty();
@@ -259,6 +295,10 @@ public class EntityAttributeHandler {
     public record SpawnedEntityResult(Entity entity, String summary) {
     }
 
+    /**
+     * Computes and applies a single attribute to non-player and player entities, routing players to the dedicated
+     * overload to leverage player-specific computation helpers.
+     */
     public void applyVanillaAttribute(LivingEntity entity, String attributeId) {
         if (entity == null || isBlank(attributeId)) {
             return;
@@ -278,6 +318,10 @@ public class EntityAttributeHandler {
         applyComputedModifier(entity, target, attributeId, computed);
     }
 
+    /**
+     * Computes and applies a single attribute to a player, adjusting the relevant vanilla attribute with a transient
+     * modifier based on the computed delta.
+     */
     public void applyVanillaAttribute(Player player, String attributeId) {
         if (player == null || isBlank(attributeId)) {
             return;
@@ -291,6 +335,9 @@ public class EntityAttributeHandler {
         applyComputedModifier(player, target, attributeId, computed);
     }
 
+    /**
+     * Attempts to resolve a Bukkit {@link Attribute} enum constant from the provided id.
+     */
     private Attribute resolveAttribute(String attributeId) {
         String normalized = attributeId.toUpperCase(Locale.ROOT);
         try {
@@ -300,6 +347,10 @@ public class EntityAttributeHandler {
         }
     }
 
+    /**
+     * Applies a computed delta to the target attribute using a deterministic modifier id, skipping zero-delta
+     * updates to avoid unnecessary churn.
+     */
     private void applyComputedModifier(Attributable attributable, Attribute target, String attributeId, double computed) {
         if (attributable == null || target == null) {
             return;
@@ -327,10 +378,16 @@ public class EntityAttributeHandler {
         addModifier(instance, modifier);
     }
 
+    /**
+     * Generates a deterministic modifier id based on the attribute id to simplify later removal/replacement.
+     */
     private UUID attributeModifierId(String attributeId) {
         return java.util.UUID.nameUUIDFromBytes((ATTRIBUTE_MODIFIER_PREFIX + attributeId).getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Removes a modifier from the instance that matches the provided unique id, if present.
+     */
     private void removeModifierById(AttributeInstance instance, UUID modifierId) {
         instance.getModifiers().stream()
                 .filter(modifier -> modifier.getUniqueId().equals(modifierId))
