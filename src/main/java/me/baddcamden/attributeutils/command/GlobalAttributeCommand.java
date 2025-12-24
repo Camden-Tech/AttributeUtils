@@ -42,13 +42,29 @@ import java.util.UUID;
  */
 public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
+    /** Owning plugin used for scheduling, config access, and online player enumeration. */
     private final Plugin plugin;
+    /** Facade for attribute definitions and mutation APIs backing the command logic. */
     private final AttributeFacade attributeFacade;
+    /** Persistence gateway that writes player and global changes to disk asynchronously. */
     private final AttributePersistence persistence;
+    /** Message helper that formats localized strings for command feedback. */
     private final CommandMessages messages;
+    /** Default namespace prefix applied when callers omit the plugin segment. */
     private final String defaultNamespace;
+    /** Adapter responsible for updating vanilla Bukkit attributes after mutations. */
     private final EntityAttributeHandler entityAttributeHandler;
 
+    /**
+     * Creates a new command router for global attribute state mutations.
+     *
+     * @param plugin                 entry point used for scheduling tasks and accessing configuration
+     * @param attributeFacade        attribute facade providing definitions and mutation helpers
+     * @param persistence            persistence layer used to save global and player state
+     * @param messages               command message formatter for consistent user-facing output
+     * @param defaultNamespace       namespace used when attribute ids are provided without a plugin prefix
+     * @param entityAttributeHandler bridge for syncing vanilla attributes and caps after updates
+     */
     public GlobalAttributeCommand(Plugin plugin,
                                   AttributeFacade attributeFacade,
                                   AttributePersistence persistence,
@@ -105,7 +121,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     /**
      * Handles {@code /globalattribute default ...} invocations by validating the target attribute, clamping the new
      * base value against its configured caps, pushing the change into the global instance, and propagating it to online
-     * players and stored offline data.
+     * players and stored offline data so baseline values stay consistent across sessions.
      */
     private boolean handleValueUpdate(CommandSender sender, String label, String action, String[] args) {
         if (!"default".equals(action)) {
@@ -161,7 +177,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Processes {@code cap} subcommands by validating the attribute, ensuring the requested cap is above the minimum,
-     * updating the override map, and persisting the new cap value to disk.
+     * updating the override map, and persisting the new cap value to disk for future reloads.
      */
     private boolean handleCapUpdate(CommandSender sender, String label, String[] args) {
         if (args.length < 4) {
@@ -237,7 +253,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
     /**
      * Adds a modifier to the global instance for the requested attribute. The method parses scope, multiplier keys,
      * optional duration, and permanence flags, validating each token before writing the modifier and scheduling any
-     * temporary cleanup tasks.
+     * temporary cleanup tasks that remove the modifier when a duration is set.
      */
     private boolean handleModifierAdd(CommandSender sender, String label, String[] args) {
         if (args.length < 8) {
@@ -383,7 +399,7 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Removes a previously registered global modifier, rejecting the request when the attribute or modifier key is not
-     * known and persisting changes when successful.
+     * known. Persistence is handled by the facade rather than this method directly.
      */
     private boolean handleModifierRemove(CommandSender sender, String label, String[] args) {
         if (args.length < 5) {
@@ -627,7 +643,8 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Normalizes user-provided plugin and attribute segments into a lookup key, falling back to the default namespace
-     * when only the attribute name is specified.
+     * when only the attribute name is specified. The returned value may not correspond to a registered attribute if
+     * validation failed earlier in the call chain.
      */
     private Optional<String> resolveAttributeId(String pluginSegment, String attributeName) {
         if (attributeName == null || attributeName.isBlank()) {
@@ -648,6 +665,8 @@ public class GlobalAttributeCommand implements CommandExecutor, TabCompleter {
             return Optional.of(normalizedName);
         }
 
+        //VAGUE/IMPROVEMENT NEEDED Returning the raw namespacedId despite missing definitions can mask typos and
+        //VAGUE/IMPROVEMENT NEEDED causes callers to continue with lookup attempts that will fail later.
         return Optional.of(namespacedId);
     }
 
