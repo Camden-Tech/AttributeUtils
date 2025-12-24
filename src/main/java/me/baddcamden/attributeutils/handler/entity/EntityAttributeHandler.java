@@ -72,8 +72,17 @@ public class EntityAttributeHandler {
      * Pre-resolved mapping of custom attribute ids to Bukkit attributes.
      */
     private final Map<String, Attribute> vanillaAttributeTargets;
+    /**
+     * Reflection handle for the transient modifier API; resolved lazily to remain compatible with older Bukkit versions.
+     */
     private Method transientModifierMethod;
+    /**
+     * Indicates whether the transient modifier lookup was attempted to avoid repeated reflection work.
+     */
     private boolean transientMethodResolved;
+    /**
+     * Periodic task that re-applies movement-related attributes to online players.
+     */
     private BukkitTask ticker;
 
     /**
@@ -91,7 +100,9 @@ public class EntityAttributeHandler {
     }
 
     /**
-     * Syncs player movement-related attributes.
+     * Syncs player movement-related attributes by recalculating flight and swim speeds from the attribute pipeline.
+     *
+     * @param player online player whose live attribute caps should be refreshed
      */
     public void applyPlayerCaps(Player player) {
         if (player == null) {
@@ -104,6 +115,11 @@ public class EntityAttributeHandler {
     /**
      * Spawns a Bukkit entity at the provided location and persists baseline attribute and cap data for each definition.
      * Matching vanilla attributes are updated immediately so the spawned entity reflects the requested values.
+     *
+     * @param location    position at which the entity should be created (must have a world)
+     * @param entityType  Bukkit entity type to create
+     * @param definitions parsed attribute inputs specifying base values and optional caps
+     * @return container summarizing the spawned entity and a user-facing string of applied attributes
      */
     public SpawnedEntityResult spawnAttributedEntity(Location location,
                                                     EntityType entityType,
@@ -146,6 +162,8 @@ public class EntityAttributeHandler {
     /**
      * Rehydrates persisted attribute values and cap overrides from an entity's data container, applying clamped values
      * to vanilla attributes and the attribute pipeline when appropriate.
+     *
+     * @param entity entity whose stored attribute baseline and cap entries should be applied
      */
     public void applyPersistentAttributes(Entity entity) {
         if (entity == null) {
@@ -188,6 +206,10 @@ public class EntityAttributeHandler {
 
     /**
      * Applies a raw value to a vanilla attribute, clamping health safely when necessary.
+     *
+     * @param entity      target entity owning the vanilla attribute
+     * @param attributeId identifier for the attribute to update
+     * @param value       baseline value to store on the attribute instance
      */
     private void applyVanillaAttribute(Entity entity, String attributeId, double value) {
         if (!(entity instanceof Attributable attributable) || isBlank(attributeId)) {
@@ -213,6 +235,9 @@ public class EntityAttributeHandler {
 
     /**
      * Builds a persistent data key for an attribute value entry.
+     *
+     * @param attributeId raw attribute identifier
+     * @return namespaced key scoped to this plugin used to store the baseline value
      */
     private NamespacedKey valueKey(String attributeId) {
         return new NamespacedKey(plugin, ATTRIBUTE_KEY_PREFIX + sanitize(attributeId));
@@ -220,6 +245,9 @@ public class EntityAttributeHandler {
 
     /**
      * Builds a persistent data key for an attribute cap override entry.
+     *
+     * @param attributeId raw attribute identifier
+     * @return namespaced key scoped to this plugin used to store a cap override
      */
     private NamespacedKey capKey(String attributeId) {
         return new NamespacedKey(plugin, ATTRIBUTE_KEY_PREFIX + sanitize(attributeId) + ATTRIBUTE_CAP_SUFFIX);
@@ -227,6 +255,9 @@ public class EntityAttributeHandler {
 
     /**
      * Normalizes attribute identifiers for safe storage in {@link NamespacedKey} values.
+     *
+     * @param attributeId attribute identifier that may contain dots or uppercase letters
+     * @return lowercase identifier with dots replaced by underscores
      */
     private String sanitize(String attributeId) {
         return attributeId.toLowerCase(Locale.ROOT).replace('.', '_');
@@ -234,6 +265,9 @@ public class EntityAttributeHandler {
 
     /**
      * Returns whether the provided attribute id is either null or composed only of whitespace.
+     *
+     * @param attributeId attribute identifier to validate
+     * @return true when the identifier is null or blank
      */
     private boolean isBlank(String attributeId) {
         return attributeId == null || attributeId.isBlank();
@@ -241,6 +275,9 @@ public class EntityAttributeHandler {
 
     /**
      * Resolves a configured mapping for the attribute or falls back to Bukkit's vanilla attribute registry.
+     *
+     * @param attributeId attribute identifier that may correspond to a vanilla attribute
+     * @return Bukkit attribute mapped from configuration or directly from the enum; {@code null} when unknown
      */
     private Attribute resolveVanillaTarget(String attributeId) {
         if (isBlank(attributeId)) {
@@ -252,6 +289,9 @@ public class EntityAttributeHandler {
 
     /**
      * Checks whether a persistent data key belongs to this plugin and follows the attribute key pattern.
+     *
+     * @param key namespaced key stored in an entity's persistent data container
+     * @return true if the key is scoped to this plugin and starts with the attribute prefix
      */
     private boolean isPluginAttributeKey(NamespacedKey key) {
         return key != null && key.getNamespace().equals(plugin.getName().toLowerCase(Locale.ROOT))
@@ -260,6 +300,9 @@ public class EntityAttributeHandler {
 
     /**
      * Extracts the attribute id and whether the key represents a cap override from a stored data key.
+     *
+     * @param key raw key string fetched from a namespaced key
+     * @return parsed attribute details or {@code null} when the key does not match the expected pattern
      */
     private AttributeKeyDetails parseAttributeKey(String key) {
         if (key == null || !key.startsWith(ATTRIBUTE_KEY_PREFIX)) {
@@ -277,6 +320,9 @@ public class EntityAttributeHandler {
 
     /**
      * Looks up an attribute definition using the provided id, accepting either dotted or underscored formats.
+     *
+     * @param attributeId attribute identifier in dotted or underscored form
+     * @return optional definition when found in the facade
      */
     private Optional<AttributeDefinition> findAttributeDefinition(String attributeId) {
         if (attributeId == null || attributeId.isBlank()) {
@@ -286,11 +332,20 @@ public class EntityAttributeHandler {
                 .or(() -> attributeFacade.getDefinition(attributeId.replace('_', '.')));
     }
 
+    /**
+     * Details extracted from a persistent data key including the normalized attribute id and whether it represents a cap.
+     *
+     * @param attributeId sanitized attribute identifier stored in the persistent data key
+     * @param isCap       flag indicating whether the key refers to a cap override entry
+     */
     private record AttributeKeyDetails(String attributeId, boolean isCap) {
     }
 
     /**
      * Encapsulates the newly spawned entity plus a summary of applied attributes for display.
+     *
+     * @param entity  the Bukkit entity created by {@link #spawnAttributedEntity(Location, EntityType, List)}
+     * @param summary comma-delimited description of baseline values and cap overrides applied to the entity
      */
     public record SpawnedEntityResult(Entity entity, String summary) {
     }
@@ -298,6 +353,9 @@ public class EntityAttributeHandler {
     /**
      * Computes and applies a single attribute to non-player and player entities, routing players to the dedicated
      * overload to leverage player-specific computation helpers.
+     *
+     * @param entity      living entity whose computed attribute should be applied
+     * @param attributeId identifier of the attribute to compute
      */
     public void applyVanillaAttribute(LivingEntity entity, String attributeId) {
         if (entity == null || isBlank(attributeId)) {
@@ -321,6 +379,9 @@ public class EntityAttributeHandler {
     /**
      * Computes and applies a single attribute to a player, adjusting the relevant vanilla attribute with a transient
      * modifier based on the computed delta.
+     *
+     * @param player      target player whose computed attribute should be applied
+     * @param attributeId identifier of the attribute to compute
      */
     public void applyVanillaAttribute(Player player, String attributeId) {
         if (player == null || isBlank(attributeId)) {
@@ -337,6 +398,9 @@ public class EntityAttributeHandler {
 
     /**
      * Attempts to resolve a Bukkit {@link Attribute} enum constant from the provided id.
+     *
+     * @param attributeId identifier that may match a vanilla attribute enum constant
+     * @return resolved attribute or {@code null} when no match exists
      */
     private Attribute resolveAttribute(String attributeId) {
         String normalized = attributeId.toUpperCase(Locale.ROOT);
@@ -350,6 +414,11 @@ public class EntityAttributeHandler {
     /**
      * Applies a computed delta to the target attribute using a deterministic modifier id, skipping zero-delta
      * updates to avoid unnecessary churn.
+     *
+     * @param attributable entity or player with the target attribute instance
+     * @param target       vanilla attribute resolved for the provided id
+     * @param attributeId  identifier used to generate a deterministic modifier id
+     * @param computed     fully computed attribute value from the pipeline
      */
     private void applyComputedModifier(Attributable attributable, Attribute target, String attributeId, double computed) {
         if (attributable == null || target == null) {
@@ -363,7 +432,7 @@ public class EntityAttributeHandler {
         UUID modifierId = attributeModifierId(attributeId);
         removeModifierById(instance, modifierId);
 
-        double baseline = instance.getValue();
+        double baseline = instance.getValue(); //VAGUE/IMPROVEMENT NEEDED Value includes existing modifiers; clarify intended baseline
         double delta = computed - baseline;
         if (Math.abs(delta) < ATTRIBUTE_DELTA_EPSILON) {
             return;
@@ -380,6 +449,9 @@ public class EntityAttributeHandler {
 
     /**
      * Generates a deterministic modifier id based on the attribute id to simplify later removal/replacement.
+     *
+     * @param attributeId identifier used to seed the UUID calculation
+     * @return deterministic UUID scoped to the attribute id
      */
     private UUID attributeModifierId(String attributeId) {
         return java.util.UUID.nameUUIDFromBytes((ATTRIBUTE_MODIFIER_PREFIX + attributeId).getBytes(StandardCharsets.UTF_8));
@@ -387,6 +459,9 @@ public class EntityAttributeHandler {
 
     /**
      * Removes a modifier from the instance that matches the provided unique id, if present.
+     *
+     * @param instance   attribute instance to prune modifiers from
+     * @param modifierId deterministic identifier generated for the modifier
      */
     private void removeModifierById(AttributeInstance instance, UUID modifierId) {
         instance.getModifiers().stream()
@@ -411,6 +486,9 @@ public class EntityAttributeHandler {
 
     /**
      * Applies an attribute modifier, preferring Bukkit's transient API when available.
+     *
+     * @param instance attribute instance to mutate
+     * @param modifier modifier representing the computed delta
      */
     private void addModifier(org.bukkit.attribute.AttributeInstance instance,
                              org.bukkit.attribute.AttributeModifier modifier) {
@@ -429,7 +507,6 @@ public class EntityAttributeHandler {
 
         instance.addModifier(modifier);
     }
-
 
     /**
      * Starts (or restarts) the repeating tick that keeps player attributes in sync.
@@ -453,6 +530,8 @@ public class EntityAttributeHandler {
 
     /**
      * Applies computed flying speed to the player, clamping to Bukkit's expected range.
+     *
+     * @param player player whose flying speed should mirror the computed value
      */
     private void applyFlySpeed(Player player) {
         AttributeValueStages stages = attributeFacade.compute("flying_speed", player);
@@ -464,6 +543,8 @@ public class EntityAttributeHandler {
 
     /**
      * Applies swim speed modifier while the player is swimming or submerged.
+     *
+     * @param player player whose swim speed attribute should be refreshed
      */
     private void applySwimSpeed(Player player) {
         org.bukkit.attribute.AttributeInstance instance = player.getAttribute(Attribute.MOVEMENT_SPEED);
