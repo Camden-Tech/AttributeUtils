@@ -50,10 +50,20 @@ public final class AttributeInstance {
     private final Map<String, ModifierEntry> currentTemporaryMultipliers = new LinkedHashMap<>();
     private String capOverrideKey;
 
+    /**
+     * Builds an instance seeded with the definition's configured defaults and no cap override.
+     * The current layer starts at {@link AttributeDefinition#defaultCurrentValue()} so static
+     * attributes can diverge from the default baseline without losing the original default base.
+     */
     public AttributeInstance(AttributeDefinition definition) {
         this(definition, definition.defaultBaseValue(), definition.defaultCurrentValue(), null);
     }
 
+    /**
+     * Builds an instance with explicit baseline values and an optional cap override key. The
+     * default final baseline cache is primed with the definition's configured current baseline so
+     * {@link #synchronizeCurrentBaseWithDefault(double, CapConfig)} can compute deltas correctly.
+     */
     public AttributeInstance(AttributeDefinition definition, double defaultBaseValue, double currentBaseValue, String capOverrideKey) {
         this.definition = Objects.requireNonNull(definition, "definition");
         this.defaultBaseValue = defaultBaseValue;
@@ -62,75 +72,137 @@ public final class AttributeInstance {
         this.capOverrideKey = capOverrideKey;
     }
 
+    /**
+     * Returns the attribute definition driving bucket applicability, caps, and baseline defaults.
+     */
     public AttributeDefinition getDefinition() {
         return definition;
     }
 
+    /**
+     * Returns the current default-layer base value before modifiers or caps are applied.
+     */
     public double getDefaultBaseValue() {
         return defaultBaseValue;
     }
 
+    /**
+     * Sets the default-layer base value without touching the current layer. This is used when only
+     * the shared baseline should change and per-player deltas must remain intact.
+     */
     public void setDefaultBaseValue(double defaultBaseValue) {
         this.defaultBaseValue = defaultBaseValue;
     }
 
+    /**
+     * Alias for {@link #getDefaultBaseValue()} retained for backwards compatibility with callers
+     * that expect the older method name.
+     */
     public double getBaseValue() {
         return defaultBaseValue;
     }
 
+    /**
+     * Updates both default and current baselines to the same value, effectively resetting any
+     * player-specific deltas. Useful when re-seeding from configuration defaults.
+     */
     public void setBaseValue(double baseValue) {
         this.defaultBaseValue = baseValue;
         this.currentBaseValue = baseValue;
     }
 
+    /**
+     * Returns the current-layer base value before computation. This value may diverge from the
+     * default base when attributes are dynamic or have player-specific offsets.
+     */
     public double getCurrentBaseValue() {
         return currentBaseValue;
     }
 
+    /**
+     * Sets the current-layer base value without affecting the default baseline, preserving any
+     * shared reference value.
+     */
     public void setCurrentBaseValue(double currentBaseValue) {
         this.currentBaseValue = currentBaseValue;
     }
 
+    /**
+     * Returns the last computed default final value, used to calculate deltas when syncing the
+     * current baseline after recomputation.
+     */
     public double getDefaultFinalBaseline() {
         return defaultFinalBaseline;
     }
 
+    /**
+     * Updates the cached default final value that represents the last fully-computed default
+     * baseline. This should be called after re-running the computation engine.
+     */
     public void setDefaultFinalBaseline(double defaultFinalBaseline) {
         this.defaultFinalBaseline = defaultFinalBaseline;
     }
 
+    /**
+     * Returns an immutable snapshot of all registered modifiers keyed by normalized key.
+     */
     public Map<String, ModifierEntry> getModifiers() {
         return Map.copyOf(modifiers);
     }
 
+    /**
+     * Snapshot of permanent additive modifiers targeting the default layer. Entries share the
+     * instances stored in {@link #getModifiers()}.
+     */
     public Map<String, ModifierEntry> getDefaultPermanentAdditives() {
         return Map.copyOf(defaultPermanentAdditives);
     }
 
+    /**
+     * Snapshot of temporary additive modifiers targeting the default layer.
+     */
     public Map<String, ModifierEntry> getDefaultTemporaryAdditives() {
         return Map.copyOf(defaultTemporaryAdditives);
     }
 
+    /**
+     * Snapshot of permanent multiplier modifiers targeting the default layer.
+     */
     public Map<String, ModifierEntry> getDefaultPermanentMultipliers() {
         return Map.copyOf(defaultPermanentMultipliers);
     }
 
+    /**
+     * Snapshot of temporary multiplier modifiers targeting the default layer.
+     */
     public Map<String, ModifierEntry> getDefaultTemporaryMultipliers() {
         return Map.copyOf(defaultTemporaryMultipliers);
     }
 
+    /**
+     * Snapshot of permanent additive modifiers targeting the current layer.
+     */
     public Map<String, ModifierEntry> getCurrentPermanentAdditives() {
         return Map.copyOf(currentPermanentAdditives);
     }
 
+    /**
+     * Snapshot of temporary additive modifiers targeting the current layer.
+     */
     public Map<String, ModifierEntry> getCurrentTemporaryAdditives() {
         return Map.copyOf(currentTemporaryAdditives);
     }
 
+    /**
+     * Snapshot of permanent multiplier modifiers targeting the current layer.
+     */
     public Map<String, ModifierEntry> getCurrentPermanentMultipliers() {
         return Map.copyOf(currentPermanentMultipliers);
     }
 
+    /**
+     * Snapshot of temporary multiplier modifiers targeting the current layer.
+     */
     public Map<String, ModifierEntry> getCurrentTemporaryMultipliers() {
         return Map.copyOf(currentTemporaryMultipliers);
     }
@@ -162,6 +234,11 @@ public final class AttributeInstance {
         removeFromBuckets(normalized);
     }
 
+    /**
+     * Drops all temporary modifiers across both layers and buckets while preserving permanent
+     * modifiers. The main modifier map is cleaned alongside the bucket maps to keep references in
+     * sync for future updates.
+     */
     public void purgeTemporaryModifiers() {
         modifiers.entrySet().removeIf(entry -> {
             if (entry.getValue().isTemporary()) {
@@ -176,14 +253,26 @@ public final class AttributeInstance {
         currentTemporaryMultipliers.clear();
     }
 
+    /**
+     * Returns the override key used when resolving cap maxima for this instance.
+     */
     public String getCapOverrideKey() {
         return capOverrideKey;
     }
 
+    /**
+     * Assigns the cap override key that will be honored during value clamping. A {@code null} or
+     * blank key means the global maximum will be used.
+     */
     public void setCapOverrideKey(String capOverrideKey) {
         this.capOverrideKey = capOverrideKey;
     }
 
+    /**
+     * Aligns the current baseline with a newly computed default value using the definition's cap
+     * configuration. This overload preserves the previous behaviour of clamping with the
+     * definition's cap configuration and any override key stored on the instance.
+     */
     public void synchronizeCurrentBaseWithDefault(double defaultFinal) {
         synchronizeCurrentBaseWithDefault(defaultFinal, definition.capConfig());
     }
@@ -191,7 +280,8 @@ public final class AttributeInstance {
     /**
      * Adjusts the current baseline by the same delta applied to the default baseline during
      * computation, then clamps using the provided cap config and override key. This keeps current
-     * values that were previously persisted in line with recalculated defaults.
+     * values that were previously persisted in line with recalculated defaults and ensures cap
+     * overrides remain effective during the sync.
      */
     public void synchronizeCurrentBaseWithDefault(double defaultFinal, CapConfig capConfig) {
         double delta = defaultFinal - defaultFinalBaseline;

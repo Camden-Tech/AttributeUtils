@@ -17,6 +17,10 @@ public record CapConfig(double globalMin, double globalMax, Map<String, Double> 
         overrideMaxValues = overrideMaxValues == null ? new java.util.LinkedHashMap<>() : new java.util.LinkedHashMap<>(overrideMaxValues);
     }
 
+    /**
+     * Resolves the maximum bound to use for a given override key. Blank keys fall back to the
+     * global maximum, and unknown keys default to the configured global cap.
+     */
     public double resolveMax(String overrideKey) {
         if (overrideKey == null || overrideKey.isBlank()) {
             return globalMax;
@@ -24,10 +28,19 @@ public record CapConfig(double globalMin, double globalMax, Map<String, Double> 
         return overrideMaxValues.getOrDefault(overrideKey.toLowerCase(), globalMax);
     }
 
+    /**
+     * Clamps the provided value between the global minimum and maximum with no override key.
+     * Equivalent to calling {@link #clamp(double, String)} with {@code null}.
+     */
     public double clamp(double value) {
         return clamp(value, null);
     }
 
+    /**
+     * Clamps the provided value between the global minimum and the resolved maximum for the given
+     * override key. Override keys map to entries in {@link #overrideMaxValues} and allow different
+     * contexts (such as specific players) to enforce bespoke caps.
+     */
     public double clamp(double value, String overrideKey) {
         double max = resolveMax(overrideKey);
         double clamped = Math.min(value, max);

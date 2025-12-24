@@ -57,34 +57,64 @@ public record ModifierEntry(String key,
         }
     }
 
+    /**
+     * Indicates whether the modifier should be cleared after a temporary effect window. Temporary
+     * entries are the ones {@link AttributeInstance#purgeTemporaryModifiers()} will remove.
+     */
     public boolean isTemporary() {
         return temporary;
     }
 
+    /**
+     * Convenience inverse of {@link #isTemporary()} used by callers that treat permanent modifiers
+     * differently during scheduling.
+     */
     public boolean isPermanent() {
         return !temporary;
     }
 
+    /**
+     * @return {@code true} when this modifier participates in the default computation layer.
+     */
     public boolean isDefaultModifier() {
         return appliesToDefault;
     }
 
+    /**
+     * @return {@code true} when this modifier participates in the current computation layer.
+     */
     public boolean appliesToCurrent() {
         return appliesToCurrent;
     }
 
+    /**
+     * Whether additive amounts should only be multiplied by matched multiplier buckets rather than
+     * the full multiplier stack for the stage.
+     */
     public boolean useMultiplierKeys() {
         return useMultiplierKeys;
     }
 
+    /**
+     * Returns the normalized set of multiplier keys that gate multiplier application when
+     * {@link #useMultiplierKeys()} is true.
+     */
     public Set<String> multiplierKeys() {
         return multiplierKeys;
     }
 
+    /**
+     * Exposes the optional duration as an {@link Optional}, preserving {@code null} to represent a
+     * timeless modifier while still allowing callers to use fluent Optional APIs.
+     */
     public Optional<Double> durationSecondsOptional() {
         return Optional.ofNullable(durationSeconds);
     }
 
+    /**
+     * Normalizes multiplier key input by lowercasing entries and discarding {@code null} values so
+     * bucket matching remains case-insensitive and null-safe.
+     */
     private Set<String> normalizeMultiplierKeys(Set<String> keys) {
         if (keys == null) {
             return Collections.emptySet();
