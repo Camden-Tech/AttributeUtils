@@ -9,6 +9,9 @@ import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import com.google.common.collect.Multimap;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
@@ -59,9 +62,14 @@ public class ItemAttributeHandler {
      */
     public ItemBuildResult buildAttributeItem(Material material, List<CommandParsingUtils.AttributeDefinition> definitions) {
         ItemStack itemStack = new ItemStack(material);
+        Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = itemStack.getAttributeModifiers();
         ItemMeta meta = itemStack.getItemMeta();
         if (meta == null) {
             throw new IllegalArgumentException("unsupported-material");
+        }
+
+        if (defaultAttributeModifiers != null && (meta.getAttributeModifiers() == null || meta.getAttributeModifiers().isEmpty())) {
+            meta.setAttributeModifiers(defaultAttributeModifiers);
         }
 
         PersistentDataContainer container = meta.getPersistentDataContainer();
