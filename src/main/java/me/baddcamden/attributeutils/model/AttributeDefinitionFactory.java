@@ -19,6 +19,14 @@ public final class AttributeDefinitionFactory {
     private AttributeDefinitionFactory() {
     }
 
+    /**
+     * Builds the set of vanilla attribute definitions using defaults and caps from the provided
+     * configuration. Values fall back to hard-coded baselines when configuration is absent.
+     *
+     * @param config root configuration containing {@code vanilla-attribute-defaults} and
+     *               {@code global-attribute-caps} sections
+     * @return ordered map keyed by normalized attribute identifiers
+     */
     public static Map<String, AttributeDefinition> vanillaAttributes(FileConfiguration config) {
         Map<String, AttributeDefinition> definitions = new LinkedHashMap<>();
 
@@ -209,6 +217,14 @@ public final class AttributeDefinitionFactory {
         registerConfigCaps(consumer, caps, Set.of());
     }
 
+    /**
+     * Registers capped attributes while skipping over known identifiers. Useful when vanilla caps
+     * have already been registered and only custom entries should be considered.
+     *
+     * @param consumer receiver of each created attribute definition
+     * @param caps      configuration section under {@code global-attribute-caps}
+     * @param skipKeys  normalized identifiers to ignore during registration
+     */
     public static void registerConfigCaps(Consumer<AttributeDefinition> consumer, ConfigurationSection caps, Set<String> skipKeys) {
         if (caps == null) {
             return;
@@ -225,19 +241,34 @@ public final class AttributeDefinitionFactory {
         }
     }
 
+    /**
+     * Convenience overload that creates a capped, non-dynamic attribute using identical default
+     * values for both baselines.
+     */
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue) {
         return cappedAttribute(id, displayName, capValue, false);
     }
 
+    /**
+     * Convenience overload that creates a capped attribute and flags whether its current baseline
+     * should be treated as dynamic.
+     */
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic) {
         return cappedAttribute(id, displayName, capValue, dynamic, capValue);
     }
 
+    /**
+     * Convenience overload that builds a capped attribute with the provided default value applied
+     * to both default and current baselines.
+     */
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic, double defaultValue) {
         CapConfig capConfig = new CapConfig(0, capValue, Map.of());
         return cappedAttribute(id, displayName, capConfig, dynamic, defaultValue);
     }
 
+    /**
+     * Core factory for building a capped attribute definition.
+     */
     public static AttributeDefinition cappedAttribute(String id,
                                                       String displayName,
                                                       CapConfig capConfig,
@@ -279,6 +310,7 @@ public final class AttributeDefinitionFactory {
             }
         }
 
+        //VAGUE/IMPROVEMENT NEEDED Precedence between root-level keys and default sections is implicit; document or refactor to avoid surprising overrides.
         if (config.isSet(configKey)) {
             return config.getDouble(configKey, fallback);
         }

@@ -12,12 +12,23 @@ import java.util.Objects;
  * deltas are applied. Caps and multiplier applicability are shared by both layers.</p>
  */
 public record AttributeDefinition(
+        /** Unique identifier used for lookups and persistence. */
         String id,
+        /** User-facing label shown in logs or UIs. */
         String displayName,
+        /**
+         * Whether the current baseline is expected to diverge from the default baseline over time.
+         * Static attributes keep the current baseline aligned with the default baseline during
+         * recomputation.
+         */
         boolean dynamic,
+        /** Baseline applied to both layers when constructing a new {@link AttributeInstance}. */
         double defaultBaseValue,
+        /** Starting current-layer baseline before player- or context-specific adjustments. */
         double defaultCurrentValue,
+        /** Cap behaviour shared by the default and current layers. */
         CapConfig capConfig,
+        /** Rules describing which multiplier modifiers should participate in computations. */
         MultiplierApplicability multiplierApplicability
 ) {
 
