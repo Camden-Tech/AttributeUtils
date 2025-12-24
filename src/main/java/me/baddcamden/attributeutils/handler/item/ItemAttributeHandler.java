@@ -44,6 +44,10 @@ public class ItemAttributeHandler {
     private final Plugin plugin;
     private final Map<UUID, Map<String, String>> appliedItemModifierKeys = new HashMap<>();
 
+    /**
+     * Creates a handler that reads item metadata into the attribute pipeline and shares vanilla application helpers
+     * with the entity handler for post-processing computed values.
+     */
     public ItemAttributeHandler(AttributeFacade attributeFacade,
                                Plugin plugin,
                                EntityAttributeHandler entityAttributeHandler) {
@@ -186,6 +190,10 @@ public class ItemAttributeHandler {
         applyVanillaAttributes(entity, touchedAttributes);
     }
 
+    /**
+     * Scans the provided items for attribute metadata, applying modifiers that satisfy trigger criteria and tracking
+     * active modifier keys for later cleanup.
+     */
     private void scanItems(ItemStack[] items,
                            TriggerCriterion.ItemSlotContext.Bucket bucket,
                            LivingEntity entity,
@@ -243,6 +251,10 @@ public class ItemAttributeHandler {
         }
     }
 
+    /**
+     * Persists a modifier entry for the given attribute when the associated trigger criterion is satisfied, storing
+     * bookkeeping keys so the modifier can be refreshed or removed on future scans.
+     */
     private void applyModifier(LivingEntity entity,
                                String attributeId,
                                double value,
@@ -272,17 +284,27 @@ public class ItemAttributeHandler {
         currentKeyAttributes.put(source, definition.get().id());
     }
 
+    /**
+     * Constructs a deterministic key describing where a modifier originated (bucket, slot, criterion, attribute).
+     */
     private String buildModifierKey(TriggerCriterion.ItemSlotContext context, TriggerCriterion criterion, String attributeId) {
         String bucketLabel = context.bucket().name().toLowerCase(Locale.ROOT);
         return "attributeutils." + bucketLabel + "." + context.slot() + "." + criterion.key() + "." + attributeId;
     }
 
+    /**
+     * Resolves the stored trigger criterion for an attribute on an item, falling back to the default when none is
+     * present or the stored value is invalid.
+     */
     private TriggerCriterion resolveCriterion(PersistentDataContainer container, String attributeId) {
         NamespacedKey criteriaKey = criterionKey(attributeId);
         String stored = container.get(criteriaKey, PersistentDataType.STRING);
         return TriggerCriterion.fromRaw(stored).orElse(TriggerCriterion.defaultCriterion());
     }
 
+    /**
+     * Attempts to resolve an attribute id, accepting either sanitized (underscore) or dotted variants.
+     */
     private String resolveAttributeId(String sanitizedId) {
         if (sanitizedId == null || sanitizedId.isBlank()) {
             return null;
@@ -297,32 +319,56 @@ public class ItemAttributeHandler {
         return attributeFacade.getDefinition(dotted).map(AttributeDefinition::id).orElse(null);
     }
 
+    /**
+     * Builds the persistent data key used to store an attribute value on an item.
+     */
     private NamespacedKey valueKey(String attributeId) {
         return new NamespacedKey(plugin, "attr_" + sanitize(attributeId));
     }
 
+    /**
+     * Builds the persistent data key used to store an attribute cap override on an item.
+     */
     private NamespacedKey capKey(String attributeId) {
         return new NamespacedKey(plugin, "attr_" + sanitize(attributeId) + "_cap");
     }
 
+    /**
+     * Builds the persistent data key used to store trigger criteria for an attribute on an item.
+     */
     private NamespacedKey criterionKey(String attributeId) {
         return new NamespacedKey(plugin, "attr_" + sanitize(attributeId) + "_criteria");
     }
 
+    /**
+     * Normalizes attribute identifiers to a safe, namespace-friendly form for persistent data keys.
+     */
     private String sanitize(String attributeId) {
         return attributeId.toLowerCase(Locale.ROOT).replace('.', '_');
     }
 
+    /**
+     * Clears cached modifier bookkeeping for a player, typically when the player disconnects.
+     */
     public void clearAppliedModifiers(UUID playerId) {
         appliedItemModifierKeys.remove(playerId);
     }
 
+    /**
+     * Records the built item and summary of applied attributes when responding to commands.
+     */
     public record ItemBuildResult(ItemStack itemStack, String summary) {
     }
 
+    /**
+     * Indicates whether any overflow items were dropped when delivering an attributed item.
+     */
     public record ItemDeliveryResult(boolean dropped) {
     }
 
+    /**
+     * Applies any touched attributes to vanilla Bukkit fields after item modifiers have been reconciled.
+     */
     private void applyVanillaAttributes(LivingEntity entity, Set<String> touchedAttributes) {
         if (entity == null || touchedAttributes.isEmpty()) {
             return;
