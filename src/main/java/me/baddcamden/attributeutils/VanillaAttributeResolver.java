@@ -6,6 +6,7 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Player;
 
 import java.util.Locale;
+import java.util.function.DoubleSupplier;
 
 /**
  * Utility methods for extracting vanilla (non-AttributeUtils) values from Bukkit attribute instances.
@@ -14,6 +15,10 @@ import java.util.Locale;
  */
 public final class VanillaAttributeResolver {
 
+    /**
+     * Prefix used by AttributeUtils-authored modifiers so they can be ignored when reproducing
+     * vanilla calculations.
+     */
     private static final String ATTRIBUTEUTILS_PREFIX = "attributeutils:";
 
     private VanillaAttributeResolver() {
@@ -21,7 +26,8 @@ public final class VanillaAttributeResolver {
 
     /**
      * Resolves the vanilla value for the provided attribute instance by recomputing the base value plus
-     * non-AttributeUtils modifiers. The calculation mirrors the order used by the game:
+     * non-AttributeUtils modifiers. The calculation mirrors the order used by the game so that the
+     * final number matches what vanilla would expose:
      * <ul>
      *     <li>Base value plus {@link AttributeModifier.Operation#ADD_NUMBER}.</li>
      *     <li>Base-scaled {@link AttributeModifier.Operation#ADD_SCALAR} contributions.</li>
@@ -46,6 +52,7 @@ public final class VanillaAttributeResolver {
             if (isPluginModifier(modifier)) {
                 continue;
             }
+            // Separating operations keeps parity with Bukkit's aggregation order.
             switch (modifier.getOperation()) {
                 case ADD_NUMBER -> additive += modifier.getAmount();
                 case ADD_SCALAR -> scalar += modifier.getAmount();
@@ -58,7 +65,8 @@ public final class VanillaAttributeResolver {
 
     /**
      * Resolves the vanilla value for a player attribute, delegating to {@link #resolveVanillaValue(AttributeInstance, double)}
-     * and falling back to the provided supplier when the attribute is not present.
+     * when a live attribute instance exists and otherwise using the provided supplier for equipment-driven values
+     * (for example, during login before attributes are hydrated).
      *
      * @param player               player that owns the attribute.
      * @param attribute            Bukkit attribute to resolve.
@@ -69,7 +77,7 @@ public final class VanillaAttributeResolver {
     public static double resolvePlayerAttribute(Player player,
                                                 Attribute attribute,
                                                 double fallback,
-                                                java.util.function.DoubleSupplier equipmentComputation) {
+                                                DoubleSupplier equipmentComputation) {
         if (player == null || attribute == null) {
             return fallback;
         }
@@ -77,9 +85,18 @@ public final class VanillaAttributeResolver {
         if (instance != null) {
             return resolveVanillaValue(instance, fallback);
         }
+        //VAGUE/IMPROVEMENT NEEDED clarify whether the equipment supplier should factor in plugin-created
+        // modifiers or only items native to vanilla when no attribute instance exists.
         return equipmentComputation == null ? fallback : equipmentComputation.getAsDouble();
     }
 
+    /**
+     * Detects whether the provided modifier originated from AttributeUtils by checking the name prefix.
+     * This is used to prevent plugin-added modifiers from being included when recreating vanilla-only values.
+     *
+     * @param modifier modifier to inspect; null yields {@code false}.
+     * @return {@code true} when the modifier name starts with the AttributeUtils prefix (case-insensitive).
+     */
     static boolean isPluginModifier(AttributeModifier modifier) {
         if (modifier == null) {
             return false;
