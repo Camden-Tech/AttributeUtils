@@ -81,11 +81,12 @@ public class AttributeCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        Player player = (Player) sender;
         sender.sendMessage(messages.format(
                 "messages.attribute-command.header",
                 "§bRegistered attributes:"));
         attributeFacade.getDefinitions().forEach(definition -> {
-            AttributeValueStages stages = attributeFacade.compute(definition.id(), (Player) sender);
+            AttributeValueStages stages = attributeFacade.compute(definition.id(), player);
             sender.sendMessage(buildPlayerLine(definition.displayName(), stages));
         });
         return true;
@@ -95,16 +96,11 @@ public class AttributeCommand implements CommandExecutor, TabCompleter {
      * Builds the formatted output line for a player's attribute values.
      *
      * @param displayName human-friendly attribute display name.
-     * @param stages      computed stages for the player. Assumes {@link AttributeValueStages}
-     *                    provides raw and final values for both default (base) and current
-     *                    (including modifiers) states.
-     * @return formatted line including:
-     * <ul>
-     *     <li>{@code rawDefault}: base value before defaults are finalized.</li>
-     *     <li>{@code default}: finalized default value.</li>
-     *     <li>{@code rawCurrent}: current raw value before final modifiers.</li>
-     *     <li>{@code final}: finalized current value.</li>
-     * </ul>
+     * @param stages      computed stages for the player. The record contains intermediate values
+     *                    for raw/default/current states, but only the raw and final values are
+     *                    surfaced to keep chat output concise.
+     * @return formatted line containing the raw default, final default, raw current, and final
+     * current values for the attribute.
      */
     private String buildPlayerLine(String displayName, AttributeValueStages stages) {
         return ChatColor.GRAY + " - " + displayName + ChatColor.WHITE +
