@@ -33,6 +33,13 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
     private final CommandMessages messages;
     private static final List<String> CRITERIA = TriggerCriterion.keys();
 
+    /**
+     * Creates a new handler for item attribute commands.
+     *
+     * @param plugin               owning plugin used for permissions and configuration lookups.
+     * @param itemAttributeHandler builder responsible for writing attribute data into item metadata.
+     * @param attributeFacade      attribute registry used to validate requested attributes.
+     */
     public ItemAttributeCommand(Plugin plugin, ItemAttributeHandler itemAttributeHandler, me.baddcamden.attributeutils.api.AttributeFacade attributeFacade) {
         this.plugin = plugin;
         this.itemAttributeHandler = itemAttributeHandler;
@@ -40,6 +47,11 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
         this.messages = new CommandMessages(plugin);
     }
 
+    /**
+     * Generates an attribute-infused item for a player by parsing attribute definitions and criteria from the argument
+     * list. The command validates permissions, player availability, target material support, and attribute existence
+     * before delegating to {@link ItemAttributeHandler} for item creation and delivery.
+     */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("attributeutils.command.items")) {
@@ -106,6 +118,10 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /**
+     * Attempts to resolve a material from user input, checking literal, upper-cased, and enum name matches in that
+     * order to maximize compatibility with how senders typically specify items.
+     */
     private Material resolveMaterial(String raw) {
         Material material = Material.matchMaterial(raw);
         if (material != null) {
@@ -122,6 +138,11 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    /**
+     * Supplies tab completion for item attribute arguments, rotating through player, material, plugin, name, value,
+     * and optional cap/criteria tokens. When enough arguments are present, suggestions loop so multiple attribute
+     * definitions can be entered sequentially.
+     */
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
@@ -162,6 +183,9 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
+    /**
+     * Lists plugin namespaces for registered attributes, used as the first token of an attribute definition.
+     */
     private List<String> attributePlugins() {
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
                 .map(value -> value.split("\\.", 2)[0])
@@ -170,6 +194,10 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * Lists attribute names for the provided plugin namespace so the second token of an attribute definition can be
+     * suggested.
+     */
     private List<String> attributeNames(String pluginName) {
         String normalized = pluginName == null ? "" : pluginName.toLowerCase(Locale.ROOT);
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
@@ -179,6 +207,9 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * @return sorted online player names for the initial command argument.
+     */
     private List<String> playerNames() {
         return plugin.getServer().getOnlinePlayers().stream()
                 .map(Player::getName)
@@ -186,6 +217,9 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * @return sorted list of material enum names to assist users choosing an item base.
+     */
     private List<String> materials() {
         return java.util.Arrays.stream(Material.values())
                 .map(Enum::name)
@@ -193,6 +227,9 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Filters the provided options by the given prefix using case-insensitive comparison.
+     */
     private List<String> filter(List<String> options, String prefix) {
         String lower = prefix.toLowerCase(Locale.ROOT);
         List<String> matches = new ArrayList<>();
@@ -204,6 +241,9 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
         return matches;
     }
 
+    /**
+     * Builds {@code criteria=} suggestions from the known {@link TriggerCriterion} keys.
+     */
     private List<String> criteriaOptions() {
         return CRITERIA.stream()
                 .map(option -> "criteria=" + option)

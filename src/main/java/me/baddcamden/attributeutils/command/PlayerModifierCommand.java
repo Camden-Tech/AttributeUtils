@@ -35,6 +35,13 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
     private final EntityAttributeHandler entityAttributeHandler;
     private final CommandMessages messages;
 
+    /**
+     * Creates a new player modifier command handler.
+     *
+     * @param plugin                 owning plugin for scheduling and configuration.
+     * @param attributeFacade        facade used to read and mutate player attribute state.
+     * @param entityAttributeHandler utility for updating vanilla attributes after modifier changes.
+     */
     public PlayerModifierCommand(Plugin plugin,
                                  AttributeFacade attributeFacade,
                                  EntityAttributeHandler entityAttributeHandler) {
@@ -44,6 +51,10 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         this.messages = new CommandMessages(plugin);
     }
 
+    /**
+     * Delegates to add or remove handlers depending on the user-supplied action after verifying permissions and basic
+     * argument presence. Unknown actions return usage information without mutating state.
+     */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("attributeutils.command.modifiers")) {
@@ -79,6 +90,11 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /**
+     * Parses modifier additions for a target player, validating attribute existence, optional duration and scope
+     * tokens, and multiplier lists. Successful calls write the modifier, apply vanilla attributes, and schedule
+     * cleanup tasks for temporary entries.
+     */
     private boolean handleAdd(CommandSender sender, String label, String targetName, String[] args) {
         if (args.length < 7) {
             sender.sendMessage(messages.format(
@@ -234,6 +250,10 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /**
+     * Removes a modifier entry for a specific attribute on the provided player, applying the vanilla attribute update
+     * after mutation and returning detailed error messages for missing players or attributes.
+     */
     private boolean handleRemove(CommandSender sender, String label, String targetName, String[] args) {
         Player target = plugin.getServer().getPlayerExact(targetName);
         if (target == null) {
@@ -276,6 +296,10 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    /**
+     * Supplies tab completion for the add/remove flows, dynamically suggesting player names, action keywords,
+     * attribute ids, modifier keys, numeric defaults, and optional flags based on the current argument position.
+     */
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
@@ -369,10 +393,16 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         return Collections.emptyList();
     }
 
+    /**
+     * @return scope option tokens used after the primary add parameters.
+     */
     private List<String> scopeOptions() {
         return List.of("scope=default", "scope=current", "scope=both");
     }
 
+    /**
+     * Lists plugin namespaces pulled from registered attributes for tab completion.
+     */
     private List<String> attributePlugins() {
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
                 .map(value -> value.split("\\.", 2)[0])
@@ -381,6 +411,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * Lists attribute names for a given plugin namespace so the attribute id can be completed.
+     */
     private List<String> attributeNames(String pluginName) {
         String normalized = pluginName == null ? "" : pluginName.toLowerCase(Locale.ROOT);
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
@@ -390,6 +423,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * Collects attribute ids for the specified player that currently have modifiers. Used to scope remove suggestions.
+     */
     private List<String> activeAttributeKeys(String playerName) {
         Player player = plugin.getServer().getPlayerExact(playerName);
         if (player == null) {
@@ -406,6 +442,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeIds, plugin.getName());
     }
 
+    /**
+     * Retrieves modifier keys associated with the provided attribute for the given player.
+     */
     private List<String> activeModifierKeys(String playerName, String attributeId) {
         Player player = plugin.getServer().getPlayerExact(playerName);
         if (player == null || attributeId == null || attributeId.isBlank()) {
@@ -425,6 +464,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 .orElse(List.of());
     }
 
+    /**
+     * @return sorted online player names for quick targeting.
+     */
     private List<String> playerNames() {
         return plugin.getServer().getOnlinePlayers().stream()
                 .map(Player::getName)
@@ -432,12 +474,18 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
                 .toList();
     }
 
+    /**
+     * Builds a fallback modifier key using the plugin namespace and normalized attribute name for add tab completion.
+     */
     private String defaultModifierKey(String attributeName) {
         String normalizedAttribute = normalizeAttributeName(attributeName);
         String pluginName = plugin.getName() == null ? "" : plugin.getName().toLowerCase(Locale.ROOT);
         return pluginName.isBlank() ? normalizedAttribute : pluginName + "." + normalizedAttribute;
     }
 
+    /**
+     * Normalizes attribute names to lower-case, replaces dashes, and strips namespaces when present.
+     */
     private String normalizeAttributeName(String attributeName) {
         if (attributeName == null) {
             return "";
@@ -449,6 +497,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         return normalized;
     }
 
+    /**
+     * Filters the provided options by the supplied prefix using case-insensitive comparison.
+     */
     private List<String> filter(List<String> options, String prefix) {
         String lower = prefix.toLowerCase(java.util.Locale.ROOT);
         List<String> matches = new ArrayList<>();
@@ -460,6 +511,9 @@ public class PlayerModifierCommand implements CommandExecutor, TabCompleter {
         return matches;
     }
 
+    /**
+     * Determines whether the provided value can be parsed as a double. Used to detect implicit duration arguments.
+     */
     private boolean isNumeric(String value) {
         try {
             Double.parseDouble(value);
