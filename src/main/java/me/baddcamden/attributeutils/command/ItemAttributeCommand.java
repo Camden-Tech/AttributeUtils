@@ -1,5 +1,6 @@
 package me.baddcamden.attributeutils.command;
 
+import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.handler.item.ItemAttributeHandler;
 import me.baddcamden.attributeutils.handler.item.TriggerCriterion;
 import org.bukkit.Bukkit;
@@ -13,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -20,27 +22,33 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Interprets item-focused commands that write attribute baselines and modifiers onto held items.
- * Inputs map to the same stages as entity commands: {@code default/current/base} adjust baselines stored on the item
- * metadata, while {@code cap} alters the cap enforced during computation. Modifier subcommands populate the item
- * modifier buckets so they are included alongside player/global modifiers in the final stage.
+ * Interprets item-focused commands that write attribute baselines and modifiers onto generated items.
+ *
+ * <p>The command shape mirrors entity attribute commands: attribute definitions start after the material token,
+ * and support {@code <plugin> <name> <value> [cap=<cap>] [criteria=<criteria> ...]} sequences. Values are written to
+ * item metadata so the attributes travel with the item instead of the player. Optional {@code cap} tokens apply an
+ * upper bound to that attribute definition only, while {@code criteria} tokens populate modifier buckets so item
+ * modifiers activate alongside player/global modifiers during computation.</p>
+ *
+ * <p>Callers are expected to validate permissions and input structure before modifying or delivering items; this
+ * executor provides the parsing, validation, and delivery for {@code /<label> <player> <material> ...} commands.</p>
  */
 public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
 
     private final Plugin plugin;
     private final ItemAttributeHandler itemAttributeHandler;
-    private final me.baddcamden.attributeutils.api.AttributeFacade attributeFacade;
+    private final AttributeFacade attributeFacade;
     private final CommandMessages messages;
     private static final List<String> CRITERIA = TriggerCriterion.keys();
 
     /**
      * Creates a new handler for item attribute commands.
      *
-     * @param plugin               owning plugin used for permissions and configuration lookups.
+     * @param plugin               owning plugin used for permissions, message formatting, and online player lookups.
      * @param itemAttributeHandler builder responsible for writing attribute data into item metadata.
      * @param attributeFacade      attribute registry used to validate requested attributes.
      */
-    public ItemAttributeCommand(Plugin plugin, ItemAttributeHandler itemAttributeHandler, me.baddcamden.attributeutils.api.AttributeFacade attributeFacade) {
+    public ItemAttributeCommand(Plugin plugin, ItemAttributeHandler itemAttributeHandler, AttributeFacade attributeFacade) {
         this.plugin = plugin;
         this.itemAttributeHandler = itemAttributeHandler;
         this.attributeFacade = attributeFacade;
@@ -51,6 +59,10 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
      * Generates an attribute-infused item for a player by parsing attribute definitions and criteria from the argument
      * list. The command validates permissions, player availability, target material support, and attribute existence
      * before delegating to {@link ItemAttributeHandler} for item creation and delivery.
+     *
+     * <p>The argument order is strictly {@code <player> <material> <plugin> <name> <value> [...definitions...]}. When
+     * multiple attribute definitions are present, they repeat the {@code plugin/name/value} sequence with optional
+     * {@code cap} or {@code criteria} tokens trailing each definition.</p>
      */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -101,6 +113,7 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
                         ChatColor.RED + "That material cannot hold attribute data."));
                 return true;
             }
+            //VAGUE/IMPROVEMENT NEEDED use typed error codes instead of relying on the exception message text
             sender.sendMessage(messages.format("messages.item-command.unknown-attribute", Map.of("attribute", ex.getMessage()),
                     ChatColor.RED + "Unknown attribute: " + ex.getMessage()));
             return true;
@@ -221,7 +234,7 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
      * @return sorted list of material enum names to assist users choosing an item base.
      */
     private List<String> materials() {
-        return java.util.Arrays.stream(Material.values())
+        return Arrays.stream(Material.values())
                 .map(Enum::name)
                 .sorted()
                 .collect(Collectors.toList());
