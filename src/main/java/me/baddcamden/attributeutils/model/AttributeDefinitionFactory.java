@@ -10,15 +10,23 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Utility methods for building {@link AttributeDefinition} instances from configuration. The
- * helpers mirror the engine's concepts: each definition has a default baseline, optional
- * dynamic current baseline, and cap configuration that can be overridden via keyed entries.
+ * Utility methods for building {@link AttributeDefinition} instances from configuration.
+ * The helpers mirror the engine's concepts: each definition has a default baseline,
+ * optional dynamic current baseline, and cap configuration that can be overridden via
+ * keyed entries. The factory keeps all helpers stateless and focused on configuration
+ * parsing to simplify consumption elsewhere in the plugin.
  */
 public final class AttributeDefinitionFactory {
 
     private AttributeDefinitionFactory() {
     }
 
+    /**
+     * Builds a set of vanilla attribute definitions using configured defaults and caps.
+     *
+     * @param config configuration to read values from
+     * @return ordered map of attribute id to definition to preserve declaration order
+     */
     public static Map<String, AttributeDefinition> vanillaAttributes(FileConfiguration config) {
         Map<String, AttributeDefinition> definitions = new LinkedHashMap<>();
 
@@ -204,11 +212,21 @@ public final class AttributeDefinitionFactory {
      * Registers capped attributes found in configuration with the provided consumer. Each entry is
      * converted into a {@link CapConfig} that respects per-key overrides so callers can map
      * override keys (such as player identifiers) to distinct maxima.
+     *
+     * @param consumer destination for generated definitions
+     * @param caps configuration section containing caps by key
      */
     public static void registerConfigCaps(Consumer<AttributeDefinition> consumer, ConfigurationSection caps) {
         registerConfigCaps(consumer, caps, Set.of());
     }
 
+    /**
+     * Registers capped attributes found in configuration while skipping known keys.
+     *
+     * @param consumer destination for generated definitions
+     * @param caps configuration section containing caps by key
+     * @param skipKeys normalized keys to ignore when creating definitions
+     */
     public static void registerConfigCaps(Consumer<AttributeDefinition> consumer, ConfigurationSection caps, Set<String> skipKeys) {
         if (caps == null) {
             return;
@@ -221,6 +239,7 @@ public final class AttributeDefinitionFactory {
             }
             ConfigurationSection capSection = caps.getConfigurationSection(key);
             double capValue = capSection == null ? caps.getDouble(key) : capSection.getDouble("max", caps.getDouble(key));
+            // VAGUE/IMPROVEMENT NEEDED deciding precedence when both section and scalar exist is implicit; clarify desired priority
             consumer.accept(cappedAttribute(normalizedKey, humanize(normalizedKey), capValue));
         }
     }
@@ -229,15 +248,25 @@ public final class AttributeDefinitionFactory {
         return cappedAttribute(id, displayName, capValue, false);
     }
 
+    /**
+     * Creates an attribute definition with a static cap and default current/base values equal to
+     * the cap.
+     */
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic) {
         return cappedAttribute(id, displayName, capValue, dynamic, capValue);
     }
 
+    /**
+     * Creates an attribute definition with a static cap and explicit default values.
+     */
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue, boolean dynamic, double defaultValue) {
         CapConfig capConfig = new CapConfig(0, capValue, Map.of());
         return cappedAttribute(id, displayName, capConfig, dynamic, defaultValue);
     }
 
+    /**
+     * Creates an attribute definition with the provided cap configuration and default values.
+     */
     public static AttributeDefinition cappedAttribute(String id,
                                                       String displayName,
                                                       CapConfig capConfig,
@@ -254,6 +283,9 @@ public final class AttributeDefinitionFactory {
         );
     }
 
+    /**
+     * Converts an identifier into a user-facing label with spaces and capitalized first letter.
+     */
     private static String humanize(String id) {
         String withSpaces = id.replace('_', ' ').trim();
         if (withSpaces.isEmpty()) {
@@ -266,6 +298,10 @@ public final class AttributeDefinitionFactory {
         return defaultValue(config, attributeId, "default-base", fallback);
     }
 
+    /**
+     * Resolves a default value for a configured attribute by searching nested defaults and
+     * falling back to the attribute root or provided fallback.
+     */
     private static double defaultValue(FileConfiguration config, String attributeId, String field, double fallback) {
         String configKey = configKey(attributeId);
         ConfigurationSection defaults = config.getConfigurationSection("vanilla-attribute-defaults");
@@ -285,6 +321,11 @@ public final class AttributeDefinitionFactory {
         return fallback;
     }
 
+    /**
+     * Builds a {@link CapConfig} from the {@code global-attribute-caps} configuration section,
+     * preserving override entries. Overrides use normalized keys so different dash/underscore
+     * styles map to the same identifier.
+     */
     private static CapConfig capConfig(FileConfiguration config, String attributeId, double defaultMax) {
         double min = 0;
         double max = defaultMax;
@@ -310,6 +351,10 @@ public final class AttributeDefinitionFactory {
         return new CapConfig(min, max, overrides);
     }
 
+    /**
+     * Ensures the generated cap configuration respects a minimum allowed value in addition to
+     * any configured minimum.
+     */
     private static CapConfig capConfigWithMin(FileConfiguration config, String attributeId, double defaultMax, double minimum) {
         CapConfig base = capConfig(config, attributeId, defaultMax);
         double enforcedMin = Math.max(base.globalMin(), minimum);
