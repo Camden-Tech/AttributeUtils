@@ -42,6 +42,9 @@ public class ItemAttributeHandler {
     private final AttributeFacade attributeFacade;
     private final EntityAttributeHandler entityAttributeHandler;
     private final Plugin plugin;
+    /**
+     * Tracks which modifier keys were applied for each player so stale entries can be removed when items change.
+     */
     private final Map<UUID, Map<String, String>> appliedItemModifierKeys = new HashMap<>();
 
     /**
@@ -72,6 +75,7 @@ public class ItemAttributeHandler {
             throw new IllegalArgumentException("unsupported-material");
         }
         Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = meta.getAttributeModifiers();
+        //VAGUE/IMPROVEMENT NEEDED clarify when Bukkit returns null here and whether copying prevents vanilla defaults from being wiped
         if (defaultAttributeModifiers != null && (meta.getAttributeModifiers() == null || meta.getAttributeModifiers().isEmpty())) {
             meta.setAttributeModifiers(defaultAttributeModifiers);
         }
@@ -355,13 +359,18 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Records the built item and summary of applied attributes when responding to commands.
+     * Bundles the built item and a concise textual description of the attributes applied to it.
+     *
+     * @param itemStack the finalized item with persistent attribute metadata and lore
+     * @param summary   comma-separated summary of applied attributes, caps, and trigger keys
      */
     public record ItemBuildResult(ItemStack itemStack, String summary) {
     }
 
     /**
-     * Indicates whether any overflow items were dropped when delivering an attributed item.
+     * Communicates whether overflow occurred when attempting to deliver an attribute item to a player.
+     *
+     * @param dropped {@code true} if one or more items were dropped at the player's location due to lack of space
      */
     public record ItemDeliveryResult(boolean dropped) {
     }
