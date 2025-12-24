@@ -20,19 +20,23 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Handles entity-scoped attribute commands that adjust or view a target's baselines and modifiers.
+ * Handles entity-scoped attribute commands that spawn attributed entities with validated attribute definitions.
  * <p>
- * Parsed player/entity selectors are mapped to {@link me.baddcamden.attributeutils.model.AttributeInstance}s where
- * default/current baselines can be changed and modifier buckets are updated. Cap inputs are run through
- * {@link me.baddcamden.attributeutils.model.CapConfig#clamp(double, java.util.UUID)} before being stored so later
- * computations respect stage boundaries.
+ * The command parses sender input into {@link me.baddcamden.attributeutils.model.AttributeInstance} data, clamps cap
+ * values via {@link me.baddcamden.attributeutils.model.CapConfig#clamp(double, java.util.UUID)}, and ensures
+ * disallowed entities are not created.
  */
 public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
+    /** Owning plugin used for permissions, config, and logger access. */
     private final Plugin plugin;
+    /** Handler responsible for spawning and mutating entities with attribute data attached. */
     private final EntityAttributeHandler entityAttributeHandler;
+    /** Cached list of entity types that should not be spawned via this command. */
     private final Set<EntityType> disallowedEntityTypes;
+    /** Attribute registry used to validate requested attribute keys. */
     private final me.baddcamden.attributeutils.api.AttributeFacade attributeFacade;
+    /** Message formatter for localization-aware feedback. */
     private final CommandMessages messages;
 
     /**
@@ -54,6 +58,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
      * Parses the entity attribute command to spawn an attributed mob near the player. The method validates permissions,
      * sender type, entity availability, disallowed lists, and attribute definitions before delegating to
      * {@link EntityAttributeHandler#spawnAttributedEntity}.
+     *
+     * <p>Execution short-circuits with user-facing messages whenever an invalid state is detected rather than throwing
+     * errors to the console, so players receive immediate feedback.</p>
      */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -134,6 +141,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
     /**
      * Attempts to resolve an {@link EntityType} using Bukkit's lookup facilities and enum names, allowing flexible
      * casing from command senders.
+     *
+     * @param raw user-provided entity name.
+     * @return matched {@link EntityType} or {@code null} if not found.
      */
     private EntityType resolveEntityType(String raw) {
         EntityType entityType = EntityType.fromName(raw);
@@ -149,6 +159,8 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Reads the disallowed entity list from configuration and resolves each entry to an {@link EntityType}.
+     *
+     * @return cached set of types that should not be available to this command.
      */
     private Set<EntityType> loadDisallowedTypes() {
         List<String> configured = plugin.getConfig().getStringList("entity-command.disallowed-entities");
@@ -179,6 +191,7 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
         if (args.length >= 2) {
             int index = 1;
             while (index < args.length) {
+                //VAGUE/IMPROVEMENT NEEDED This loop assumes arguments are chunked strictly as <plugin> <name> <value> [cap=X] repeating; it is unclear how partial trailing arguments should be handled or surfaced to callers.
                 int remaining = args.length - index;
 
                 if (remaining == 1) {
@@ -190,10 +203,7 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
                 }
 
                 if (remaining == 3) {
-                    List<String> options = new ArrayList<>();
-                    options.add("0");
-                    options.add("cap=0");
-                    options.add("cap=");
+                    List<String> options = List.of("0", "cap=0", "cap=");
                     return filter(options, args[index + 2]);
                 }
 
@@ -214,6 +224,8 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Lists plugin namespaces drawn from registered attribute ids for tab completion.
+     *
+     * @return sorted, distinct plugin identifiers derived from attribute keys.
      */
     private List<String> attributePlugins() {
         return CommandParsingUtils.namespacedCompletionsFromIds(attributeFacade.getDefinitionIds(), plugin.getName()).stream()
@@ -225,6 +237,9 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Lists attribute names for a given plugin namespace to help complete the {@code <name>} token.
+     *
+     * @param pluginName namespace provided in the command (may be partial or null while typing).
+     * @return sorted attribute names scoped to the provided namespace.
      */
     private List<String> attributeNames(String pluginName) {
         String normalized = pluginName == null ? "" : pluginName.toLowerCase(Locale.ROOT);
@@ -248,6 +263,10 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
     /**
      * Filters options by prefix using case-insensitive comparison.
+     *
+     * @param options available suggestions for the current argument.
+     * @param prefix  player-provided text to match.
+     * @return options that begin with the prefix, preserving the original ordering.
      */
     private List<String> filter(List<String> options, String prefix) {
         String lower = prefix.toLowerCase(Locale.ROOT);
