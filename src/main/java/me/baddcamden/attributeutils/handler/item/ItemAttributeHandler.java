@@ -71,7 +71,7 @@ public class ItemAttributeHandler {
         if (meta == null) {
             throw new IllegalArgumentException("unsupported-material");
         }
-        Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = itemStack.getAttributeModifiers();
+        Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = meta.getAttributeModifiers();
         if (defaultAttributeModifiers != null && (meta.getAttributeModifiers() == null || meta.getAttributeModifiers().isEmpty())) {
             meta.setAttributeModifiers(defaultAttributeModifiers);
         }
