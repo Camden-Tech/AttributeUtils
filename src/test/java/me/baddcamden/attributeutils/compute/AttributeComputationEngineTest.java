@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AttributeComputationEngineTest {
 
@@ -167,5 +168,110 @@ class AttributeComputationEngineTest {
 
         assertEquals(8.0, upgradedStages.rawCurrent(), EPSILON);
         assertEquals(10.0, upgradedStages.currentFinal(), EPSILON);
+    }
+
+    @Test
+    void refreshUsesLatestVanillaBaselineWithoutMultiplierGrowth() {
+        AttributeDefinition definition = new AttributeDefinition(
+                "armor",
+                "Armor",
+                true,
+                0.0,
+                0.0,
+                new CapConfig(-1_000_000, 1_000_000, Map.of()),
+                MultiplierApplicability.allowAllMultipliers()
+        );
+
+        AttributeInstance playerInstance = definition.newInstance();
+        double[] vanillaArmor = {6.0};
+        Player player = Mockito.mock(Player.class);
+
+        playerInstance.addModifier(new ModifierEntry("smithing", ModifierOperation.MULTIPLY, 1.5, false, false, true, false, Set.of()));
+
+        AttributeComputationEngine engine = new AttributeComputationEngine();
+        AttributeValueStages initialStages = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(6.0, initialStages.rawCurrent(), EPSILON);
+        assertEquals(9.0, initialStages.currentFinal(), EPSILON);
+
+        AttributeValueStages firstRefresh = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(6.0, firstRefresh.rawCurrent(), EPSILON);
+        assertEquals(9.0, firstRefresh.currentFinal(), EPSILON);
+
+        vanillaArmor[0] = 0.0;
+
+        AttributeValueStages unequippedStages = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(0.0, unequippedStages.rawCurrent(), EPSILON);
+        assertEquals(0.0, unequippedStages.currentFinal(), EPSILON);
+
+        vanillaArmor[0] = 6.0;
+
+        AttributeValueStages reequippedStages = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(6.0, reequippedStages.rawCurrent(), EPSILON);
+        assertEquals(9.0, reequippedStages.currentFinal(), EPSILON);
+
+        AttributeValueStages reequippedRefresh = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(6.0, reequippedRefresh.rawCurrent(), EPSILON);
+        assertEquals(9.0, reequippedRefresh.currentFinal(), EPSILON);
+    }
+
+    @Test
+    void loweringMultipliersAfterBaselineIncreaseReducesFinalValueAcrossAttributes() {
+        AttributeDefinition armorDefinition = new AttributeDefinition(
+                "armor",
+                "Armor",
+                true,
+                0.0,
+                0.0,
+                new CapConfig(-1_000_000, 1_000_000, Map.of()),
+                MultiplierApplicability.allowAllMultipliers()
+        );
+        AttributeDefinition attackDefinition = new AttributeDefinition(
+                "attack_damage",
+                "Attack Damage",
+                true,
+                0.0,
+                0.0,
+                new CapConfig(-1_000_000, 1_000_000, Map.of()),
+                MultiplierApplicability.allowAllMultipliers()
+        );
+
+        AttributeInstance armorInstance = armorDefinition.newInstance();
+        AttributeInstance attackInstance = attackDefinition.newInstance();
+        Player player = Mockito.mock(Player.class);
+        AttributeComputationEngine engine = new AttributeComputationEngine();
+
+        armorInstance.addModifier(new ModifierEntry("smithing", ModifierOperation.MULTIPLY, 2.0, false, false, true, false, Set.of()));
+        attackInstance.addModifier(new ModifierEntry("training", ModifierOperation.MULTIPLY, 2.0, false, false, true, false, Set.of()));
+
+        double[] vanillaArmor = {5.0};
+        double[] vanillaAttack = {7.0};
+
+        AttributeValueStages initialArmor = engine.compute(armorDefinition, null, armorInstance, p -> vanillaArmor[0], player);
+        AttributeValueStages initialAttack = engine.compute(attackDefinition, null, attackInstance, p -> vanillaAttack[0], player);
+
+        assertEquals(10.0, initialArmor.currentFinal(), EPSILON);
+        assertEquals(14.0, initialAttack.currentFinal(), EPSILON);
+
+        vanillaArmor[0] = 7.0;
+        vanillaAttack[0] = 8.0;
+
+        armorInstance.addModifier(new ModifierEntry("smithing", ModifierOperation.MULTIPLY, 1.3, false, false, true, false, Set.of()));
+        attackInstance.addModifier(new ModifierEntry("training", ModifierOperation.MULTIPLY, 1.25, false, false, true, false, Set.of()));
+
+        AttributeValueStages refreshedArmor = engine.compute(armorDefinition, null, armorInstance, p -> vanillaArmor[0], player);
+        AttributeValueStages refreshedAttack = engine.compute(attackDefinition, null, attackInstance, p -> vanillaAttack[0], player);
+
+        assertEquals(7.0, refreshedArmor.rawCurrent(), EPSILON);
+        assertEquals(9.1, refreshedArmor.currentFinal(), EPSILON);
+        assertEquals(8.0, refreshedAttack.rawCurrent(), EPSILON);
+        assertEquals(10.0, refreshedAttack.currentFinal(), EPSILON);
+
+        assertTrue(refreshedArmor.currentFinal() < initialArmor.currentFinal());
+        assertTrue(refreshedAttack.currentFinal() < initialAttack.currentFinal());
     }
 }
