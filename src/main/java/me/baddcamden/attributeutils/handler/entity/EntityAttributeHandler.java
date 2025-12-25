@@ -51,10 +51,6 @@ public class EntityAttributeHandler {
      */
     private static final double MINIMUM_MAX_HEALTH = 0.0001d;
     /**
-     * Prefix used when constructing modifier ids and names.
-     */
-    private static final String ATTRIBUTE_MODIFIER_PREFIX = "attributeutils:";
-    /**
      * Persistent data key prefix/suffix used for attribute storage.
      */
     private static final String ATTRIBUTE_KEY_PREFIX = "attr_";
@@ -63,7 +59,7 @@ public class EntityAttributeHandler {
      * Deterministic modifier id for swim speed adjustments.
      */
     private static final java.util.UUID SWIM_SPEED_MODIFIER_ID = java.util.UUID.nameUUIDFromBytes(
-            (ATTRIBUTE_MODIFIER_PREFIX + "swim_speed").getBytes(StandardCharsets.UTF_8));
+            (VanillaAttributeResolver.ATTRIBUTEUTILS_PREFIX + "swim_speed").getBytes(StandardCharsets.UTF_8));
     /**
      * Entry point into the attribute computation pipeline.
      */
@@ -459,6 +455,8 @@ public class EntityAttributeHandler {
             return;
         }
 
+        VanillaAttributeResolver.scrubLegacyPluginModifiers(instance);
+
         UUID modifierId = attributeModifierId(attributeId);
         List<AttributeModifier> prePurgeModifiers = debugModifierLogging
                 ? collectPluginModifiers(instance, attributeId)
@@ -484,7 +482,7 @@ public class EntityAttributeHandler {
 
         AttributeModifier modifier = new AttributeModifier(
                 modifierId,
-                ATTRIBUTE_MODIFIER_PREFIX + attributeId,
+                VanillaAttributeResolver.ATTRIBUTEUTILS_PREFIX + attributeId,
                 delta,
                 AttributeModifier.Operation.ADD_NUMBER
         );
@@ -512,7 +510,7 @@ public class EntityAttributeHandler {
 
         AttributeModifier cleanup = new AttributeModifier(
                 modifierId,
-                ATTRIBUTE_MODIFIER_PREFIX + "cleanup",
+                VanillaAttributeResolver.ATTRIBUTEUTILS_PREFIX + "cleanup",
                 0.0d,
                 AttributeModifier.Operation.ADD_NUMBER
         );
@@ -525,7 +523,7 @@ public class EntityAttributeHandler {
         }
 
         String normalizedName = modifier.getName().toLowerCase(Locale.ROOT);
-        String expectedName = (ATTRIBUTE_MODIFIER_PREFIX + attributeId).toLowerCase(Locale.ROOT);
+        String expectedName = (VanillaAttributeResolver.ATTRIBUTEUTILS_PREFIX + attributeId).toLowerCase(Locale.ROOT);
         return normalizedName.equals(expectedName);
     }
 
@@ -543,7 +541,7 @@ public class EntityAttributeHandler {
      * @return deterministic UUID scoped to the attribute id
      */
     private UUID attributeModifierId(String attributeId) {
-        return java.util.UUID.nameUUIDFromBytes((ATTRIBUTE_MODIFIER_PREFIX + attributeId).getBytes(StandardCharsets.UTF_8));
+        return java.util.UUID.nameUUIDFromBytes((VanillaAttributeResolver.ATTRIBUTEUTILS_PREFIX + attributeId).getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -560,7 +558,7 @@ public class EntityAttributeHandler {
                 .ifPresent(instance::removeModifier);
         AttributeModifier cleanup = new AttributeModifier(
                 modifierId,
-                ATTRIBUTE_MODIFIER_PREFIX + "cleanup",
+                VanillaAttributeResolver.ATTRIBUTEUTILS_PREFIX + "cleanup",
                 0.0d,
                 AttributeModifier.Operation.ADD_NUMBER
         );
@@ -706,6 +704,8 @@ public class EntityAttributeHandler {
             return;
         }
 
+        VanillaAttributeResolver.scrubLegacyPluginModifiers(instance);
+
         instance.getModifiers().stream()
                 .filter(modifier -> modifier.getUniqueId().equals(SWIM_SPEED_MODIFIER_ID))
                 .findFirst()
@@ -728,7 +728,7 @@ public class EntityAttributeHandler {
 
         AttributeModifier modifier = new AttributeModifier(
                 SWIM_SPEED_MODIFIER_ID,
-                ATTRIBUTE_MODIFIER_PREFIX + "swim_speed",
+                VanillaAttributeResolver.ATTRIBUTEUTILS_PREFIX + "swim_speed",
                 multiplier,
                 AttributeModifier.Operation.MULTIPLY_SCALAR_1
         );
