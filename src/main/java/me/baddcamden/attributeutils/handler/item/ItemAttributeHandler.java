@@ -77,7 +77,7 @@ public class ItemAttributeHandler {
         }
         Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = meta.getAttributeModifiers();
         if (defaultAttributeModifiers == null || defaultAttributeModifiers.isEmpty()) {
-            defaultAttributeModifiers = material.getDefaultAttributeModifiers(EquipmentSlotGroup.ANY);
+            defaultAttributeModifiers = material.getDefaultAttributeModifiers(material.getEquipmentSlot());
         }
         // Copy vanilla defaults onto the meta so later refreshes that clear plugin modifiers do not wipe native values
         // when the freshly created item reported no modifiers.

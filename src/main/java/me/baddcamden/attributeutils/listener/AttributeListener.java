@@ -18,7 +18,7 @@ import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
@@ -148,7 +148,7 @@ public class AttributeListener implements Listener {
      * @param event player pickup attempt event fired by Bukkit.
      */
     @EventHandler
-    public void onPlayerAttemptPickupItem(PlayerAttemptPickupItemEvent event) {
+    public void onPlayerAttemptPickupItem(PlayerPickupItemEvent event) {
         syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
     }
 
