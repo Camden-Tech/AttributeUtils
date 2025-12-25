@@ -7,9 +7,9 @@ import me.baddcamden.attributeutils.model.AttributeValueStages;
 import me.baddcamden.attributeutils.model.ModifierEntry;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -223,26 +223,24 @@ public class AttributeComputationEngine {
             return Collections.emptyList();
         }
 
-        if (globalInstance == null) {
-            return extractor.apply(playerInstance).values();
+        Map<String, ModifierEntry> combined = new LinkedHashMap<>();
+        if (globalInstance != null) {
+            extractor.apply(globalInstance).forEach(combined::putIfAbsent);
         }
-        if (playerInstance == null) {
-            return extractor.apply(globalInstance).values();
+        if (playerInstance != null) {
+            extractor.apply(playerInstance).forEach(combined::put);
         }
-
-        List<ModifierEntry> combined = new ArrayList<>(extractor.apply(globalInstance).values());
-        combined.addAll(extractor.apply(playerInstance).values());
-        return combined;
+        return combined.values();
     }
 
     private Collection<ModifierEntry> filterCurrentModifiers(AttributeDefinition definition,
                                                              Collection<ModifierEntry> modifiers) {
-        if (definition.dynamic() || modifiers == null || modifiers.isEmpty()) {
+        if (modifiers == null || modifiers.isEmpty()) {
             return modifiers;
         }
 
         return modifiers.stream()
-                .filter(modifier -> !modifier.isDefaultModifier())
+                .filter(ModifierEntry::appliesToCurrent)
                 .toList();
     }
 
