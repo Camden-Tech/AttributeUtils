@@ -15,6 +15,7 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -76,7 +77,7 @@ public class ItemAttributeHandler {
         }
         Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = meta.getAttributeModifiers();
         if (defaultAttributeModifiers == null || defaultAttributeModifiers.isEmpty()) {
-            defaultAttributeModifiers = material.getDefaultAttributeModifiers();
+            defaultAttributeModifiers = material.getDefaultAttributeModifiers(EquipmentSlotGroup.ANY);
         }
         // Copy vanilla defaults onto the meta so later refreshes that clear plugin modifiers do not wipe native values
         // when the freshly created item reported no modifiers.
