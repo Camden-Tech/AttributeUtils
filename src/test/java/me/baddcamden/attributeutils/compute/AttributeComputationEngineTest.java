@@ -7,7 +7,9 @@ import me.baddcamden.attributeutils.model.CapConfig;
 import me.baddcamden.attributeutils.model.ModifierEntry;
 import me.baddcamden.attributeutils.model.ModifierOperation;
 import me.baddcamden.attributeutils.model.MultiplierApplicability;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -100,5 +102,70 @@ class AttributeComputationEngineTest {
         assertEquals(12.0, playerInstance.getCurrentBaseValue(), EPSILON);
         assertEquals(5.0, stages.defaultFinal(), EPSILON);
         assertEquals(5.0, stages.currentFinal(), EPSILON);
+    }
+
+    @Test
+    void reappliesCurrentMultipliersAfterVanillaBaselineDrops() {
+        AttributeDefinition definition = new AttributeDefinition(
+                "armor",
+                "Armor",
+                true,
+                0.0,
+                0.0,
+                new CapConfig(-1_000_000, 1_000_000, Map.of()),
+                MultiplierApplicability.allowAllMultipliers()
+        );
+
+        AttributeInstance playerInstance = definition.newInstance();
+        double[] vanillaArmor = {10.0};
+        Player player = Mockito.mock(Player.class);
+
+        playerInstance.addModifier(new ModifierEntry("training", ModifierOperation.MULTIPLY, 1.5, false, false, true, false, Set.of()));
+
+        AttributeComputationEngine engine = new AttributeComputationEngine();
+        AttributeValueStages stages = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(10.0, stages.rawCurrent(), EPSILON);
+        assertEquals(15.0, stages.currentFinal(), EPSILON);
+
+        vanillaArmor[0] = 6.0;
+        playerInstance.addModifier(new ModifierEntry("training", ModifierOperation.MULTIPLY, 1.1, false, false, true, false, Set.of()));
+
+        AttributeValueStages reducedStages = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(6.0, reducedStages.rawCurrent(), EPSILON);
+        assertEquals(6.6, reducedStages.currentFinal(), EPSILON);
+    }
+
+    @Test
+    void multipliesLatestVanillaBaselineWhenNewEquipmentIsEquipped() {
+        AttributeDefinition definition = new AttributeDefinition(
+                "armor",
+                "Armor",
+                true,
+                0.0,
+                0.0,
+                new CapConfig(-1_000_000, 1_000_000, Map.of()),
+                MultiplierApplicability.allowAllMultipliers()
+        );
+
+        AttributeInstance playerInstance = definition.newInstance();
+        double[] vanillaArmor = {4.0};
+        Player player = Mockito.mock(Player.class);
+
+        playerInstance.addModifier(new ModifierEntry("blacksmith", ModifierOperation.MULTIPLY, 1.25, false, false, true, false, Set.of()));
+
+        AttributeComputationEngine engine = new AttributeComputationEngine();
+        AttributeValueStages initialStages = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(4.0, initialStages.rawCurrent(), EPSILON);
+        assertEquals(5.0, initialStages.currentFinal(), EPSILON);
+
+        vanillaArmor[0] = 8.0;
+
+        AttributeValueStages upgradedStages = engine.compute(definition, null, playerInstance, p -> vanillaArmor[0], player);
+
+        assertEquals(8.0, upgradedStages.rawCurrent(), EPSILON);
+        assertEquals(10.0, upgradedStages.currentFinal(), EPSILON);
     }
 }
