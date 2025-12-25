@@ -373,7 +373,7 @@ public class EntityAttributeHandler {
             return;
         }
 
-        double computed = attributeFacade.compute(attributeId, entity.getUniqueId(), null).currentFinal();
+        AttributeValueStages computed = attributeFacade.compute(attributeId, entity.getUniqueId(), null);
         applyComputedModifier(entity, target, attributeId, computed);
     }
 
@@ -393,7 +393,7 @@ public class EntityAttributeHandler {
             return;
         }
 
-        double computed = attributeFacade.compute(attributeId, player).currentFinal();
+        AttributeValueStages computed = attributeFacade.compute(attributeId, player);
         applyComputedModifier(player, target, attributeId, computed);
     }
 
@@ -419,10 +419,10 @@ public class EntityAttributeHandler {
      * @param attributable entity or player with the target attribute instance
      * @param target       vanilla attribute resolved for the provided id
      * @param attributeId  identifier used to generate a deterministic modifier id
-     * @param computed     fully computed attribute value from the pipeline
+     * @param computed     fully computed attribute values from the pipeline
      */
-    private void applyComputedModifier(Attributable attributable, Attribute target, String attributeId, double computed) {
-        if (attributable == null || target == null) {
+    private void applyComputedModifier(Attributable attributable, Attribute target, String attributeId, AttributeValueStages computed) {
+        if (attributable == null || target == null || computed == null) {
             return;
         }
         AttributeInstance instance = attributable.getAttribute(target);
@@ -431,10 +431,26 @@ public class EntityAttributeHandler {
         }
 
         UUID modifierId = attributeModifierId(attributeId);
+        boolean hadModifier = hasModifierById(instance, modifierId);
         removeModifierById(instance, modifierId);
+        if (hasModifierById(instance, modifierId)) {
+            // Avoid stacking if removal failed for any reason.
+            return;
+        }
 
-        double baseline = VanillaAttributeResolver.resolveVanillaValue(instance, instance.getBaseValue());
-        double delta = computed - baseline;
+        double vanillaValue = VanillaAttributeResolver.resolveVanillaValue(instance, instance.getBaseValue());
+
+        double defaultAdditive = computed.defaultPermanent() - computed.rawDefault();
+        double defaultMultiplier = resolveMultiplier(computed.defaultPermanent(), computed.defaultFinal());
+        double currentAdditive = computed.currentPermanent() - computed.rawCurrent();
+        double currentMultiplier = resolveMultiplier(computed.currentPermanent(), computed.currentFinal());
+
+        double rebuilt = computed.rawDefault() + defaultAdditive;
+        rebuilt *= defaultMultiplier;
+        rebuilt = vanillaValue + currentAdditive;
+        rebuilt *= currentMultiplier;
+
+        double delta = rebuilt - vanillaValue;
         if (Math.abs(delta) < ATTRIBUTE_DELTA_EPSILON) {
             return;
         }
@@ -445,7 +461,21 @@ public class EntityAttributeHandler {
                 delta,
                 AttributeModifier.Operation.ADD_NUMBER
         );
-        addModifier(instance, modifier);
+        if (hadModifier || !hasModifierById(instance, modifierId)) {
+            addModifier(instance, modifier);
+        }
+    }
+
+    private boolean hasModifierById(AttributeInstance instance, UUID modifierId) {
+        return instance.getModifiers().stream()
+                .anyMatch(modifier -> modifier.getUniqueId().equals(modifierId));
+    }
+
+    private double resolveMultiplier(double valueBefore, double valueAfter) {
+        if (Math.abs(valueBefore) < ATTRIBUTE_DELTA_EPSILON) {
+            return 1.0d;
+        }
+        return valueAfter / valueBefore;
     }
 
     /**
