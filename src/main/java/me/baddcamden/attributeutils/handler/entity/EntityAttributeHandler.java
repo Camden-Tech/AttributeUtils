@@ -445,9 +445,10 @@ public class EntityAttributeHandler {
         double currentAdditive = computed.currentPermanent() - computed.rawCurrent();
         double currentMultiplier = resolveMultiplier(computed.currentPermanent(), computed.currentFinal());
 
-        double rebuilt = computed.rawDefault() + defaultAdditive;
+        double rebuilt = vanillaValue;
+        rebuilt += defaultAdditive;
         rebuilt *= defaultMultiplier;
-        rebuilt = vanillaValue + currentAdditive;
+        rebuilt += currentAdditive;
         rebuilt *= currentMultiplier;
 
         double delta = rebuilt - vanillaValue;
