@@ -174,8 +174,18 @@ public class AttributeFacade {
      * @param entry       modifier entry to attach to the global instance.
      */
     public void setGlobalModifier(String attributeId, ModifierEntry entry) {
+        String normalizedId = normalize(attributeId);
+        AttributeDefinition definition = definitions.get(normalizedId);
+        if (definition == null) {
+            throw new IllegalArgumentException("Unknown attribute: " + attributeId);
+        }
+
         AttributeInstance instance = getOrCreateGlobalInstance(attributeId);
         instance.addModifier(validate(entry));
+
+        if (definition.dynamic()) {
+            refreshAll(normalizedId);
+        }
     }
 
     /**
@@ -187,8 +197,18 @@ public class AttributeFacade {
      * @param entry       modifier entry describing the adjustment.
      */
     public void setPlayerModifier(UUID playerId, String attributeId, ModifierEntry entry) {
-        AttributeInstance instance = getOrCreatePlayerInstance(playerId, attributeId);
+        String normalizedId = normalize(attributeId);
+        AttributeDefinition definition = definitions.get(normalizedId);
+        if (definition == null) {
+            throw new IllegalArgumentException("Unknown attribute: " + attributeId);
+        }
+
+        AttributeInstance instance = getOrCreatePlayerInstance(playerId, definition);
         instance.addModifier(validate(entry));
+
+        if (definition.dynamic()) {
+            refreshPlayer(playerId, normalizedId);
+        }
     }
 
     /**
