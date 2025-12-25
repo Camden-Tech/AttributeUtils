@@ -34,9 +34,9 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Bridges item metadata with the attribute pipeline. Default baselines are stamped onto items when players join,
- * ensuring that the computation engine can combine item, player, and global modifier buckets during the current
- * stage calculation. Cap overrides stored on items are also respected downstream.
+ * Coordinates item metadata with the attribute pipeline. Baseline values are attached to items so the calculation
+ * engine can merge item, player, and global modifiers during stage evaluation, while respecting any cap overrides
+ * saved on the item itself.
  */
 public class ItemAttributeHandler {
 
@@ -44,13 +44,14 @@ public class ItemAttributeHandler {
     private final EntityAttributeHandler entityAttributeHandler;
     private final Plugin plugin;
     /**
-     * Tracks which modifier keys were applied for each player so stale entries can be removed when items change.
+     * Records the modifier keys applied for each player, enabling precise cleanup when equipment changes invalidate
+     * earlier entries.
      */
     private final Map<UUID, Map<String, String>> appliedItemModifierKeys = new HashMap<>();
 
     /**
-     * Creates a handler that reads item metadata into the attribute pipeline and shares vanilla application helpers
-     * with the entity handler for post-processing computed values.
+     * Constructs a handler that translates item metadata into the attribute pipeline and reuses vanilla application
+     * helpers from the entity handler for post-processing.
      */
     public ItemAttributeHandler(AttributeFacade attributeFacade,
                                Plugin plugin,
@@ -61,7 +62,8 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Builds an {@link ItemStack} with the provided material and attribute definitions applied as persistent data and lore.
+     * Builds an {@link ItemStack} from the requested material and encodes attribute definitions into persistent data
+     * and lore for later retrieval.
      *
      * @param material    the material to construct
      * @param definitions parsed attribute definitions from the command
@@ -79,8 +81,8 @@ public class ItemAttributeHandler {
         if (defaultAttributeModifiers == null || defaultAttributeModifiers.isEmpty()) {
             defaultAttributeModifiers = material.getDefaultAttributeModifiers(material.getEquipmentSlot());
         }
-        // Copy vanilla defaults onto the meta so later refreshes that clear plugin modifiers do not wipe native values
-        // when the freshly created item reported no modifiers.
+        // Preserve vanilla defaults on the meta so future refreshes that remove plugin modifiers do not discard the
+        // native entries when the item initially reported none.
         if (defaultAttributeModifiers != null && (meta.getAttributeModifiers() == null || meta.getAttributeModifiers().isEmpty())) {
             meta.setAttributeModifiers(defaultAttributeModifiers);
         }
@@ -126,7 +128,8 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Attempts to give an attributed item to the target player, dropping overflow at their feet if their inventory is full.
+     * Attempts to give an attributed item to the target player, dropping overflow at their feet if the inventory is
+     * already full.
      *
      * @param target    player who should receive the item
      * @param itemStack constructed attribute item
@@ -145,10 +148,9 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Reads all item-based attribute metadata from a player's inventory and converts it to temporary
-     * modifier entries on the player's {@link me.baddcamden.attributeutils.model.AttributeInstance}
-     * records. The temporary bucket is purged up-front to ensure modifiers reflect only the current
-     * equipment state.
+     * Reads all item-based attribute metadata from a player's inventory and converts it to temporary modifier entries
+     * on the player's {@link me.baddcamden.attributeutils.model.AttributeInstance} records. The temporary bucket is
+     * cleared first so modifiers only reflect the current equipment state.
      *
      * @param player player whose inventory should be scanned
      */
@@ -157,8 +159,8 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Applies item-based modifiers for any living entity, enabling non-player entities with equipment
-     * to benefit from attribute metadata on their gear.
+     * Applies item-based modifiers for any living entity, allowing non-player equipment to contribute attribute
+     * metadata from their gear.
      *
      * @param entity entity whose equipment should be scanned
      */
@@ -198,8 +200,8 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Scans the provided items for attribute metadata, applying modifiers that satisfy trigger criteria and tracking
-     * active modifier keys for later cleanup.
+     * Scans the provided items for attribute metadata, applying modifiers that satisfy trigger criteria while tracking
+     * active modifier keys for subsequent cleanup.
      */
     private void scanItems(ItemStack[] items,
                            TriggerCriterion.ItemSlotContext.Bucket bucket,
@@ -260,7 +262,7 @@ public class ItemAttributeHandler {
 
     /**
      * Persists a modifier entry for the given attribute when the associated trigger criterion is satisfied, storing
-     * bookkeeping keys so the modifier can be refreshed or removed on future scans.
+     * bookkeeping keys so the modifier can be refreshed or removed during future scans.
      */
     private void applyModifier(LivingEntity entity,
                                String attributeId,
@@ -292,7 +294,8 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Constructs a deterministic key describing where a modifier originated (bucket, slot, criterion, attribute).
+     * Constructs a deterministic key describing where a modifier originated, including bucket, slot, criterion, and
+     * attribute identifiers.
      */
     private String buildModifierKey(TriggerCriterion.ItemSlotContext context, TriggerCriterion criterion, String attributeId) {
         String bucketLabel = context.bucket().name().toLowerCase(Locale.ROOT);
@@ -300,8 +303,8 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Resolves the stored trigger criterion for an attribute on an item, falling back to the default when none is
-     * present or the stored value is invalid.
+     * Resolves the stored trigger criterion for an attribute on an item, falling back to the default when missing or
+     * invalid.
      */
     private TriggerCriterion resolveCriterion(PersistentDataContainer container, String attributeId) {
         NamespacedKey criteriaKey = criterionKey(attributeId);
@@ -310,7 +313,8 @@ public class ItemAttributeHandler {
     }
 
     /**
-     * Attempts to resolve an attribute id, accepting either sanitized (underscore) or dotted variants.
+     * Attempts to resolve an attribute id, accepting both sanitized (underscore) and dotted variants for flexibility
+     * when reading stored keys.
      */
     private String resolveAttributeId(String sanitizedId) {
         if (sanitizedId == null || sanitizedId.isBlank()) {
