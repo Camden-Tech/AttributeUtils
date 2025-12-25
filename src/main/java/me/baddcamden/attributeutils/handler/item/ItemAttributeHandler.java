@@ -182,7 +182,8 @@ public class ItemAttributeHandler {
         });
 
         if (entity instanceof Player player) {
-            scanItems(player.getInventory().getContents(), TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
+            // Use storage contents to avoid double-counting armor/off-hand slots that Bukkit includes in getContents.
+            scanItems(player.getInventory().getStorageContents(), TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
             scanItems(player.getInventory().getArmorContents(), TriggerCriterion.ItemSlotContext.Bucket.ARMOR, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
             scanItems(new ItemStack[]{player.getInventory().getItemInOffHand()}, TriggerCriterion.ItemSlotContext.Bucket.OFFHAND, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
         } else {
