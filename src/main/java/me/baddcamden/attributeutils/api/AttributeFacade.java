@@ -5,6 +5,7 @@ import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeInstance;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
 import me.baddcamden.attributeutils.model.ModifierEntry;
+import me.baddcamden.attributeutils.model.ModifierOperation;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -184,6 +185,10 @@ public class AttributeFacade {
         ModifierEntry validated = validate(entry);
         String normalizedKey = validated.key().toLowerCase(Locale.ROOT);
 
+        if (validated.operation() == ModifierOperation.MULTIPLY) {
+            refreshAll(normalizedId);
+        }
+
         if (instance.getModifiers().containsKey(normalizedKey)) {
             instance.removeModifier(normalizedKey);
             refreshAll(normalizedId);
@@ -211,6 +216,10 @@ public class AttributeFacade {
         AttributeInstance instance = getOrCreatePlayerInstance(playerId, definition);
         ModifierEntry validated = validate(entry);
         String normalizedKey = validated.key().toLowerCase(Locale.ROOT);
+
+        if (validated.operation() == ModifierOperation.MULTIPLY) {
+            refreshPlayer(playerId, normalizedId);
+        }
 
         if (instance.getModifiers().containsKey(normalizedKey)) {
             instance.removeModifier(normalizedKey);
@@ -309,6 +318,33 @@ public class AttributeFacade {
      */
     public Map<String, AttributeInstance> getPlayerInstances(UUID playerId) {
         return Collections.unmodifiableMap(playerInstances.getOrDefault(playerId, Map.of()));
+    }
+
+    /**
+     * Requests a refresh of every registered attribute for a specific player, ensuring both static and dynamic
+     * attributes are re-applied after equipment or vanilla attribute changes.
+     *
+     * @param playerId player whose attributes should be refreshed.
+     */
+    public void refreshAllAttributesForPlayer(UUID playerId) {
+        AttributeRefreshListener listener = this.attributeRefreshListener;
+        if (listener == null || playerId == null) {
+            return;
+        }
+
+        definitions.keySet().forEach(attributeId -> listener.refreshAttributeForPlayer(playerId, attributeId));
+    }
+
+    /**
+     * Requests a refresh for every registered attribute across all tracked entities.
+     */
+    public void refreshAllAttributes() {
+        AttributeRefreshListener listener = this.attributeRefreshListener;
+        if (listener == null) {
+            return;
+        }
+
+        definitions.keySet().forEach(listener::refreshAttributeForAll);
     }
 
     /**

@@ -165,5 +165,6 @@ public class AttributeListener implements Listener {
     private void refreshPlayer(Player player) {
         itemAttributeHandler.applyPersistentAttributes(player);
         entityAttributeHandler.applyPlayerCaps(player);
+        attributeFacade.refreshAllAttributesForPlayer(player.getUniqueId());
     }
 }
