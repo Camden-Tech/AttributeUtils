@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Locale;
 
 /**
  * Bridges {@link AttributeFacade} refresh events to live Bukkit entities so computed values are re-applied immediately.
@@ -44,26 +45,30 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
     @Override
     public void refreshAttributeForPlayer(UUID playerId, String attributeId) {
         // VAGUE/IMPROVEMENT NEEDED Clarify whether this should target only player entities or any entity resolvable by UUID.
-        if (playerId == null || attributeId == null) {
+        String normalizedId = normalizeAttributeId(attributeId);
+        if (playerId == null || normalizedId == null) {
             return;
         }
 
-        pendingPlayerAttributes.computeIfAbsent(playerId, ignored -> new HashSet<>()).add(attributeId);
+        pendingPlayerAttributes.computeIfAbsent(playerId, ignored -> new HashSet<>()).add(normalizedId);
         if (debugLogging) {
-            plugin.getLogger().info("[refresh-debug] queued player attribute refresh: " + attributeId + " for " + playerId);
+            plugin.getLogger().info("[refresh-debug] queued player attribute refresh: " + normalizedId
+                    + " for " + playerId + idNote(attributeId, normalizedId));
         }
         scheduleFlush();
     }
 
     @Override
     public void refreshAttributeForAll(String attributeId) {
-        if (attributeId == null) {
+        String normalizedId = normalizeAttributeId(attributeId);
+        if (normalizedId == null) {
             return;
         }
 
-        pendingGlobalAttributes.add(attributeId);
+        pendingGlobalAttributes.add(normalizedId);
         if (debugLogging) {
-            plugin.getLogger().info("[refresh-debug] queued global attribute refresh: " + attributeId);
+            plugin.getLogger().info("[refresh-debug] queued global attribute refresh: " + normalizedId
+                    + idNote(attributeId, normalizedId));
         }
         scheduleFlush();
     }
@@ -116,5 +121,16 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
                 }
             }
         }
+    }
+
+    private String normalizeAttributeId(String attributeId) {
+        return attributeId == null ? null : attributeId.toLowerCase(Locale.ROOT);
+    }
+
+    private String idNote(String rawId, String normalizedId) {
+        if (rawId == null || rawId.equals(normalizedId)) {
+            return "";
+        }
+        return " (normalized from " + rawId + ")";
     }
 }

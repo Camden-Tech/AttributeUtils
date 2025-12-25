@@ -228,11 +228,12 @@ public class EntityAttributeHandler {
      * @param value       baseline value to store on the attribute instance
      */
     private void applyVanillaAttribute(Entity entity, String attributeId, double value) {
-        if (!(entity instanceof Attributable attributable) || isBlank(attributeId)) {
+        String normalizedId = normalizeAttributeId(attributeId);
+        if (!(entity instanceof Attributable attributable) || isBlank(normalizedId)) {
             return;
         }
 
-        Attribute target = resolveVanillaTarget(attributeId);
+        Attribute target = resolveVanillaTarget(normalizedId);
         if (target == null) {
             return;
         }
@@ -287,6 +288,10 @@ public class EntityAttributeHandler {
      */
     private boolean isBlank(String attributeId) {
         return attributeId == null || attributeId.isBlank();
+    }
+
+    private String normalizeAttributeId(String attributeId) {
+        return attributeId == null ? null : attributeId.toLowerCase(Locale.ROOT);
     }
 
     /**
@@ -374,16 +379,17 @@ public class EntityAttributeHandler {
      * @param attributeId identifier of the attribute to compute
      */
     public void applyVanillaAttribute(LivingEntity entity, String attributeId) {
-        if (entity == null || isBlank(attributeId)) {
+        String normalizedId = normalizeAttributeId(attributeId);
+        if (entity == null || isBlank(normalizedId)) {
             return;
         }
 
         if (entity instanceof Player player) {
-            applyVanillaAttribute(player, attributeId);
+            applyVanillaAttribute(player, normalizedId);
             return;
         }
 
-        Attribute target = resolveVanillaTarget(attributeId);
+        Attribute target = resolveVanillaTarget(normalizedId);
         if (target == null) {
             return;
         }
@@ -393,10 +399,10 @@ public class EntityAttributeHandler {
             return;
         }
 
-        purgeAttributeUtilsModifiers(instance, attributeModifierId(attributeId), attributeId);
+        purgeAttributeUtilsModifiers(instance, attributeModifierId(normalizedId), normalizedId);
 
-        AttributeValueStages computed = attributeFacade.compute(attributeId, entity.getUniqueId(), null);
-        applyComputedModifier(entity, target, attributeId, computed);
+        AttributeValueStages computed = attributeFacade.compute(normalizedId, entity.getUniqueId(), null);
+        applyComputedModifier(entity, target, normalizedId, computed);
     }
 
     /**
@@ -407,10 +413,11 @@ public class EntityAttributeHandler {
      * @param attributeId identifier of the attribute to compute
      */
     public void applyVanillaAttribute(Player player, String attributeId) {
-        if (player == null || isBlank(attributeId)) {
+        String normalizedId = normalizeAttributeId(attributeId);
+        if (player == null || isBlank(normalizedId)) {
             return;
         }
-        Attribute target = resolveVanillaTarget(attributeId);
+        Attribute target = resolveVanillaTarget(normalizedId);
         if (target == null) {
             return;
         }
@@ -420,10 +427,10 @@ public class EntityAttributeHandler {
             return;
         }
 
-        purgeAttributeUtilsModifiers(instance, attributeModifierId(attributeId), attributeId);
+        purgeAttributeUtilsModifiers(instance, attributeModifierId(normalizedId), normalizedId);
 
-        AttributeValueStages computed = attributeFacade.compute(attributeId, player);
-        applyComputedModifier(player, target, attributeId, computed);
+        AttributeValueStages computed = attributeFacade.compute(normalizedId, player);
+        applyComputedModifier(player, target, normalizedId, computed);
     }
 
     /**
