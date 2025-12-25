@@ -181,11 +181,16 @@ public class AttributeFacade {
         }
 
         AttributeInstance instance = getOrCreateGlobalInstance(attributeId);
-        instance.addModifier(validate(entry));
+        ModifierEntry validated = validate(entry);
+        String normalizedKey = validated.key().toLowerCase(Locale.ROOT);
 
-        if (definition.dynamic()) {
+        if (instance.getModifiers().containsKey(normalizedKey)) {
+            instance.removeModifier(normalizedKey);
             refreshAll(normalizedId);
         }
+
+        instance.addModifier(validated);
+        refreshAll(normalizedId);
     }
 
     /**
@@ -204,11 +209,16 @@ public class AttributeFacade {
         }
 
         AttributeInstance instance = getOrCreatePlayerInstance(playerId, definition);
-        instance.addModifier(validate(entry));
+        ModifierEntry validated = validate(entry);
+        String normalizedKey = validated.key().toLowerCase(Locale.ROOT);
 
-        if (definition.dynamic()) {
+        if (instance.getModifiers().containsKey(normalizedKey)) {
+            instance.removeModifier(normalizedKey);
             refreshPlayer(playerId, normalizedId);
         }
+
+        instance.addModifier(validated);
+        refreshPlayer(playerId, normalizedId);
     }
 
     /**
