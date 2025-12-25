@@ -64,6 +64,7 @@ vanilla-attribute-defaults:
   gravity:
     bukkit-attributes: [GRAVITY, GENERIC_GRAVITY]
     default-base: 1
+    dynamic: true
   scale:
     bukkit-attributes: [SCALE, GENERIC_SCALE]
     default-base: 1
