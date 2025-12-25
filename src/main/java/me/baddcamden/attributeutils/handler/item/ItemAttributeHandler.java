@@ -171,7 +171,7 @@ public class ItemAttributeHandler {
 
         UUID ownerId = entity.getUniqueId();
         Map<String, String> previousKeys = appliedItemModifierKeys.getOrDefault(ownerId, Map.of());
-        Set<String, String> activeKeys = new HashSet<>();
+        Set<String> activeKeys = new HashSet<>();
         Map<String, String> currentKeyAttributes = new HashMap<>();
         Set<String> touchedAttributes = new HashSet<>();
         int heldSlot = entity instanceof Player player ? player.getInventory().getHeldItemSlot() : 0;
