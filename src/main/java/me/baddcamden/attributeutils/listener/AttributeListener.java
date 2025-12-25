@@ -11,10 +11,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryCreativeEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerAttemptPickupItemEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.plugin.Plugin;
 
@@ -108,6 +114,77 @@ public class AttributeListener implements Listener {
      */
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getWhoClicked() instanceof Player player) {
+            syncExecutor.execute(() -> refreshPlayer(player));
+        }
+    }
+
+    /**
+     * Reapplies persistent attributes and caps when players drag items across inventory slots.
+     *
+     * @param event inventory drag event fired by Bukkit.
+     */
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (event.getWhoClicked() instanceof Player player) {
+            syncExecutor.execute(() -> refreshPlayer(player));
+        }
+    }
+
+    /**
+     * Reapplies persistent attributes and caps when a player drops an item, ensuring removals are reflected.
+     *
+     * @param event item drop event fired by Bukkit.
+     */
+    @EventHandler
+    public void onPlayerDropItem(PlayerDropItemEvent event) {
+        syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
+    }
+
+    /**
+     * Reapplies persistent attributes and caps when a player attempts to pick up an item, capturing creative-transfer
+     * style pickups on modern APIs.
+     *
+     * @param event player pickup attempt event fired by Bukkit.
+     */
+    @EventHandler
+    public void onPlayerAttemptPickupItem(PlayerAttemptPickupItemEvent event) {
+        syncExecutor.execute(() -> refreshPlayer(event.getPlayer()));
+    }
+
+    /**
+     * Reapplies persistent attributes and caps when a player picks up an item through the legacy pickup event.
+     *
+     * @param event entity pickup event fired by Bukkit.
+     */
+    @EventHandler
+    public void onEntityPickupItem(EntityPickupItemEvent event) {
+        if (event.getEntity() instanceof Player player) {
+            syncExecutor.execute(() -> refreshPlayer(player));
+        }
+    }
+
+    /**
+     * Reapplies persistent attributes and caps after inventory closures so deferred transfers (e.g., creative
+     * inventory actions) are reflected.
+     *
+     * @param event inventory close event fired by Bukkit.
+     */
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (event.getPlayer() instanceof Player player) {
+            syncExecutor.execute(() -> refreshPlayer(player));
+        }
+    }
+
+    /**
+     * Reapplies persistent attributes and caps for creative inventory transfer actions, ensuring rapid creative moves
+     * still trigger refreshes.
+     *
+     * @param event creative inventory event fired by Bukkit.
+     */
+    @EventHandler
+    public void onCreativeInventory(InventoryCreativeEvent event) {
         if (event.getWhoClicked() instanceof Player player) {
             syncExecutor.execute(() -> refreshPlayer(player));
         }
