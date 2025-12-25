@@ -27,7 +27,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Integrates entity interactions with the attribute computation pipeline. Responsibilities include applying computed
@@ -81,6 +83,11 @@ public class EntityAttributeHandler {
      * Indicates whether the transient modifier lookup was attempted to avoid repeated reflection work.
      */
     private boolean transientMethodResolved;
+    /**
+     * Tracks modifier ids applied via the transient API so replacements can remove them even when getModifiers()
+     * does not expose transient entries.
+     */
+    private final Set<UUID> transientModifierIds = ConcurrentHashMap.newKeySet();
     /**
      * Periodic task that re-applies movement-related attributes to online players.
      */
@@ -458,7 +465,7 @@ public class EntityAttributeHandler {
     }
 
     private boolean hasModifierById(AttributeInstance instance, UUID modifierId) {
-        return instance.getModifiers().stream()
+        return transientModifierIds.contains(modifierId) || instance.getModifiers().stream()
                 .anyMatch(modifier -> modifier.getUniqueId().equals(modifierId));
     }
 
@@ -486,10 +493,18 @@ public class EntityAttributeHandler {
      * @param modifierId deterministic identifier generated for the modifier
      */
     private void removeModifierById(AttributeInstance instance, UUID modifierId) {
+        transientModifierIds.remove(modifierId);
         instance.getModifiers().stream()
                 .filter(modifier -> modifier.getUniqueId().equals(modifierId))
                 .findFirst()
                 .ifPresent(instance::removeModifier);
+        AttributeModifier cleanup = new AttributeModifier(
+                modifierId,
+                ATTRIBUTE_MODIFIER_PREFIX + "cleanup",
+                0.0d,
+                AttributeModifier.Operation.ADD_NUMBER
+        );
+        instance.removeModifier(cleanup);
     }
 
     /**
@@ -521,9 +536,11 @@ public class EntityAttributeHandler {
         if (transientModifierMethod != null) {
             try {
                 transientModifierMethod.invoke(instance, modifier);
+                transientModifierIds.add(modifier.getUniqueId());
                 return;
             } catch (ReflectiveOperationException ignored) {
                 transientModifierMethod = null;
+                transientModifierIds.remove(modifier.getUniqueId());
             }
         }
 
