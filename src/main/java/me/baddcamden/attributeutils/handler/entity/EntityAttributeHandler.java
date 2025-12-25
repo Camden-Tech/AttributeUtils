@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Integrates entity interactions with the attribute computation pipeline. Responsibilities include applying computed
@@ -94,15 +95,22 @@ public class EntityAttributeHandler {
     private BukkitTask ticker;
 
     /**
+     * When enabled, emit detailed modifier application logs to help diagnose drift/stacking issues.
+     */
+    private final boolean debugModifierLogging;
+
+    /**
      * Creates a handler that synchronizes computed attribute values with Bukkit entities and begins the periodic
      * player tick used to refresh movement-related attributes.
      */
     public EntityAttributeHandler(AttributeFacade attributeFacade,
                                   Plugin plugin,
-                                  Map<String, Attribute> vanillaAttributeTargets) {
+                                  Map<String, Attribute> vanillaAttributeTargets,
+                                  boolean debugModifierLogging) {
         this.attributeFacade = attributeFacade;
         this.plugin = plugin;
         this.vanillaAttributeTargets = vanillaAttributeTargets;
+        this.debugModifierLogging = debugModifierLogging;
         resolveTransientModifierMethod();
         startTicker();
     }
@@ -438,12 +446,24 @@ public class EntityAttributeHandler {
         }
 
         UUID modifierId = attributeModifierId(attributeId);
+        List<AttributeModifier> prePurgeModifiers = debugModifierLogging
+                ? collectPluginModifiers(instance, attributeId)
+                : List.of();
+
         purgeAttributeUtilsModifiers(instance, modifierId, attributeId);
+
+        List<AttributeModifier> postPurgeModifiers = debugModifierLogging
+                ? collectPluginModifiers(instance, attributeId)
+                : List.of();
 
         double vanillaValue = VanillaAttributeResolver.resolveVanillaValue(instance, instance.getBaseValue());
 
         double staged = computed.currentFinal();
         double delta = staged - vanillaValue;
+        if (debugModifierLogging) {
+            logModifierDebug(attributable, instance, target, attributeId, computed, vanillaValue, delta,
+                    prePurgeModifiers, postPurgeModifiers);
+        }
         if (Math.abs(delta) < ATTRIBUTE_DELTA_EPSILON) {
             return;
         }
@@ -571,6 +591,61 @@ public class EntityAttributeHandler {
         }
 
         instance.addModifier(modifier);
+    }
+
+    private void logModifierDebug(Attributable attributable,
+                                   AttributeInstance instance,
+                                   Attribute target,
+                                   String attributeId,
+                                   AttributeValueStages computed,
+                                   double vanillaValue,
+                                   double delta,
+                                   List<AttributeModifier> prePurgeModifiers,
+                                   List<AttributeModifier> postPurgeModifiers) {
+        String owner = describeAttributable(attributable);
+        String message = String.format(
+                "[modifier-debug] %s attr=%s target=%s base=%.4f vanilla=%.4f rawCurrent=%.4f currentFinal=%.4f delta=%.4f pre=%s post=%s",
+                owner,
+                attributeId,
+                target,
+                instance.getBaseValue(),
+                vanillaValue,
+                computed.rawCurrent(),
+                computed.currentFinal(),
+                delta,
+                formatModifiers(prePurgeModifiers),
+                formatModifiers(postPurgeModifiers)
+        );
+        plugin.getLogger().info(message);
+
+        if (!postPurgeModifiers.isEmpty()) {
+            plugin.getLogger().warning("[modifier-debug] residual AttributeUtils modifiers remained after purge for "
+                    + attributeId + " on " + owner);
+        }
+    }
+
+    private List<AttributeModifier> collectPluginModifiers(AttributeInstance instance, String attributeId) {
+        return instance.getModifiers().stream()
+                .filter(modifier -> isAttributeUtilsModifier(modifier, attributeId))
+                .collect(Collectors.toList());
+    }
+
+    private String describeAttributable(Attributable attributable) {
+        if (attributable instanceof Entity entity) {
+            String label = (entity instanceof Player player) ? player.getName() : entity.getType().name();
+            return label + "(" + entity.getUniqueId() + ")";
+        }
+        return attributable.getClass().getSimpleName();
+    }
+
+    private String formatModifiers(List<AttributeModifier> modifiers) {
+        if (modifiers == null || modifiers.isEmpty()) {
+            return "[]";
+        }
+        return modifiers.stream()
+                .map(modifier -> modifier.getUniqueId() + "|" + modifier.getName() + "|" + modifier.getOperation()
+                        + "|" + modifier.getAmount())
+                .collect(Collectors.joining(", ", "[", "]"));
     }
 
     /**

@@ -122,9 +122,11 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         AttributeFacade newAttributeFacade = new AttributeFacade(this, computationEngine);
         AttributePersistence newPersistence = new AttributePersistence(getDataFolder().toPath(), this);
         vanillaAttributeTargets = new HashMap<>();
-        EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this, vanillaAttributeTargets);
+        boolean debugModifierLogging = getConfig().getBoolean("debug.log-computed-modifiers", false);
+        boolean debugRefreshLogging = getConfig().getBoolean("debug.log-refresh-flushes", false);
+        EntityAttributeHandler newEntityAttributeHandler = new EntityAttributeHandler(newAttributeFacade, this, vanillaAttributeTargets, debugModifierLogging);
         ItemAttributeHandler newItemAttributeHandler = new ItemAttributeHandler(newAttributeFacade, this, newEntityAttributeHandler);
-        newAttributeFacade.setAttributeRefreshListener(new AttributeRefreshDispatcher(this, newEntityAttributeHandler));
+        newAttributeFacade.setAttributeRefreshListener(new AttributeRefreshDispatcher(this, newEntityAttributeHandler, debugRefreshLogging));
 
         this.attributeFacade = newAttributeFacade;
         this.persistence = newPersistence;
