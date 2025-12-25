@@ -82,10 +82,14 @@ public class AttributeComputationEngine {
         synchronizeCurrentBaseline(definition, globalInstance, playerInstance, defaultFinal);
 
         double rawCurrent = buildCurrentBaseline(definition, vanillaSupplier, player, globalInstance, playerInstance, rawDefault, defaultFinal);
-        Collection<ModifierEntry> currentPermanentAdditives = collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentAdditives);
-        Collection<ModifierEntry> currentTemporaryAdditives = collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryAdditives);
-        Collection<ModifierEntry> currentPermanentMultipliers = collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentMultipliers);
-        Collection<ModifierEntry> currentTemporaryMultipliers = collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryMultipliers);
+        Collection<ModifierEntry> currentPermanentAdditives = filterCurrentModifiers(definition,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentAdditives));
+        Collection<ModifierEntry> currentTemporaryAdditives = filterCurrentModifiers(definition,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryAdditives));
+        Collection<ModifierEntry> currentPermanentMultipliers = filterCurrentModifiers(definition,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentPermanentMultipliers));
+        Collection<ModifierEntry> currentTemporaryMultipliers = filterCurrentModifiers(definition,
+                collectModifiers(globalInstance, playerInstance, AttributeInstance::getCurrentTemporaryMultipliers));
         double currentPermanent = apply(rawCurrent,
                 currentPermanentAdditives,
                 Collections.emptyList(),
@@ -234,6 +238,17 @@ public class AttributeComputationEngine {
         List<ModifierEntry> combined = new ArrayList<>(extractor.apply(globalInstance).values());
         combined.addAll(extractor.apply(playerInstance).values());
         return combined;
+    }
+
+    private Collection<ModifierEntry> filterCurrentModifiers(AttributeDefinition definition,
+                                                             Collection<ModifierEntry> modifiers) {
+        if (definition.dynamic() || modifiers == null || modifiers.isEmpty()) {
+            return modifiers;
+        }
+
+        return modifiers.stream()
+                .filter(modifier -> !modifier.isDefaultModifier())
+                .toList();
     }
 
     private void synchronizeCurrentBaseline(AttributeDefinition definition,
