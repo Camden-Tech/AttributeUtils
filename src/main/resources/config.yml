@@ -34,6 +34,7 @@ vanilla-attribute-defaults:
   movement-speed:
     bukkit-attributes: [MOVEMENT_SPEED, GENERIC_MOVEMENT_SPEED]
     default-base: 0.1
+    dynamic: true
   flying-speed:
     bukkit-attributes: [FLYING_SPEED, GENERIC_FLYING_SPEED]
     default-base: 0.4
@@ -79,7 +80,8 @@ vanilla-attribute-defaults:
     default-base: 1
   jump-strength:
     bukkit-attributes: [JUMP_STRENGTH, GENERIC_JUMP_STRENGTH]
-    default-base: 1
+    default-base: 0.42
+    dynamic: true
   sneaking-speed:
     bukkit-attributes: [SNEAKING_SPEED, PLAYER_SNEAKING_SPEED]
     default-base: 1
