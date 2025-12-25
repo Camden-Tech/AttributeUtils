@@ -438,12 +438,7 @@ public class EntityAttributeHandler {
         }
 
         UUID modifierId = attributeModifierId(attributeId);
-        boolean hadModifier = hasModifierById(instance, modifierId);
-        removeModifierById(instance, modifierId);
-        if (hasModifierById(instance, modifierId)) {
-            // Avoid stacking if removal failed for any reason.
-            return;
-        }
+        purgeAttributeUtilsModifiers(instance, modifierId, attributeId);
 
         double vanillaValue = VanillaAttributeResolver.resolveVanillaValue(instance, instance.getBaseValue());
 
@@ -459,14 +454,45 @@ public class EntityAttributeHandler {
                 delta,
                 AttributeModifier.Operation.ADD_NUMBER
         );
-        if (hadModifier || !hasModifierById(instance, modifierId)) {
-            addModifier(instance, modifier);
+        if (hasModifierById(instance, modifierId)) {
+            return;
         }
+
+        addModifier(instance, modifier);
     }
 
     private boolean hasModifierById(AttributeInstance instance, UUID modifierId) {
         return transientModifierIds.contains(modifierId) || instance.getModifiers().stream()
                 .anyMatch(modifier -> modifier.getUniqueId().equals(modifierId));
+    }
+
+    private void purgeAttributeUtilsModifiers(AttributeInstance instance, UUID modifierId, String attributeId) {
+        transientModifierIds.remove(modifierId);
+
+        for (AttributeModifier modifier : new ArrayList<>(instance.getModifiers())) {
+            if (modifier.getUniqueId().equals(modifierId) || isAttributeUtilsModifier(modifier, attributeId)) {
+                instance.removeModifier(modifier);
+                transientModifierIds.remove(modifier.getUniqueId());
+            }
+        }
+
+        AttributeModifier cleanup = new AttributeModifier(
+                modifierId,
+                ATTRIBUTE_MODIFIER_PREFIX + "cleanup",
+                0.0d,
+                AttributeModifier.Operation.ADD_NUMBER
+        );
+        instance.removeModifier(cleanup);
+    }
+
+    private boolean isAttributeUtilsModifier(AttributeModifier modifier, String attributeId) {
+        if (modifier == null || modifier.getName() == null || !VanillaAttributeResolver.isPluginModifier(modifier)) {
+            return false;
+        }
+
+        String normalizedName = modifier.getName().toLowerCase(Locale.ROOT);
+        String expectedName = (ATTRIBUTE_MODIFIER_PREFIX + attributeId).toLowerCase(Locale.ROOT);
+        return normalizedName.equals(expectedName);
     }
 
     private double resolveMultiplier(double valueBefore, double valueAfter) {
