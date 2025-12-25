@@ -4,6 +4,7 @@ import me.baddcamden.attributeutils.api.AttributeFacade;
 import me.baddcamden.attributeutils.command.CommandParsingUtils;
 import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeValueStages;
+import me.baddcamden.attributeutils.VanillaAttributeResolver;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -432,7 +433,7 @@ public class EntityAttributeHandler {
         UUID modifierId = attributeModifierId(attributeId);
         removeModifierById(instance, modifierId);
 
-        double baseline = instance.getValue(); //VAGUE/IMPROVEMENT NEEDED Value includes existing modifiers; clarify intended baseline
+        double baseline = VanillaAttributeResolver.resolveVanillaValue(instance, instance.getBaseValue());
         double delta = computed - baseline;
         if (Math.abs(delta) < ATTRIBUTE_DELTA_EPSILON) {
             return;
