@@ -169,10 +169,15 @@ public class ItemAttributeHandler {
 
         UUID ownerId = entity.getUniqueId();
         Map<String, String> previousKeys = appliedItemModifierKeys.getOrDefault(ownerId, Map.of());
-        Set<String> activeKeys = new HashSet<>();
+        Set<String, String> activeKeys = new HashSet<>();
         Map<String, String> currentKeyAttributes = new HashMap<>();
         Set<String> touchedAttributes = new HashSet<>();
         int heldSlot = entity instanceof Player player ? player.getInventory().getHeldItemSlot() : 0;
+
+        previousKeys.forEach((modifierKey, attributeId) -> {
+            attributeFacade.removePlayerModifier(ownerId, attributeId, modifierKey);
+            touchedAttributes.add(attributeId);
+        });
 
         if (entity instanceof Player player) {
             scanItems(player.getInventory().getContents(), TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
@@ -184,13 +189,6 @@ public class ItemAttributeHandler {
                 scanItems(new ItemStack[]{equipment.getItemInMainHand()}, TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, entity, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
                 scanItems(equipment.getArmorContents(), TriggerCriterion.ItemSlotContext.Bucket.ARMOR, entity, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
                 scanItems(new ItemStack[]{equipment.getItemInOffHand()}, TriggerCriterion.ItemSlotContext.Bucket.OFFHAND, entity, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
-            }
-        }
-
-        for (Map.Entry<String, String> entry : previousKeys.entrySet()) {
-            if (!activeKeys.contains(entry.getKey())) {
-                attributeFacade.removePlayerModifier(ownerId, entry.getValue(), entry.getKey());
-                touchedAttributes.add(entry.getValue());
             }
         }
 
