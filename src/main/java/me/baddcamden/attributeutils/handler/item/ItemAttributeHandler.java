@@ -75,7 +75,11 @@ public class ItemAttributeHandler {
             throw new IllegalArgumentException("unsupported-material");
         }
         Multimap<Attribute, AttributeModifier> defaultAttributeModifiers = meta.getAttributeModifiers();
-        //VAGUE/IMPROVEMENT NEEDED clarify when Bukkit returns null here and whether copying prevents vanilla defaults from being wiped
+        if (defaultAttributeModifiers == null || defaultAttributeModifiers.isEmpty()) {
+            defaultAttributeModifiers = material.getDefaultAttributeModifiers();
+        }
+        // Copy vanilla defaults onto the meta so later refreshes that clear plugin modifiers do not wipe native values
+        // when the freshly created item reported no modifiers.
         if (defaultAttributeModifiers != null && (meta.getAttributeModifiers() == null || meta.getAttributeModifiers().isEmpty())) {
             meta.setAttributeModifiers(defaultAttributeModifiers);
         }
