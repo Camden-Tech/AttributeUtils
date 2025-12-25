@@ -440,18 +440,8 @@ public class EntityAttributeHandler {
 
         double vanillaValue = VanillaAttributeResolver.resolveVanillaValue(instance, instance.getBaseValue());
 
-        double defaultAdditive = computed.defaultPermanent() - computed.rawDefault();
-        double defaultMultiplier = resolveMultiplier(computed.defaultPermanent(), computed.defaultFinal());
-        double currentAdditive = computed.currentPermanent() - computed.rawCurrent();
-        double currentMultiplier = resolveMultiplier(computed.currentPermanent(), computed.currentFinal());
-
-        double rebuilt = vanillaValue;
-        rebuilt += defaultAdditive;
-        rebuilt *= defaultMultiplier;
-        rebuilt += currentAdditive;
-        rebuilt *= currentMultiplier;
-
-        double delta = rebuilt - vanillaValue;
+        double staged = computed.currentFinal();
+        double delta = staged - vanillaValue;
         if (Math.abs(delta) < ATTRIBUTE_DELTA_EPSILON) {
             return;
         }
