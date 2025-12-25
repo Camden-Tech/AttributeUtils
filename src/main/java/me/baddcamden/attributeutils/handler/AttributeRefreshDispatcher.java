@@ -7,6 +7,10 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.plugin.Plugin;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -20,6 +24,9 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
 
     private final Plugin plugin;
     private final EntityAttributeHandler entityAttributeHandler;
+    private final Map<UUID, Set<String>> pendingPlayerAttributes = new HashMap<>();
+    private final Set<String> pendingGlobalAttributes = new HashSet<>();
+    private boolean flushScheduled;
 
     /**
      * Creates a dispatcher that can resolve entities from the server and apply refreshed attributes.
@@ -39,11 +46,8 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
             return;
         }
 
-        // Using the server lookup ensures we only attempt to refresh attributes for entities currently loaded in the world.
-        Entity entity = plugin.getServer().getEntity(playerId);
-        if (entity instanceof LivingEntity livingEntity) {
-            entityAttributeHandler.applyVanillaAttribute(livingEntity, attributeId);
-        }
+        pendingPlayerAttributes.computeIfAbsent(playerId, ignored -> new HashSet<>()).add(attributeId);
+        scheduleFlush();
     }
 
     @Override
@@ -52,10 +56,40 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
             return;
         }
 
-        // Iterate through every loaded world to refresh the attribute for all living entities currently active.
-        for (World world : plugin.getServer().getWorlds()) {
-            for (LivingEntity livingEntity : world.getLivingEntities()) {
+        pendingGlobalAttributes.add(attributeId);
+        scheduleFlush();
+    }
+
+    private void scheduleFlush() {
+        if (flushScheduled) {
+            return;
+        }
+        flushScheduled = true;
+        plugin.getServer().getScheduler().runTask(plugin, this::flushPending);
+    }
+
+    private void flushPending() {
+        flushScheduled = false;
+        Map<UUID, Set<String>> playerSnapshot = new HashMap<>(pendingPlayerAttributes);
+        Set<String> globalSnapshot = new HashSet<>(pendingGlobalAttributes);
+        pendingPlayerAttributes.clear();
+        pendingGlobalAttributes.clear();
+
+        for (Map.Entry<UUID, Set<String>> entry : playerSnapshot.entrySet()) {
+            Entity entity = plugin.getServer().getEntity(entry.getKey());
+            if (!(entity instanceof LivingEntity livingEntity)) {
+                continue;
+            }
+            for (String attributeId : entry.getValue()) {
                 entityAttributeHandler.applyVanillaAttribute(livingEntity, attributeId);
+            }
+        }
+
+        for (String attributeId : globalSnapshot) {
+            for (World world : plugin.getServer().getWorlds()) {
+                for (LivingEntity livingEntity : world.getLivingEntities()) {
+                    entityAttributeHandler.applyVanillaAttribute(livingEntity, attributeId);
+                }
             }
         }
     }
