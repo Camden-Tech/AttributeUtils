@@ -34,168 +34,168 @@ public final class AttributeDefinitionFactory {
                 "max_health",
                 "Max Health",
                 capConfigWithMin(config, "max_health", 100, 0.0001d),
-                false,
+                dynamic(config, "max_health", false),
                 defaultBase(config, "max_health", 20)
         ));
         definitions.put("follow_range", cappedAttribute(
                 "follow_range",
                 "Follow Range",
                 capConfig(config, "follow_range", 256),
-                false,
+                dynamic(config, "follow_range", false),
                 defaultBase(config, "follow_range", 32)
         ));
         definitions.put("attack_damage", cappedAttribute(
                 "attack_damage",
                 "Attack Damage",
                 capConfig(config, "attack_damage", 100),
-                true,
+                dynamic(config, "attack_damage", true),
                 defaultBase(config, "attack_damage", 1)
         ));
         definitions.put("attack_knockback", cappedAttribute(
                 "attack_knockback",
                 "Attack Knockback",
                 capConfig(config, "attack_knockback", 10),
-                true,
+                dynamic(config, "attack_knockback", true),
                 defaultBase(config, "attack_knockback", 0)
         ));
         definitions.put("attack_speed", cappedAttribute(
                 "attack_speed",
                 "Attack Speed",
                 capConfig(config, "attack_speed", 40),
-                true,
+                dynamic(config, "attack_speed", true),
                 defaultBase(config, "attack_speed", 4)
         ));
         definitions.put("movement_speed", cappedAttribute(
                 "movement_speed",
                 "Movement Speed",
                 capConfig(config, "movement_speed", 1),
-                false,
+                dynamic(config, "movement_speed", false),
                 defaultBase(config, "movement_speed", 0.1)
         ));
         definitions.put("flying_speed", cappedAttribute(
                 "flying_speed",
                 "Flying Speed",
                 capConfig(config, "flying_speed", 1),
-                false,
+                dynamic(config, "flying_speed", false),
                 defaultBase(config, "flying_speed", 0.4)
         ));
         definitions.put("armor", cappedAttribute(
                 "armor",
                 "Armor",
                 capConfig(config, "armor", 40),
-                true,
+                dynamic(config, "armor", true),
                 defaultBase(config, "armor", 0)
         ));
         definitions.put("armor_toughness", cappedAttribute(
                 "armor_toughness",
                 "Armor Toughness",
                 capConfig(config, "armor_toughness", 20),
-                true,
+                dynamic(config, "armor_toughness", true),
                 defaultBase(config, "armor_toughness", 0)
         ));
         definitions.put("luck", cappedAttribute(
                 "luck",
                 "Luck",
                 capConfig(config, "luck", 1024),
-                false,
+                dynamic(config, "luck", false),
                 defaultBase(config, "luck", 0)
         ));
         definitions.put("knockback_resistance", cappedAttribute(
                 "knockback_resistance",
                 "Knockback Resistance",
                 capConfig(config, "knockback_resistance", 1),
-                true,
+                dynamic(config, "knockback_resistance", true),
                 defaultBase(config, "knockback_resistance", 0)
         ));
         definitions.put("block_range", cappedAttribute(
                 "block_range",
                 "Block Interaction Range",
                 capConfig(config, "block_range", 128),
-                false,
+                dynamic(config, "block_range", false),
                 defaultBase(config, "block_range", 5)
         ));
         definitions.put("interaction_range", cappedAttribute(
                 "interaction_range",
                 "Entity Interaction Range",
                 capConfig(config, "interaction_range", 64),
-                true,
+                dynamic(config, "interaction_range", true),
                 defaultBase(config, "interaction_range", 3)
         ));
         definitions.put("block_break_speed", cappedAttribute(
                 "block_break_speed",
                 "Block Break Speed",
                 capConfig(config, "block_break_speed", 1024),
-                false,
+                dynamic(config, "block_break_speed", false),
                 defaultBase(config, "block_break_speed", 1)
         ));
         definitions.put("mining_efficiency", cappedAttribute(
                 "mining_efficiency",
                 "Mining Efficiency",
                 capConfig(config, "mining_efficiency", 1024),
-                false,
+                dynamic(config, "mining_efficiency", false),
                 defaultBase(config, "mining_efficiency", 1)
         ));
         definitions.put("gravity", cappedAttribute(
                 "gravity",
                 "Gravity",
                 capConfig(config, "gravity", 10),
-                false,
+                dynamic(config, "gravity", false),
                 defaultBase(config, "gravity", 1)
         ));
         definitions.put("scale", cappedAttribute(
                 "scale",
                 "Scale",
                 capConfigWithMin(config, "scale", 10, 0.0001d),
-                false,
+                dynamic(config, "scale", false),
                 defaultBase(config, "scale", 1)
         ));
         definitions.put("step_height", cappedAttribute(
                 "step_height",
                 "Step Height",
                 capConfig(config, "step_height", 5),
-                false,
+                dynamic(config, "step_height", false),
                 defaultBase(config, "step_height", 0.6)
         ));
         definitions.put("safe_fall_distance", cappedAttribute(
                 "safe_fall_distance",
                 "Safe Fall Distance",
                 capConfig(config, "safe_fall_distance", 256),
-                false,
+                dynamic(config, "safe_fall_distance", false),
                 defaultBase(config, "safe_fall_distance", 3)
         ));
         definitions.put("fall_damage_multiplier", cappedAttribute(
                 "fall_damage_multiplier",
                 "Fall Damage Multiplier",
                 capConfig(config, "fall_damage_multiplier", 10),
-                false,
+                dynamic(config, "fall_damage_multiplier", false),
                 defaultBase(config, "fall_damage_multiplier", 1)
         ));
         definitions.put("jump_strength", cappedAttribute(
                 "jump_strength",
                 "Jump Strength",
                 capConfig(config, "jump_strength", 5),
-                false,
+                dynamic(config, "jump_strength", false),
                 defaultBase(config, "jump_strength", 1)
         ));
         definitions.put("sneaking_speed", cappedAttribute(
                 "sneaking_speed",
                 "Sneaking Speed",
                 capConfig(config, "sneaking_speed", 4),
-                false,
+                dynamic(config, "sneaking_speed", false),
                 defaultBase(config, "sneaking_speed", 1)
         ));
         definitions.put("sprint_speed", cappedAttribute(
                 "sprint_speed",
                 "Sprint Speed",
                 capConfig(config, "sprint_speed", 4),
-                false,
+                dynamic(config, "sprint_speed", false),
                 defaultBase(config, "sprint_speed", 1)
         ));
         definitions.put("swim_speed", cappedAttribute(
                 "swim_speed",
                 "Swim Speed",
                 capConfig(config, "swim_speed", 4),
-                false,
+                dynamic(config, "swim_speed", false),
                 defaultBase(config, "swim_speed", 1)
         ));
         definitions.put("damage_reduction", cappedAttribute(
@@ -296,6 +296,26 @@ public final class AttributeDefinitionFactory {
 
     private static double defaultBase(FileConfiguration config, String attributeId, double fallback) {
         return defaultValue(config, attributeId, "default-base", fallback);
+    }
+
+    private static boolean dynamic(FileConfiguration config, String attributeId, boolean fallback) {
+        String configKey = configKey(attributeId);
+        ConfigurationSection defaults = config.getConfigurationSection("vanilla-attribute-defaults");
+        if (defaults != null) {
+            ConfigurationSection entry = defaults.getConfigurationSection(configKey);
+            if (entry != null) {
+                return entry.getBoolean("dynamic", fallback);
+            }
+            if (defaults.isSet(configKey)) {
+                return defaults.getBoolean(configKey, fallback);
+            }
+        }
+
+        if (config.isSet(configKey)) {
+            return config.getBoolean(configKey, fallback);
+        }
+
+        return fallback;
     }
 
     /**
