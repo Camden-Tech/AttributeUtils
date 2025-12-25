@@ -136,18 +136,13 @@ public class AttributeComputationEngine {
                                         double rawDefault,
                                         double defaultFinal) {
         if (definition.dynamic()) {
-            double vanilla = vanillaSupplier == null || player == null ? definition.defaultCurrentValue() : vanillaSupplier.getVanillaValue(player);
-            //VAGUE/IMPROVEMENT NEEDED Clarify whether falling back to the default current value is the intended behavior when no vanilla supplier is registered.
-            double adjusted = vanilla;
-            if (playerInstance != null) {
-                //VAGUE/IMPROVEMENT NEEDED assumes the stored base delta should be transferred onto the live
-                //VAGUE/IMPROVEMENT NEEDED vanilla reading instead of the definition's default, which may not
-                //VAGUE/IMPROVEMENT NEEDED reflect how the original base was computed.
-                adjusted += playerInstance.getCurrentBaseValue() - definition.defaultCurrentValue();
-            } else if (globalInstance != null) {
-                adjusted += globalInstance.getCurrentBaseValue() - definition.defaultCurrentValue();
-            }
-            return definition.capConfig().clamp(adjusted, resolveCapKey(globalInstance, playerInstance));
+            double vanilla = vanillaSupplier == null || player == null
+                    ? definition.defaultCurrentValue()
+                    : vanillaSupplier.getVanillaValue(player);
+            // Dynamic attributes should recompute from the fresh vanilla value on every pass so additive modifiers
+            // are only applied once. Persisted current base deltas are ignored here to avoid carrying forward
+            // previously applied modifiers when refreshes occur.
+            return definition.capConfig().clamp(vanilla, resolveCapKey(globalInstance, playerInstance));
         }
 
         double base = playerInstance != null
