@@ -1,5 +1,13 @@
 # Default attribute utility configuration
 
+# Debug logging toggles
+debug:
+  # When true, every computed attribute refresh logs the vanilla base, computed totals, and AttributeUtils modifiers
+  # found before/after purge. Useful for diagnosing stacked/compounding modifiers.
+  log-computed-modifiers: false
+  # When true, attribute refresh dispatching logs queued and flushed targets to track how often refreshes fire.
+  log-refresh-flushes: false
+
 # Vanilla attribute defaults
 # Each entry seeds both the global and player baselines for the built-in
 # attributes listed below. Values are mirrored to base/current by default;
