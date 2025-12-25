@@ -388,6 +388,13 @@ public class EntityAttributeHandler {
             return;
         }
 
+        org.bukkit.attribute.AttributeInstance instance = entity.getAttribute(target);
+        if (instance == null) {
+            return;
+        }
+
+        purgeAttributeUtilsModifiers(instance, attributeModifierId(attributeId), attributeId);
+
         AttributeValueStages computed = attributeFacade.compute(attributeId, entity.getUniqueId(), null);
         applyComputedModifier(entity, target, attributeId, computed);
     }
@@ -407,6 +414,13 @@ public class EntityAttributeHandler {
         if (target == null) {
             return;
         }
+
+        org.bukkit.attribute.AttributeInstance instance = player.getAttribute(target);
+        if (instance == null) {
+            return;
+        }
+
+        purgeAttributeUtilsModifiers(instance, attributeModifierId(attributeId), attributeId);
 
         AttributeValueStages computed = attributeFacade.compute(attributeId, player);
         applyComputedModifier(player, target, attributeId, computed);
