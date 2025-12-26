@@ -108,6 +108,10 @@ public class AttributeComputationEngine {
         return new AttributeValueStages(rawDefault, defaultPermanent, defaultFinal, rawCurrent, currentPermanent, currentFinal);
     }
 
+    /**
+     * Determines the starting default baseline value, prioritizing player overrides over global
+     * state and falling back to the definition default when neither exists.
+     */
     private double resolveDefaultBase(AttributeDefinition definition, AttributeInstance globalInstance, AttributeInstance playerInstance) {
         if (playerInstance != null) {
             return playerInstance.getDefaultBaseValue();
@@ -118,6 +122,10 @@ public class AttributeComputationEngine {
         return definition.defaultBaseValue();
     }
 
+    /**
+     * Chooses the cap override key to use when clamping values, favoring player-specific settings
+     * over global values and returning {@code null} when no override exists.
+     */
     private String resolveCapKey(AttributeInstance globalInstance, AttributeInstance playerInstance) {
         if (playerInstance != null) {
             return playerInstance.getCapOverrideKey();
@@ -128,6 +136,11 @@ public class AttributeComputationEngine {
         return null;
     }
 
+    /**
+     * Establishes the current-layer baseline. Dynamic attributes pull fresh vanilla values while
+     * static attributes reuse persisted current baselines, all clamped using the applicable cap
+     * override.
+     */
     private double buildCurrentBaseline(AttributeDefinition definition,
                                         VanillaAttributeSupplier vanillaSupplier,
                                         Player player,
@@ -151,6 +164,11 @@ public class AttributeComputationEngine {
         return definition.capConfig().clamp(base, resolveCapKey(globalInstance, playerInstance));
     }
 
+    /**
+     * Applies additive and multiplicative modifiers in stage order, keeping keyed multiplier
+     * contributions separate from unrestricted additives before recombining and clamping the
+     * result.
+     */
     private double apply(double start,
                          Collection<ModifierEntry> permanentAdditives,
                          Collection<ModifierEntry> temporaryAdditives,
@@ -180,6 +198,10 @@ public class AttributeComputationEngine {
         return definition.capConfig().clamp(value, capKey);
     }
 
+    /**
+     * Builds a multiplier product from the provided collection, optionally limiting entries to a
+     * whitelisted set of keys. Returns {@code 1.0} when no entries are applicable.
+     */
     private double multiplierProduct(Collection<ModifierEntry> multipliers, Set<String> allowedKeys) {
         if (multipliers == null || multipliers.isEmpty()) {
             return 1.0d;
@@ -191,6 +213,10 @@ public class AttributeComputationEngine {
                 .reduce(1.0d, (left, right) -> left * right);
     }
 
+    /**
+     * Aggregates additive modifier amounts, optionally restricting to modifiers that use multiplier
+     * keys so keyed contributions can be separated from unrestricted ones.
+     */
     private double sumAdditives(Collection<ModifierEntry> additives,
                                 Collection<ModifierEntry> applicablePermanentMultipliers,
                                 Collection<ModifierEntry> applicableTemporaryMultipliers,
@@ -209,6 +235,10 @@ public class AttributeComputationEngine {
                 .sum();
     }
 
+    /**
+     * Computes the combined multiplier for keyed additives by multiplying the permanent and
+     * temporary products restricted to the provided set of keys.
+     */
     private double scopedMultiplierProduct(Collection<ModifierEntry> applicablePermanentMultipliers,
                                            Collection<ModifierEntry> applicableTemporaryMultipliers,
                                            Set<String> allowedKeys) {
@@ -216,6 +246,10 @@ public class AttributeComputationEngine {
                 * multiplierProduct(applicableTemporaryMultipliers, allowedKeys);
     }
 
+    /**
+     * Merges modifier maps from the global and player instances while preserving player overrides
+     * for matching keys and retaining insertion order for deterministic processing.
+     */
     private Collection<ModifierEntry> collectModifiers(AttributeInstance globalInstance,
                                                       AttributeInstance playerInstance,
                                                       Function<AttributeInstance, Map<String, ModifierEntry>> extractor) {
@@ -233,6 +267,10 @@ public class AttributeComputationEngine {
         return combined.values();
     }
 
+    /**
+     * Restricts modifiers to those that should affect the current computation stage. When the
+     * definition disallows current-stage modifiers, this returns the input collection unmodified.
+     */
     private Collection<ModifierEntry> filterCurrentModifiers(AttributeDefinition definition,
                                                              Collection<ModifierEntry> modifiers) {
         if (modifiers == null || modifiers.isEmpty()) {
@@ -244,6 +282,11 @@ public class AttributeComputationEngine {
                 .toList();
     }
 
+    /**
+     * Synchronizes the current baseline with the computed default final value for static attributes
+     * so future refreshes start from the latest static baseline. Dynamic attributes skip
+     * synchronization entirely.
+     */
     private void synchronizeCurrentBaseline(AttributeDefinition definition,
                                             AttributeInstance globalInstance,
                                             AttributeInstance playerInstance,

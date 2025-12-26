@@ -363,10 +363,18 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         });
     }
 
+    /**
+     * Exposes the item attribute handler so commands and listeners can trigger reapplication of
+     * stored item modifiers for a player.
+     */
     public ItemAttributeHandler getItemAttributeHandler() {
         return itemAttributeHandler;
     }
 
+    /**
+     * Exposes the entity attribute handler so callers can enforce caps or refresh entity-level
+     * modifiers as needed.
+     */
     public EntityAttributeHandler getEntityAttributeHandler() {
         return entityAttributeHandler;
     }
