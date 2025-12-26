@@ -1,74 +1,84 @@
 # AttributeUtils
 
-AttributeUtils is a Minecraft 1.21.10 plugin that centralizes vanilla and custom attribute math so every plugin on your server shares the same numbers. It replaces ad-hoc modifier stacks with a predictable computation pipeline, offers hooks for retrieving staged values, and ships utilities for applying caps, handling vanilla baselines, and refreshing live entities.
+AttributeUtils is a Minecraft 1.21.10 plugin that centralizes vanilla and custom attribute math so every plugin on your server shares the same numbers. It exposes a minimal façade for registration and computation, while still letting hook plugins inject modifiers, caps, and vanilla baselines.
 
-## Why use AttributeUtils?
-- **Unified baselines**: Register definitions for vanilla or custom attributes and let the plugin track global defaults alongside per-player overrides.
-- **Deterministic math**: AttributeComputationEngine applies additives before multipliers in a fixed order for both default and current layers.
-- **Rich integration hooks**: Access staged values, inject modifiers, or wire your own vanilla baseline suppliers without touching internal storage.
+## What makes AttributeUtils different?
+- **Deterministic pipeline** – Additives then multipliers, default layer before current layer, with clamping after every step so numbers stay predictable.
+- **Vanilla-aware** – Optional suppliers fetch live Bukkit attribute values, food level, air, and equipment-driven stats before custom modifiers kick in.
+- **Modifier safety** – Namespaced keys (`plugin.key`) prevent collisions and make it easy to replace or purge individual entries.
+- **Refresh hooks** – A single listener surface re-applies computed values to online players whenever modifiers change.
 
-## Core API entrypoint: `AttributeFacade`
-Use `AttributeFacade` as the single surface for registrations, reads, and writes:
-1. **Register definitions** you care about (vanilla or custom). Each `AttributeDefinition` stores ids, baselines, caps, and multiplier applicability rules. `registerDefinition` normalizes ids and seeds a global `AttributeInstance` for storage.
-2. **Register vanilla baselines** for dynamic attributes with `registerVanillaBaseline`. Provide a `VanillaAttributeSupplier` lambda that reports the live vanilla value (e.g., pulling armor from equipment or food level from Bukkit APIs). When omitted, defaults fall back to the definition’s `defaultCurrentValue`.
-3. **Compute staged values** with `compute(String id, Player player)` to receive an `AttributeValueStages` snapshot (raw and post-modifier values for both default and current layers, already clamped to caps).
-4. **Modify attributes** by calling `setGlobalModifier`, `setPlayerModifier`, or `setPlayerCapOverride`. Modifier keys must follow `[plugin].[key]` and are automatically bucketed into additive or multiplier groups for default/current and permanent/temporary scopes.
-5. **React to removals** by registering an `AttributeRefreshListener` so live players/entities can be refreshed when modifiers are cleared.
-
+## Quick start: registering and computing
 ```java
-// Example: register a custom attribute and wire a vanilla baseline supplier
+// Acquire the façade from your plugin on enable (AttributeUtilitiesPlugin exposes a getter)
+AttributeFacade attributes = ...;
+
+// 1) Register your attribute definition
 AttributeDefinition mana = new AttributeDefinition(
     "max_mana", "Max Mana", false,
     20.0, 20.0,
     new CapConfig(0, 200, Map.of()),
-    MultiplierApplicability.allowAllMultipliers()
+    MultiplierApplicability.allowAllMultipliers(),
+    ModifierOperation.ADD
 );
-attributeFacade.registerDefinition(mana);
-attributeFacade.registerVanillaBaseline("max_mana", player -> 20.0); // static baseline
+attributes.registerDefinition(mana);
 
-// Apply a temporary current additive and retrieve staged values
-ModifierEntry potionBuff = new ModifierEntry("mymod.mana_potion", 5.0, ModifierOperation.ADD, true, true, Set.of(), false);
-attributeFacade.setPlayerModifier(player.getUniqueId(), "max_mana", potionBuff);
-AttributeValueStages stages = attributeFacade.compute("max_mana", player);
+// 2) Wire a vanilla baseline (optional)
+attributes.registerVanillaBaseline("max_mana", player -> 20.0);
+
+// 3) Apply modifiers using namespaced keys
+ModifierEntry potionBuff = new ModifierEntry(
+    "mymod.mana_potion", 5.0, ModifierOperation.ADD, true, true, Set.of(), false);
+attributes.setPlayerModifier(player.getUniqueId(), "max_mana", potionBuff);
+
+// 4) Compute staged values for gameplay logic
+AttributeValueStages stages = attributes.compute("max_mana", player);
 ```
 
-## Computation pipeline
-`AttributeComputationEngine` evaluates attributes in a deterministic sequence so integrations can target the right stage:
-1. Start from the default baseline, clamp to caps, and apply default permanent additives, default temporary additives, default permanent multipliers, then default temporary multipliers.
-2. For non-dynamic attributes, synchronize the current baseline with the computed default result so stored deltas remain meaningful.
-3. Establish the current baseline (vanilla-aware for dynamic attributes) and clamp.
-4. Apply current permanent additives, current temporary additives, current permanent multipliers, then current temporary multipliers, clamping after each stage.
-5. Return the staged values (raw, after permanent, after all modifiers for both default and current).
+### Using staged values
+`AttributeValueStages` returns baselines and post-modifier totals for both layers. You can render tooltips from `rawDefault`/`defaultFinal` while consuming `currentFinal` for live combat calculations.
 
-## Working with modifier buckets
-`AttributeInstance` stores one modifier map per scope: default/current × permanent/temporary × additive/multiplier. Adding a `ModifierEntry` automatically distributes it to the correct buckets and replaces any existing entry with the same key. Temporary modifiers can be purged globally or per-player to clear session-bound effects.
+### Modifier lifecycles
+Temporary modifiers are purged automatically when you call `purgeTemporary(playerId)` for disconnects or `purgeGlobalTemporary()` for server reloads. Caps can be overridden per player via `setPlayerCapOverride`, which also clamps to the global minimum before persisting.
 
-### Multiplier scoping
-Each additive can opt into specific multiplier keys via `useMultiplierKeys` and `multiplierKeys`. When set, only the referenced multipliers apply to that additive; otherwise, all applicable multipliers in the stage are used. `MultiplierApplicability` on the definition also filters which multipliers participate at all.
+## Plugin integration examples
+- **Equipment-driven stats**: Register a `VanillaAttributeSupplier` that inspects armor or held items, then feed the computed baseline into the engine for consistent stacking.
+- **Consumable buffs**: Add temporary additive or multiplier modifiers (with `ModifierOperation`) keyed to your plugin; remove them later by calling `removePlayerModifier`/`removeGlobalModifier` with the same key.
+- **Cross-plugin synchronization**: Use `refreshAllAttributesForPlayer` after you change vanilla values (e.g., custom health systems) so any listening handlers reapply computed numbers.
 
-## Cap management
-`CapConfig` provides global min/max values plus optional overrides keyed by `capOverrideKey`. Use `setPlayerCapOverride` on the façade to clamp overrides to the attribute’s global minimum and persist the cap key for future computations. Caps are applied after every computation step to keep both baselines and modifier results within expected ranges.
+## Hook surface: classes, fields, and methods worth knowing
+These are the types most hook plugins interact with, along with why you would use them:
 
-## Vanilla resolver utilities
-`AttributeUtilitiesPlugin` wires helper suppliers that read Bukkit attributes, food level, maximum air, or equipment-derived stats. When you register a vanilla baseline through the config or API, the plugin will:
-- Resolve the target Bukkit attribute (with fallbacks for armor, toughness, knockback resistance, attack damage/speed, etc.).
-- For dynamic attributes, prefer live vanilla values; for static ones, fall back to `defaultCurrentValue`.
-- Cache attribute targets so entity handlers can reapply values after refreshes.
+- **`AttributeFacade`** – Central API for registration, computation, and modifier management.
+  - `registerDefinition(AttributeDefinition)` seeds an attribute and its global storage.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L53-L76】
+  - `registerVanillaBaseline(String, VanillaAttributeSupplier)` provides live vanilla values for the computation pipeline.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L78-L93】
+  - `compute(String, Player)` / `compute(String, UUID, Player)` return `AttributeValueStages` for rendering or gameplay.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L107-L149】
+  - `setGlobalModifier` / `setPlayerModifier` add or replace modifier entries with refresh notifications.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L151-L208】
+  - `setPlayerCapOverride` clamps and persists per-player caps.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L210-L243】
+  - `removeGlobalModifier` / `removePlayerModifier` purge modifiers by key (useful for clearing consumables or session effects).【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L245-L287】
+  - `getGlobalInstances` / `getPlayerInstances` expose read-only state for diagnostics or UI.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L289-L315】
+  - `refreshAllAttributesForPlayer` / `refreshAllAttributes` tell listeners to reapply computed values.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L317-L352】
+  - `purgeTemporary(UUID)` / `purgeGlobalTemporary()` clear temporary buckets.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L388-L398】
+  - `setAttributeRefreshListener(AttributeRefreshListener)` registers your callback for live entity updates.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L414-L446】
 
-You can mirror this pattern by providing your own `VanillaAttributeSupplier` or by calling `attributeFacade.registerVanillaBaseline` with a custom resolver.
+- **`AttributeDefinition`** – Immutable description of an attribute (id, name, dynamic flag, baselines, caps, multiplier rules, default operation). Use `newInstance()` to seed a fresh `AttributeInstance`.【F:src/main/java/me/baddcamden/attributeutils/model/AttributeDefinition.java†L10-L36】
 
-## Persistence and lifecycle hooks
-`AttributePersistence` loads global data on enable, player data on join, and saves everything on disable. The plugin exposes `reloadAttributes` to flush current state, reload config/custom attributes, and reapply item and entity handlers. If you register an `AttributeRefreshListener`, modifier removals will trigger refresh callbacks for specific players or everyone, letting you reapply computed values to live entities.
+- **`AttributeInstance`** – Mutable storage for baselines and modifier buckets. Key entry points for hook plugins inspecting state:
+  - `getModifiers()` to view all registered entries keyed by normalized key.【F:src/main/java/me/baddcamden/attributeutils/model/AttributeInstance.java†L74-L120】
+  - `getDefaultPermanentAdditives()` / `getCurrentPermanentAdditives()` (and their temporary/multiplier counterparts) expose bucket contents for debugging or exports.【F:src/main/java/me/baddcamden/attributeutils/model/AttributeInstance.java†L122-L188】
+  - `addModifier(ModifierEntry)` distributes a modifier across relevant buckets; `removeModifier(String)` clears it from every bucket.【F:src/main/java/me/baddcamden/attributeutils/model/AttributeInstance.java†L190-L224】
+  - Baseline helpers (`getBaseValue`, `setBaseValue`, `getCurrentBaseValue`, `setCurrentBaseValue`, `synchronizeCurrentBaseWithDefault`) let you adjust stored baselines before recomputing.【F:src/main/java/me/baddcamden/attributeutils/model/AttributeInstance.java†L52-L95】【F:src/main/java/me/baddcamden/attributeutils/model/AttributeInstance.java†L226-L240】
 
-## Configuration at a glance
-- **Global definitions and caps**: configured in `config.yml` under `vanilla-attribute-defaults` and `global-attribute-caps` (definitions can also be registered programmatically).
-- **Custom attributes**: YAML files in `custom-attributes/` (configurable) with fields for id, display name, dynamic flag, default baselines, caps, and multiplier applicability.
-- **Plugin commands**: admin commands (e.g., `/attributes`, `/attributes entity`, `/attributes item`) are registered automatically to inspect or change values, spawn test entities, and generate items with embedded modifiers.
+- **`ModifierEntry`** – Single modifier with key, value, operation (add/multiply), permanence, layer targeting, multiplier scoping, and whether to clamp to caps. Ideal for serializing buffs or items.【F:src/main/java/me/baddcamden/attributeutils/model/ModifierEntry.java†L1-L82】
 
-## Getting started
-1. Drop the built jar into your server’s plugins folder and start the server to generate config files.
-2. Define vanilla baselines and caps in `config.yml`, or add custom attributes in the custom attributes folder.
-3. In your plugin, obtain the `AttributeFacade` instance (via the plugin’s getter or service registration) and register any additional attributes or vanilla suppliers you need.
-4. Use the façade to set modifiers, cap overrides, and to compute staged values when your plugin needs current numbers for gameplay logic.
+- **`AttributeValueStages`** – Record capturing raw and post-modifier values for default/current layers; useful for tooltips or network packets.【F:src/main/java/me/baddcamden/attributeutils/model/AttributeValueStages.java†L1-L36】
 
-With these hooks and utilities, AttributeUtils becomes the authoritative source for all attribute calculations on your server.
+- **`CapConfig`** – Global min/max values plus optional override map keyed by `capOverrideKey`; used by `setPlayerCapOverride` to clamp per-player caps.【F:src/main/java/me/baddcamden/attributeutils/model/CapConfig.java†L1-L34】
+
+- **`MultiplierApplicability`** – Filters which multipliers apply to which additive buckets (allow all vs. allow lists/denylists).【F:src/main/java/me/baddcamden/attributeutils/model/MultiplierApplicability.java†L1-L57】
+
+- **`VanillaAttributeSupplier`** – Functional interface for providing live vanilla baselines given a player. Register with `registerVanillaBaseline`.【F:src/main/java/me/baddcamden/attributeutils/api/VanillaAttributeSupplier.java†L1-L15】
+
+- **`AttributeFacade.AttributeRefreshListener`** – Callback interface fired when modifiers are removed so you can reapply values to entities.【F:src/main/java/me/baddcamden/attributeutils/api/AttributeFacade.java†L418-L446】
+
+With these hooks, AttributeUtils becomes the authoritative source for all attribute calculations on your server, letting your plugins agree on numbers while keeping integration simple.
