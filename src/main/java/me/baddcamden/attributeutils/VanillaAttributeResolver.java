@@ -133,7 +133,7 @@ public final class VanillaAttributeResolver {
      * @param modifier modifier to inspect; null yields {@code false}.
      * @return {@code true} when the modifier name starts with the AttributeUtils prefix (case-insensitive).
      */
-    static boolean isPluginModifier(AttributeModifier modifier) {
+    public static boolean isPluginModifier(AttributeModifier modifier) {
         if (modifier == null) {
             return false;
         }

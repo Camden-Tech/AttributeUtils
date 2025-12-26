@@ -363,6 +363,14 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         });
     }
 
+    public ItemAttributeHandler getItemAttributeHandler() {
+        return itemAttributeHandler;
+    }
+
+    public EntityAttributeHandler getEntityAttributeHandler() {
+        return entityAttributeHandler;
+    }
+
     /**
      * Resolves the current attribute value for a player using Bukkit's API while allowing equipment
      * modifiers to contribute when a raw attribute value is missing.
