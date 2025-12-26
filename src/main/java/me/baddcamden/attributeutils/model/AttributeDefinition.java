@@ -2,6 +2,8 @@ package me.baddcamden.attributeutils.model;
 
 import java.util.Objects;
 
+import me.baddcamden.attributeutils.model.ModifierOperation;
+
 /**
  * Immutable description of an attribute, including baseline defaults, cap behaviour and how
  * multiplier buckets should be filtered.
@@ -18,7 +20,8 @@ public record AttributeDefinition(
         double defaultBaseValue,
         double defaultCurrentValue,
         CapConfig capConfig,
-        MultiplierApplicability multiplierApplicability
+        MultiplierApplicability multiplierApplicability,
+        ModifierOperation defaultOperation
 ) {
 
     public AttributeDefinition {
@@ -26,6 +29,7 @@ public record AttributeDefinition(
         Objects.requireNonNull(displayName, "displayName");
         Objects.requireNonNull(capConfig, "capConfig");
         Objects.requireNonNull(multiplierApplicability, "multiplierApplicability");
+        defaultOperation = defaultOperation == null ? ModifierOperation.ADD : defaultOperation;
     }
 
     /**

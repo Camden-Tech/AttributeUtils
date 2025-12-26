@@ -17,6 +17,7 @@ import me.baddcamden.attributeutils.model.AttributeDefinition;
 import me.baddcamden.attributeutils.model.AttributeDefinitionFactory;
 import me.baddcamden.attributeutils.model.CapConfig;
 import me.baddcamden.attributeutils.model.MultiplierApplicability;
+import me.baddcamden.attributeutils.model.ModifierOperation;
 import me.baddcamden.attributeutils.persistence.AttributePersistence;
 import me.baddcamden.attributeutils.command.CommandMessages;
 import me.baddcamden.attributeutils.VanillaAttributeResolver;
@@ -219,6 +220,7 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
 
         CapConfig capConfig = parseCapConfig(config.getConfigurationSection("cap"));
         MultiplierApplicability multipliers = parseMultipliers(config.getConfigurationSection("multipliers"));
+        ModifierOperation defaultOperation = parseOperation(config.getString("operation"));
 
         return new AttributeDefinition(
                 id.toLowerCase(Locale.ROOT),
@@ -227,7 +229,8 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
                 defaultBase,
                 defaultCurrent,
                 capConfig,
-                multipliers
+                multipliers,
+                defaultOperation
         );
     }
 
@@ -251,6 +254,19 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
         }
 
         return new CapConfig(min, max, overrides);
+    }
+
+    private ModifierOperation parseOperation(String rawOperation) {
+        if (rawOperation == null || rawOperation.isBlank()) {
+            return ModifierOperation.ADD;
+        }
+
+        try {
+            return ModifierOperation.valueOf(rawOperation.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            getLogger().warning("Unknown operation '" + rawOperation + "' in attribute definition; defaulting to ADD.");
+            return ModifierOperation.ADD;
+        }
     }
 
     /**

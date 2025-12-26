@@ -193,7 +193,7 @@ messages:
       removed: "&aRemoved modifier {modifier} for {attribute}."
   item-command:
     no-permission: "&cYou do not have permission to generate attribute items."
-    usage: "&eUsage: /{label} <player> <material> <plugin> <name> <value> [cap=<cap> criteria=<criteria> ...]"
+    usage: "&eUsage: /{label} <player> <material> <plugin> <name> <value> [cap=<cap> criteria=<criteria> operation=<add|multiply> ...]"
     player-offline: "&cPlayer '{player}' is not online."
     invalid-material: "&cUnknown material '{material}'."
     unsupported-material: "&cThat material cannot hold attribute data."
@@ -203,7 +203,7 @@ messages:
   entity-command:
     no-permission: "&cYou do not have permission to spawn attributed entities."
     invalid-sender: "&cOnly players can spawn attributed entities."
-    usage: "&eUsage: /{label} <entityType> <plugin> <name> <value> [cap=<cap> ...]"
+    usage: "&eUsage: /{label} <entityType> <plugin> <name> <value> [cap=<cap> operation=<add|multiply> ...]"
     invalid-entity: "&cUnknown entity type '{entity}'."
     disallowed-entity: "&cThat entity type cannot be spawned with attributes."
     missing-world: "&cCould not resolve your world to spawn the entity."
