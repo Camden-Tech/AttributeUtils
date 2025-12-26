@@ -272,7 +272,7 @@ public final class AttributeDefinitionFactory {
     }
 
     public static AttributeDefinition cappedAttribute(String id, String displayName, double capValue) {
-        return cappedAttribute(id, displayName, capValue, false, ModifierOperation.ADD);
+        return cappedAttribute(id, displayName, capValue, false, capValue, ModifierOperation.ADD);
     }
 
     /**
