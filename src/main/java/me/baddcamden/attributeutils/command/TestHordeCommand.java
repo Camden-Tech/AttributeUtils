@@ -253,7 +253,12 @@ public class TestHordeCommand implements CommandExecutor {
     private AttributedItem buildAttributedItem(Material material, List<AttributeDefinition> definitions) {
         List<AttributeRoll> rolls = randomRolls(definitions);
         List<CommandParsingUtils.AttributeDefinition> commandDefinitions = rolls.stream()
-                .map(roll -> new CommandParsingUtils.AttributeDefinition(roll.key(), roll.amount(), null, null))
+                .map(roll -> new CommandParsingUtils.AttributeDefinition(
+                        roll.key(),
+                        roll.amount(),
+                        null,
+                        null,
+                        roll.operation()))
                 .toList();
 
         try {
