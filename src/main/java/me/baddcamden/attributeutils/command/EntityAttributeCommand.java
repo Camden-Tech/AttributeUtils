@@ -78,7 +78,7 @@ public class EntityAttributeCommand implements CommandExecutor, TabCompleter {
 
         if (args.length < 4) {
             sender.sendMessage(messages.format("messages.entity-command.usage", Map.of("label", label),
-                    ChatColor.YELLOW + "Usage: /" + label + " <entityType> <plugin> <name> <value> [cap=<cap> ...]"));
+                    ChatColor.YELLOW + "Usage: /" + label + " <entityType> <plugin> <name> <value> [cap=<cap> operation=<add|multiply> ...]"));
             return true;
         }
 

@@ -100,10 +100,13 @@ public class ItemAttributeHandler {
             TriggerCriterion criterion = definition.getCriterion()
                     .flatMap(TriggerCriterion::fromRaw)
                     .orElse(TriggerCriterion.defaultCriterion());
+            ModifierOperation operation = definition.getOperation()
+                    .orElse(attributeDefinition.defaultOperation());
 
             container.set(valueKey(attributeDefinition.id()), PersistentDataType.DOUBLE, clampedValue);
             capOverride.ifPresent(cap -> container.set(capKey(attributeDefinition.id()), PersistentDataType.DOUBLE, cap));
             container.set(criterionKey(attributeDefinition.id()), PersistentDataType.STRING, criterion.key());
+            container.set(operationKey(attributeDefinition.id()), PersistentDataType.STRING, operation.name());
 
             String loreLine = ChatColor.GRAY + attributeDefinition.displayName() + ChatColor.WHITE + ": " + clampedValue;
             if (capOverride.isPresent()) {
@@ -118,7 +121,7 @@ public class ItemAttributeHandler {
                 double cap = capOverride.get();
                 summaryLine += " (cap " + cap + ")";
             }
-            summaryLine += " [" + criterion.key() + "]";
+            summaryLine += " [" + criterion.key() + "|" + operation.name().toLowerCase(Locale.ROOT) + "]";
             summary.add(summaryLine);
         }
 
@@ -256,7 +259,8 @@ public class ItemAttributeHandler {
                     continue;
                 }
 
-                applyModifier(entity, resolvedId, effective, criterion, context, activeKeys, currentKeyAttributes, touchedAttributes);
+                ModifierOperation operation = resolveOperation(container, resolvedId);
+                applyModifier(entity, resolvedId, effective, criterion, operation, context, activeKeys, currentKeyAttributes, touchedAttributes);
             }
         }
     }
@@ -269,6 +273,7 @@ public class ItemAttributeHandler {
                                String attributeId,
                                double value,
                                TriggerCriterion criterion,
+                               ModifierOperation operation,
                                TriggerCriterion.ItemSlotContext context,
                                Set<String> activeKeys,
                                Map<String, String> currentKeyAttributes,
@@ -282,7 +287,7 @@ public class ItemAttributeHandler {
         String source = buildModifierKey(context, criterion, attributeId);
         double clamped = definition.get().capConfig().clamp(value, entity.getUniqueId().toString());
         ModifierEntry entry = new ModifierEntry(source,
-                ModifierOperation.ADD,
+                operation,
                 clamped,
                 true,
                 false,
@@ -311,6 +316,22 @@ public class ItemAttributeHandler {
         NamespacedKey criteriaKey = criterionKey(attributeId);
         String stored = container.get(criteriaKey, PersistentDataType.STRING);
         return TriggerCriterion.fromRaw(stored).orElse(TriggerCriterion.defaultCriterion());
+    }
+
+    private ModifierOperation resolveOperation(PersistentDataContainer container, String attributeId) {
+        NamespacedKey key = operationKey(attributeId);
+        String stored = container.get(key, PersistentDataType.STRING);
+        if (stored != null && !stored.isBlank()) {
+            try {
+                return ModifierOperation.valueOf(stored.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ignored) {
+                // fall through to definition default
+            }
+        }
+
+        return attributeFacade.getDefinition(attributeId)
+                .map(AttributeDefinition::defaultOperation)
+                .orElse(ModifierOperation.ADD);
     }
 
     /**
@@ -350,6 +371,13 @@ public class ItemAttributeHandler {
      */
     private NamespacedKey criterionKey(String attributeId) {
         return new NamespacedKey(plugin, "attr_" + sanitize(attributeId) + "_criteria");
+    }
+
+    /**
+     * Builds the persistent data key used to store modifier operations for an attribute on an item.
+     */
+    private NamespacedKey operationKey(String attributeId) {
+        return new NamespacedKey(plugin, "attr_" + sanitize(attributeId) + "_operation");
     }
 
     /**

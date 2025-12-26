@@ -1,6 +1,7 @@
 id: example.maxmana
 display-name: "Max Mana"
 dynamic: false
+operation: add
 default-base: 100
 default-current: 100
 cap:

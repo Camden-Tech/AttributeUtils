@@ -74,7 +74,7 @@ public class ItemAttributeCommand implements CommandExecutor, TabCompleter {
 
         if (args.length < 5) {
             sender.sendMessage(messages.format("messages.item-command.usage", Map.of("label", label),
-                    ChatColor.YELLOW + "Usage: /" + label + " <player> <material> <plugin> <name> <value> [cap=<cap> criteria=<criteria> ...]"));
+                    ChatColor.YELLOW + "Usage: /" + label + " <player> <material> <plugin> <name> <value> [cap=<cap> criteria=<criteria> operation=<add|multiply> ...]"));
             return true;
         }
 
