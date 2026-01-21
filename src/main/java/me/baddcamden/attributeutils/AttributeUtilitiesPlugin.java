@@ -323,12 +323,6 @@ public class AttributeUtilitiesPlugin extends JavaPlugin {
             VanillaAttributeSupplier supplier;
             Attribute attribute = null;
             switch (provider) {
-                case "food-level":
-                    supplier = Player::getFoodLevel;
-                    break;
-                case "maximum-air":
-                    supplier = Player::getMaximumAir;
-                    break;
                 case "static":
                     supplier = player -> defaultBase;
                     break;

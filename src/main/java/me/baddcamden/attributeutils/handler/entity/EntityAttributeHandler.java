@@ -462,7 +462,6 @@ public class EntityAttributeHandler {
             return;
         }
 
-        VanillaAttributeResolver.scrubLegacyPluginModifiers(instance);
 
         UUID modifierId = attributeModifierId(attributeId);
         List<AttributeModifier> prePurgeModifiers = debugModifierLogging
@@ -711,7 +710,6 @@ public class EntityAttributeHandler {
             return;
         }
 
-        VanillaAttributeResolver.scrubLegacyPluginModifiers(instance);
 
         instance.getModifiers().stream()
                 .filter(modifier -> modifier.getUniqueId().equals(SWIM_SPEED_MODIFIER_ID))

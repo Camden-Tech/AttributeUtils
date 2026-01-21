@@ -20,14 +20,7 @@ public final class VanillaAttributeResolver {
      * vanilla calculations.
      */
     public static final String ATTRIBUTEUTILS_PREFIX = "attributeutils:";
-    /**
-     * Legacy prefix used by earlier integrations that failed to use the colon separator. Modifiers using this prefix
-     * are removed during refresh so that only properly namespaced entries remain.
-     */
-    private static final String LEGACY_ATTRIBUTEUTILS_PREFIX = "attributeutils.";
 
-    private VanillaAttributeResolver() {
-    }
 
     /**
      * Resolves the vanilla value for the provided attribute instance by recomputing the base value plus
@@ -48,7 +41,6 @@ public final class VanillaAttributeResolver {
             return fallback;
         }
 
-        scrubLegacyPluginModifiers(instance);
 
         double baseValue = instance.getBaseValue();
         double additive = 0.0d;
@@ -97,34 +89,6 @@ public final class VanillaAttributeResolver {
         return equipmentComputation == null ? fallback : equipmentComputation.getAsDouble();
     }
 
-    /**
-     * Removes legacy AttributeUtils modifiers that do not use the colon prefix so that subsequent refreshes can
-     * reapply correctly namespaced entries. This cleanup prevents double-counting during vanilla reconstruction and
-     * keeps stored state aligned with {@link #ATTRIBUTEUTILS_PREFIX}.
-     *
-     * @param instance attribute instance to purge legacy AttributeUtils modifiers from
-     */
-    public static void scrubLegacyPluginModifiers(AttributeInstance instance) {
-        if (instance == null) {
-            return;
-        }
-
-        for (AttributeModifier modifier : new java.util.ArrayList<>(instance.getModifiers())) {
-            String name = modifier.getName();
-            if (name == null) {
-                continue;
-            }
-
-            String normalized = name.toLowerCase(Locale.ROOT);
-            if (normalized.startsWith(ATTRIBUTEUTILS_PREFIX)) {
-                continue;
-            }
-
-            if (normalized.startsWith(LEGACY_ATTRIBUTEUTILS_PREFIX) || normalized.startsWith("attributeutils")) {
-                instance.removeModifier(modifier);
-            }
-        }
-    }
 
     /**
      * Detects whether the provided modifier originated from AttributeUtils by checking the name prefix.
