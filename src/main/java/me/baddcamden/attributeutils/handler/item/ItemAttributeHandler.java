@@ -25,7 +25,6 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -47,7 +46,7 @@ public class ItemAttributeHandler {
      * Records the modifier keys applied for each player, enabling precise cleanup when equipment changes invalidate
      * earlier entries.
      */
-    private final Map<UUID, Map<String, String>> appliedItemModifierKeys = new HashMap<>();
+    private final Map<UUID, Map<String, AppliedItemModifier>> appliedItemModifiers = new HashMap<>();
 
     /**
      * Constructs a handler that translates item metadata into the attribute pipeline and reuses vanilla application
@@ -173,32 +172,27 @@ public class ItemAttributeHandler {
         }
 
         UUID ownerId = entity.getUniqueId();
-        Map<String, String> previousKeys = appliedItemModifierKeys.getOrDefault(ownerId, Map.of());
-        Set<String> activeKeys = new HashSet<>();
-        Map<String, String> currentKeyAttributes = new HashMap<>();
+        Map<String, AppliedItemModifier> previousModifiers = appliedItemModifiers.getOrDefault(ownerId, Map.of());
+        Map<String, AppliedItemModifier> currentModifiers = new HashMap<>();
         Set<String> touchedAttributes = new HashSet<>();
         int heldSlot = entity instanceof Player player ? player.getInventory().getHeldItemSlot() : 0;
 
-        previousKeys.forEach((modifierKey, attributeId) -> {
-            attributeFacade.removePlayerModifier(ownerId, attributeId, modifierKey);
-            touchedAttributes.add(attributeId);
-        });
-
         if (entity instanceof Player player) {
             // Use storage contents to avoid double-counting armor/off-hand slots that Bukkit includes in getContents.
-            scanItems(player.getInventory().getStorageContents(), TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
-            scanItems(player.getInventory().getArmorContents(), TriggerCriterion.ItemSlotContext.Bucket.ARMOR, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
-            scanItems(new ItemStack[]{player.getInventory().getItemInOffHand()}, TriggerCriterion.ItemSlotContext.Bucket.OFFHAND, player, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
+            scanItems(player.getInventory().getStorageContents(), TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, player, heldSlot, currentModifiers, touchedAttributes);
+            scanItems(player.getInventory().getArmorContents(), TriggerCriterion.ItemSlotContext.Bucket.ARMOR, player, heldSlot, currentModifiers, touchedAttributes);
+            scanItems(new ItemStack[]{player.getInventory().getItemInOffHand()}, TriggerCriterion.ItemSlotContext.Bucket.OFFHAND, player, heldSlot, currentModifiers, touchedAttributes);
         } else {
             EntityEquipment equipment = entity.getEquipment();
             if (equipment != null) {
-                scanItems(new ItemStack[]{equipment.getItemInMainHand()}, TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, entity, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
-                scanItems(equipment.getArmorContents(), TriggerCriterion.ItemSlotContext.Bucket.ARMOR, entity, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
-                scanItems(new ItemStack[]{equipment.getItemInOffHand()}, TriggerCriterion.ItemSlotContext.Bucket.OFFHAND, entity, heldSlot, activeKeys, currentKeyAttributes, touchedAttributes);
+                scanItems(new ItemStack[]{equipment.getItemInMainHand()}, TriggerCriterion.ItemSlotContext.Bucket.INVENTORY, entity, heldSlot, currentModifiers, touchedAttributes);
+                scanItems(equipment.getArmorContents(), TriggerCriterion.ItemSlotContext.Bucket.ARMOR, entity, heldSlot, currentModifiers, touchedAttributes);
+                scanItems(new ItemStack[]{equipment.getItemInOffHand()}, TriggerCriterion.ItemSlotContext.Bucket.OFFHAND, entity, heldSlot, currentModifiers, touchedAttributes);
             }
         }
 
-        appliedItemModifierKeys.put(ownerId, currentKeyAttributes);
+        reconcileModifiers(ownerId, previousModifiers, currentModifiers, touchedAttributes);
+        appliedItemModifiers.put(ownerId, currentModifiers);
 
         applyVanillaAttributes(entity, touchedAttributes);
     }
@@ -211,8 +205,7 @@ public class ItemAttributeHandler {
                            TriggerCriterion.ItemSlotContext.Bucket bucket,
                            LivingEntity entity,
                            int heldSlot,
-                           Set<String> activeKeys,
-                           Map<String, String> currentKeyAttributes,
+                           Map<String, AppliedItemModifier> currentModifiers,
                            Set<String> touchedAttributes) {
         if (items == null) {
             return;
@@ -260,7 +253,7 @@ public class ItemAttributeHandler {
                 }
 
                 ModifierOperation operation = resolveOperation(container, resolvedId);
-                applyModifier(entity, resolvedId, effective, criterion, operation, context, activeKeys, currentKeyAttributes, touchedAttributes);
+                applyModifier(entity, resolvedId, effective, criterion, operation, context, currentModifiers, touchedAttributes);
             }
         }
     }
@@ -275,8 +268,7 @@ public class ItemAttributeHandler {
                                TriggerCriterion criterion,
                                ModifierOperation operation,
                                TriggerCriterion.ItemSlotContext context,
-                               Set<String> activeKeys,
-                               Map<String, String> currentKeyAttributes,
+                               Map<String, AppliedItemModifier> currentModifiers,
                                Set<String> touchedAttributes) {
         Optional<AttributeDefinition> definition = attributeFacade.getDefinition(attributeId);
         if (definition.isEmpty()) {
@@ -294,9 +286,34 @@ public class ItemAttributeHandler {
                 true,
                 false,
                 Set.of());
-        attributeFacade.setPlayerModifier(entity.getUniqueId(), definition.get().id(), entry);
-        activeKeys.add(source);
-        currentKeyAttributes.put(source, definition.get().id());
+        currentModifiers.put(source, new AppliedItemModifier(definition.get().id(), entry));
+    }
+
+    /**
+     * Applies only the delta between previously applied item modifiers and the currently desired set so inventory
+     * events that do not alter attribute data avoid unnecessary refreshes.
+     */
+    private void reconcileModifiers(UUID ownerId,
+                                    Map<String, AppliedItemModifier> previousModifiers,
+                                    Map<String, AppliedItemModifier> currentModifiers,
+                                    Set<String> touchedAttributes) {
+        previousModifiers.forEach((key, previous) -> {
+            AppliedItemModifier current = currentModifiers.get(key);
+            if (current != null && current.equals(previous)) {
+                return;
+            }
+            attributeFacade.removePlayerModifier(ownerId, previous.attributeId(), key);
+            touchedAttributes.add(previous.attributeId());
+        });
+
+        currentModifiers.forEach((key, current) -> {
+            AppliedItemModifier previous = previousModifiers.get(key);
+            if (current.equals(previous)) {
+                return;
+            }
+            attributeFacade.setPlayerModifier(ownerId, current.attributeId(), current.entry());
+            touchedAttributes.add(current.attributeId());
+        });
     }
 
     /**
@@ -391,7 +408,10 @@ public class ItemAttributeHandler {
      * Clears cached modifier bookkeeping for a player, typically when the player disconnects.
      */
     public void clearAppliedModifiers(UUID playerId) {
-        appliedItemModifierKeys.remove(playerId);
+        appliedItemModifiers.remove(playerId);
+    }
+
+    private record AppliedItemModifier(String attributeId, ModifierEntry entry) {
     }
 
     /**
