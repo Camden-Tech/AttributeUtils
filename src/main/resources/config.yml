@@ -4,9 +4,9 @@
 debug:
   # When true, every computed attribute refresh logs the vanilla base, computed totals, and AttributeUtils modifiers
   # found before/after purge. Useful for diagnosing stacked/compounding modifiers.
-  log-computed-modifiers: true
+  log-computed-modifiers: false
   # When true, attribute refresh dispatching logs queued and flushed targets to track how often refreshes fire.
-  log-refresh-flushes: true
+  log-refresh-flushes: false
 
 # Vanilla attribute defaults
 # Each entry seeds both the global and player baselines for the built-in
@@ -84,7 +84,7 @@ vanilla-attribute-defaults:
     dynamic: true
   sneaking-speed:
     bukkit-attributes: [SNEAKING_SPEED, PLAYER_SNEAKING_SPEED]
-    default-base: 1
+    default-base: 0.3
   sprint-speed:
     # Bukkit 1.21.10 exposes no sprint-specific attribute; use a static baseline to avoid
     # warning spam while retaining configurable defaults.

@@ -184,6 +184,10 @@ public class AttributeFacade {
         AttributeInstance instance = getOrCreateGlobalInstance(attributeId);
         ModifierEntry validated = validate(entry);
         String normalizedKey = validated.key().toLowerCase(Locale.ROOT);
+        ModifierEntry existing = instance.getModifiers().get(normalizedKey);
+        if (validated.equals(existing)) {
+            return;
+        }
 
         if (validated.operation() == ModifierOperation.MULTIPLY) {
             refreshAll(normalizedId);
@@ -216,6 +220,10 @@ public class AttributeFacade {
         AttributeInstance instance = getOrCreatePlayerInstance(playerId, definition);
         ModifierEntry validated = validate(entry);
         String normalizedKey = validated.key().toLowerCase(Locale.ROOT);
+        ModifierEntry existing = instance.getModifiers().get(normalizedKey);
+        if (validated.equals(existing)) {
+            return;
+        }
 
         if (validated.operation() == ModifierOperation.MULTIPLY) {
             refreshPlayer(playerId, normalizedId);
