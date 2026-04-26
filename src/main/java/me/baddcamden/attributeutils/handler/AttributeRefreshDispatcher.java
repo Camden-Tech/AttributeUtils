@@ -28,7 +28,6 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
     private final Map<UUID, Set<String>> pendingPlayerAttributes = new HashMap<>();
     private final Set<String> pendingGlobalAttributes = new HashSet<>();
     private boolean flushScheduled;
-    private final boolean debugLogging;
 
     /**
      * Creates a dispatcher that can resolve entities from the server and apply refreshed attributes.
@@ -36,10 +35,9 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
      * @param plugin the owning plugin used to access the server for entity lookups
      * @param entityAttributeHandler the handler responsible for applying vanilla attribute updates
      */
-    public AttributeRefreshDispatcher(Plugin plugin, EntityAttributeHandler entityAttributeHandler, boolean debugLogging) {
+    public AttributeRefreshDispatcher(Plugin plugin, EntityAttributeHandler entityAttributeHandler) {
         this.plugin = plugin;
         this.entityAttributeHandler = entityAttributeHandler;
-        this.debugLogging = debugLogging;
     }
 
     @Override
@@ -51,10 +49,6 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
         }
 
         pendingPlayerAttributes.computeIfAbsent(playerId, ignored -> new HashSet<>()).add(normalizedId);
-        if (debugLogging) {
-            plugin.getLogger().info("[refresh-debug] queued player attribute refresh: " + normalizedId
-                    + " for " + playerId + idNote(attributeId, normalizedId));
-        }
         scheduleFlush();
     }
 
@@ -66,10 +60,6 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
         }
 
         pendingGlobalAttributes.add(normalizedId);
-        if (debugLogging) {
-            plugin.getLogger().info("[refresh-debug] queued global attribute refresh: " + normalizedId
-                    + idNote(attributeId, normalizedId));
-        }
         scheduleFlush();
     }
 
@@ -88,24 +78,12 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
         pendingPlayerAttributes.clear();
         pendingGlobalAttributes.clear();
 
-        if (debugLogging) {
-            plugin.getLogger().info("[refresh-debug] flushing queued refreshes. players=" + playerSnapshot.size()
-                    + " globals=" + globalSnapshot.size());
-        }
-
         for (Map.Entry<UUID, Set<String>> entry : playerSnapshot.entrySet()) {
             Entity entity = plugin.getServer().getEntity(entry.getKey());
             if (!(entity instanceof LivingEntity livingEntity)) {
-                if (debugLogging) {
-                    plugin.getLogger().info("[refresh-debug] skipped missing/invalid entity for " + entry.getKey());
-                }
                 continue;
             }
             for (String attributeId : entry.getValue()) {
-                if (debugLogging) {
-                    plugin.getLogger().info("[refresh-debug] applying player refresh " + attributeId + " to "
-                            + livingEntity.getName() + " (" + livingEntity.getUniqueId() + ")");
-                }
                 entityAttributeHandler.applyVanillaAttribute(livingEntity, attributeId);
             }
         }
@@ -113,10 +91,6 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
         for (String attributeId : globalSnapshot) {
             for (World world : plugin.getServer().getWorlds()) {
                 for (LivingEntity livingEntity : world.getLivingEntities()) {
-                    if (debugLogging) {
-                        plugin.getLogger().info("[refresh-debug] applying global refresh " + attributeId + " to "
-                                + livingEntity.getType() + " (" + livingEntity.getUniqueId() + ")");
-                    }
                     entityAttributeHandler.applyVanillaAttribute(livingEntity, attributeId);
                 }
             }
@@ -125,12 +99,5 @@ public class AttributeRefreshDispatcher implements AttributeFacade.AttributeRefr
 
     private String normalizeAttributeId(String attributeId) {
         return attributeId == null ? null : attributeId.toLowerCase(Locale.ROOT);
-    }
-
-    private String idNote(String rawId, String normalizedId) {
-        if (rawId == null || rawId.equals(normalizedId)) {
-            return "";
-        }
-        return " (normalized from " + rawId + ")";
     }
 }
