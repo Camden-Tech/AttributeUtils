@@ -50,7 +50,7 @@ vanilla-attribute-defaults:
     default-base: 0
   block-range:
     bukkit-attributes: [BLOCK_INTERACTION_RANGE, PLAYER_BLOCK_INTERACTION_RANGE]
-    default-base: 5
+    default-base: 4.5
   interaction-range:
     bukkit-attributes: [ENTITY_INTERACTION_RANGE, PLAYER_ENTITY_INTERACTION_RANGE]
     default-base: 3
@@ -59,10 +59,10 @@ vanilla-attribute-defaults:
     default-base: 1
   mining-efficiency:
     bukkit-attributes: [MINING_EFFICIENCY, PLAYER_MINING_EFFICIENCY]
-    default-base: 1
+    default-base: 0
   gravity:
     bukkit-attributes: [GRAVITY, GENERIC_GRAVITY]
-    default-base: 1
+    default-base: 0.08
     dynamic: true
   scale:
     bukkit-attributes: [SCALE, GENERIC_SCALE]
@@ -84,15 +84,15 @@ vanilla-attribute-defaults:
     bukkit-attributes: [SNEAKING_SPEED, PLAYER_SNEAKING_SPEED]
     default-base: 0.3
   sprint-speed:
-    # Bukkit 1.21.10 exposes no sprint-specific attribute; use a static baseline to avoid
-    # warning spam while retaining configurable defaults.
+    # Bukkit 1.21.10 exposes no sprint-specific attribute; this static default mirrors
+    # vanilla's derived effective attribute value for a base movement speed of 0.1 (0.13 while sprinting).
     provider: static
-    default-base: 1
+    default-base: 0.13
   swim-speed:
-    # Bukkit 1.21.10 exposes no swim-specific attribute; use a static baseline to avoid
-    # warning spam while retaining configurable defaults.
+    # Bukkit 1.21.10 exposes no swim-specific attribute; this static default mirrors
+    # vanilla's commonly reported baseline surface swim speed in blocks/second.
     provider: static
-    default-base: 1
+    default-base: 2.2
   damage-reduction:
     provider: static
     default-base: 0

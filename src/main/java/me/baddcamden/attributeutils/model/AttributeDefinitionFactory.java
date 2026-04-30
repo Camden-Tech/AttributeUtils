@@ -125,7 +125,7 @@ public final class AttributeDefinitionFactory {
                 "Block Interaction Range",
                 capConfig(config, "block_range", 128),
                 dynamic(config, "block_range", false),
-                defaultBase(config, "block_range", 5),
+                defaultBase(config, "block_range", 4.5),
                 defaultOperation(config, "block_range", ModifierOperation.ADD)
         ));
         definitions.put("interaction_range", cappedAttribute(
@@ -149,7 +149,7 @@ public final class AttributeDefinitionFactory {
                 "Mining Efficiency",
                 capConfig(config, "mining_efficiency", 1024),
                 dynamic(config, "mining_efficiency", false),
-                defaultBase(config, "mining_efficiency", 1),
+                defaultBase(config, "mining_efficiency", 0),
                 defaultOperation(config, "mining_efficiency", ModifierOperation.ADD)
         ));
         definitions.put("gravity", cappedAttribute(
@@ -157,7 +157,7 @@ public final class AttributeDefinitionFactory {
                 "Gravity",
                 capConfig(config, "gravity", 10),
                 dynamic(config, "gravity", false),
-                defaultBase(config, "gravity", 1),
+                defaultBase(config, "gravity", 0.08),
                 defaultOperation(config, "gravity", ModifierOperation.ADD)
         ));
         definitions.put("scale", cappedAttribute(
@@ -205,7 +205,7 @@ public final class AttributeDefinitionFactory {
                 "Sneaking Speed",
                 capConfig(config, "sneaking_speed", 4),
                 dynamic(config, "sneaking_speed", false),
-                defaultBase(config, "sneaking_speed", 1),
+                defaultBase(config, "sneaking_speed", 0.3),
                 defaultOperation(config, "sneaking_speed", ModifierOperation.ADD)
         ));
         definitions.put("sprint_speed", cappedAttribute(
@@ -213,7 +213,7 @@ public final class AttributeDefinitionFactory {
                 "Sprint Speed",
                 capConfig(config, "sprint_speed", 4),
                 dynamic(config, "sprint_speed", false),
-                defaultBase(config, "sprint_speed", 1),
+                defaultBase(config, "sprint_speed", 0.13),
                 defaultOperation(config, "sprint_speed", ModifierOperation.ADD)
         ));
         definitions.put("swim_speed", cappedAttribute(
@@ -221,7 +221,7 @@ public final class AttributeDefinitionFactory {
                 "Swim Speed",
                 capConfig(config, "swim_speed", 4),
                 dynamic(config, "swim_speed", false),
-                defaultBase(config, "swim_speed", 1),
+                defaultBase(config, "swim_speed", 2.2),
                 defaultOperation(config, "swim_speed", ModifierOperation.ADD)
         ));
         definitions.put("damage_reduction", cappedAttribute(
